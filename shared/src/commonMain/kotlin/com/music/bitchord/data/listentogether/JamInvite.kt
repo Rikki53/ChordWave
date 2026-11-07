@@ -9,7 +9,7 @@ package com.music.bitchord.data.listentogether
  */
 object JamInvite {
 
-    const val ORIGIN = "https://bitchord.kushagrasingh.in"
+    const val ORIGIN = "https://party.rikinurjaman.my.id"
 
     /** How many characters a party code carries. */
     const val CODE_LENGTH = 6
