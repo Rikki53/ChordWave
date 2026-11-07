@@ -1790,27 +1790,19 @@ fun SettingsScreen(
         if (section == null && searchQuery.isBlank()) {
         Text(
             text = buildAnnotatedString {
-                append("bitchord $version  ")
+                append("ChordWave $version  ")
                 val linkStyles = TextLinkStyles(
                     style = SpanStyle(
                         color = MaterialTheme.colorScheme.primary,
                         textDecoration = TextDecoration.Underline,
                     ),
                 )
-                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/ChordWave", linkStyles)) {
+                withLink(LinkAnnotation.Url("https://github.com/Rikki53/ChordWave", linkStyles)) {
                     append("GitHub")
                 }
                 append("  ")
                 withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
                     append("Developer")
-                }
-                append("  ")
-                withLink(LinkAnnotation.Url("https://discord.gg/pDdKfrdHY6", linkStyles)) {
-                    append("Discord")
-                }
-                append("  ")
-                withLink(LinkAnnotation.Url("https://bitchord.kushagrasingh.in/", linkStyles)) {
-                    append("Website")
                 }
                 append("\n~YouTube Music & Listen Together Backend")
             },
