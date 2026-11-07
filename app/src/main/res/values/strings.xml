@@ -1332,4 +1332,15 @@
     <string name="diwali_title">ChordWave wishes you a Happy Diwali</string>
     <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
     <string name="diwali_cta">Let\'s Celebrate</string>
+    <string name="radio_title">Radio</string>
+    <string name="radio_search_hint">Search stations\u2026</string>
+    <string name="radio_favourites">Favourites</string>
+    <string name="radio_indonesia">Indonesia</string>
+    <string name="radio_top_worldwide">Top worldwide</string>
+    <string name="radio_no_results">No stations found</string>
+    <string name="radio_load_failed">Stations could not be loaded. Check your connection.</string>
+    <string name="radio_retry">Retry</string>
+    <string name="radio_on_air">On air</string>
+    <string name="radio_paused">Paused</string>
+    <string name="radio_favourite">Favourite</string>
 </resources>

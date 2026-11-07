@@ -295,6 +295,11 @@ import com.music.bitchord.ui.components.UpdateAvailableDialog
 import com.music.bitchord.ui.components.WebDavConflictAlert
 import com.music.bitchord.ui.components.FieldConfig
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.radio.RadioBrowserApi
+import com.music.bitchord.radio.RadioScreen
+import com.music.bitchord.radio.RadioStation
+import com.music.bitchord.radio.RadioViewModel
+import com.music.bitchord.ui.icons.SfIcons
 import androidx.media3.common.Player
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.TopPicks
@@ -1339,17 +1344,19 @@ private fun BitChordApp(
     val exploreLabel = stringResource(R.string.explore)
     val libraryLabel = stringResource(R.string.library)
     val searchLabel = stringResource(R.string.search)
+    val radioLabel = stringResource(R.string.radio_title)
     val historyLabel = stringResource(R.string.history)
     val replayLabel = stringResource(R.string.replay)
     val queueLabel = stringResource(R.string.queue)
     val sharedLinkLabel = stringResource(R.string.shared_link)
     val openedFileLabel = stringResource(R.string.opened_file)
-    val tabs = remember(homeLabel, exploreLabel, libraryLabel, searchLabel) {
+    val tabs = remember(homeLabel, exploreLabel, libraryLabel, searchLabel, radioLabel) {
         listOf(
             BottomTab(homeLabel, BitChordIcons.Home),
             BottomTab(exploreLabel, BitChordIcons.TabExplore),
             BottomTab(libraryLabel, BitChordIcons.TabLibrary),
             BottomTab(searchLabel, BitChordIcons.TabSearch),
+            BottomTab(radioLabel, SfIcons.Radio),
         )
     }
 
@@ -1732,6 +1739,21 @@ private fun BitChordApp(
             }
         }
     }
+    /**
+     * An internet-radio station picked on the Radio tab. A station is one
+     * endless stream rather than a list to build a queue from, so it simply
+     * replaces the queue — none of the station-building [playRadio] does
+     * applies to it.
+     */
+    val playStation: (RadioStation) -> Unit = { station ->
+        scope.launch {
+            if (refusedByHost()) return@launch
+            val c = controller ?: return@launch
+            c.playSongs(listOf(station.asSong()), 0)
+            RadioBrowserApi.registerPlay(station)
+        }
+    }
+
     /**
      * A Top Picks card: opens the release, or starts the station behind it.
      *
@@ -3479,6 +3501,12 @@ private fun BitChordApp(
                                 onRefresh = { viewModel.refresh(MainViewModel.Feed.EXPLORE) },
                                 pullState = explorePull,
                                 contentPadding = listPadding,
+                            )
+                            TAB_RADIO -> RadioScreen(
+                                viewModel = viewModel<RadioViewModel>(),
+                                currentStationUrl = player.song?.videoId,
+                                isPlaying = player.isPlaying,
+                                onPlayStation = playStation,
                             )
                             TAB_SEARCH -> SearchScreen(
                                 query = query,
@@ -6275,3 +6303,4 @@ private const val TAB_HOME = 0
 private const val TAB_EXPLORE = 1
 private const val TAB_LIBRARY = 2
 private const val TAB_SEARCH = 3
+private const val TAB_RADIO = 4

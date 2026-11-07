@@ -674,6 +674,10 @@ fun Song.toMediaItem(): MediaItem {
         ?: Downloads.verifiedSavedUri(videoId)
     val uriString = offlineUri ?: when {
         videoId.startsWith("content://") || videoId.startsWith("file://") -> videoId
+        // An internet-radio station carries its stream URL as its id — see
+        // RadioStation.asSong. The stream is the item: there is nothing to
+        // resolve and no catalogue entry to match it against.
+        videoId.startsWith("https://") || videoId.startsWith("http://") -> videoId
         // Title, artist and runtime ride along in the URI because they are what
         // a cross-source match is made on, and the resolver runs on ExoPlayer's
         // loader thread with nothing but a DataSpec in hand — see
