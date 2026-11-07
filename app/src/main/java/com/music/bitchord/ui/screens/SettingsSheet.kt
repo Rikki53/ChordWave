@@ -635,7 +635,7 @@ fun SettingsScreen(
                     title = exportDownloadsTitle,
                     checked = exportDownloads,
                     onCheckedChange = AppSettings::setExportDownloads,
-                    subtitle = "Music/BitChord".takeIf { exportDownloads },
+                    subtitle = "Music/ChordWave".takeIf { exportDownloads },
                 )
             }
             val syncPlaylistsTitle = stringResource(R.string.sync_downloaded_playlists)
@@ -1797,7 +1797,7 @@ fun SettingsScreen(
                         textDecoration = TextDecoration.Underline,
                     ),
                 )
-                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord", linkStyles)) {
+                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/ChordWave", linkStyles)) {
                     append("GitHub")
                 }
                 append("  ")
