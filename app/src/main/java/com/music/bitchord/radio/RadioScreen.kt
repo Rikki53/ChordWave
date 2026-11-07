@@ -183,7 +183,7 @@ fun RadioScreen(
             ) {
                 if (favorites.isNotEmpty()) {
                     item {
-                        SectionTitle(stringResource(R.string.radio_favorites))
+                        SectionTitle(stringResource(R.string.radio_favourites))
                     }
                     items(favorites, key = { "fav:${it.uuid}" }) { station ->
                         StationRow(
@@ -318,7 +318,7 @@ private fun StationRow(
         IconButton(onClick = onToggleFavorite) {
             Icon(
                 imageVector = if (isFavorite) SfIcons.StarFill else SfIcons.Star,
-                contentDescription = stringResource(R.string.radio_favorite),
+                contentDescription = stringResource(R.string.radio_favourite),
                 tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
