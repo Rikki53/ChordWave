@@ -77,7 +77,7 @@ func main() {
 	handler := corsMiddleware(mux)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", config.Port)
-	log.Printf("BitChord Listen Together (Go) starting on %s...", addr)
+	log.Printf("ChordWave Listen Together (Go) starting on %s...", addr)
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -605,7 +605,7 @@ var inviteTemplate = template.Must(template.New("invite").Parse(`<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BitChord Listen Together - Party {{.Code}}</title>
+    <title>ChordWave Listen Together - Party {{.Code}}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
