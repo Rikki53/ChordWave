@@ -76,7 +76,7 @@ import com.music.bitchord.data.stats.ReplaySummary
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.rememberArtworkColors
-import com.music.bitchord.ui.theme.AccentRed
+import com.music.bitchord.ui.theme.AccentMint
 import kotlinx.coroutines.launch
 
 /**
@@ -650,7 +650,7 @@ private fun ColumnScope.Leaderboard(
             Modifier.fillMaxWidth().padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RankBadge(row.rank, AccentRed)
+            RankBadge(row.rank, AccentMint)
             Cover(row.artworkUrl, row.title, 36.dp, shape, ROW_ART_PX)
             Spacer(Modifier.width(12.dp))
             Text(
@@ -699,7 +699,7 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
             Modifier.fillMaxWidth().padding(vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RankBadge(row.rank, AccentRed)
+            RankBadge(row.rank, AccentMint)
             Text(
                 text = row.title,
                 style = MaterialTheme.typography.titleMedium,

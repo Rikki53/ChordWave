@@ -19,32 +19,64 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppFont
 
-// Apple Music's signature red. No longer the primary accent, but kept for the
-// spots (Replay's rank badge) that want that specific red regardless of theme.
-val AccentRed = Color(0xFFFA2D48)
+// ChordWave's signature mint, sampled from the ribbon glyph. Used where a
+// brand accent is wanted regardless of theme (Replay's rank badge).
+val AccentMint = Color(0xFF0E9F7A)
 
 private val DarkColors = darkColorScheme(
-    primary = Color.White,
-    onPrimary = Color.Black,
-    background = Color.Black,
-    onBackground = Color.White,
-    surface = Color(0xFF0D0D0F),
-    onSurface = Color.White,
-    surfaceVariant = Color(0xFF1C1C1E),
-    onSurfaceVariant = Color(0xFF8E8E93),
-    outline = Color(0xFF2C2C2E),
+    primary = Color(0xFF35E0B0),
+    onPrimary = Color(0xFF00382A),
+    primaryContainer = Color(0xFF0B4A38),
+    onPrimaryContainer = Color(0xFFB8F4DF),
+    secondary = Color(0xFF8FD8C3),
+    onSecondary = Color(0xFF0A3527),
+    secondaryContainer = Color(0xFF17453A),
+    onSecondaryContainer = Color(0xFFCFF7E9),
+    tertiary = Color(0xFF7DD3E8),
+    onTertiary = Color(0xFF06303C),
+    tertiaryContainer = Color(0xFF0C4557),
+    onTertiaryContainer = Color(0xFFCDEFFA),
+    background = Color(0xFF0B0E11),
+    onBackground = Color(0xFFF2F7F4),
+    surface = Color(0xFF101418),
+    onSurface = Color(0xFFF2F7F4),
+    surfaceVariant = Color(0xFF1B2126),
+    onSurfaceVariant = Color(0xFF9FB3AB),
+    surfaceContainerLowest = Color(0xFF07090B),
+    surfaceContainerLow = Color(0xFF0E1216),
+    surfaceContainer = Color(0xFF12181D),
+    surfaceContainerHigh = Color(0xFF1A2127),
+    surfaceContainerHighest = Color(0xFF232B32),
+    outline = Color(0xFF2A343B),
+    outlineVariant = Color(0xFF1D252B),
 )
 
 private val LightColors = lightColorScheme(
-    primary = Color.Black,
+    primary = Color(0xFF0B7A5C),
     onPrimary = Color.White,
-    background = Color.White,
-    onBackground = Color.Black,
-    surface = Color(0xFFF7F7F9),
-    onSurface = Color.Black,
-    surfaceVariant = Color(0xFFF2F2F7),
-    onSurfaceVariant = Color(0xFF6E6E73),
-    outline = Color(0xFFE5E5EA),
+    primaryContainer = Color(0xFFC9F5E4),
+    onPrimaryContainer = Color(0xFF06402F),
+    secondary = Color(0xFF3E7A68),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFD7F0E6),
+    onSecondaryContainer = Color(0xFF123C2F),
+    tertiary = Color(0xFF2E7D99),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFD2EFFA),
+    onTertiaryContainer = Color(0xFF0B3A4A),
+    background = Color(0xFFFAFCFB),
+    onBackground = Color(0xFF0C1512),
+    surface = Color(0xFFF6FAF8),
+    onSurface = Color(0xFF0C1512),
+    surfaceVariant = Color(0xFFE9F4EF),
+    onSurfaceVariant = Color(0xFF5A6B62),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF1F7F3),
+    surfaceContainer = Color(0xFFEBF3EE),
+    surfaceContainerHigh = Color(0xFFE3EDE6),
+    surfaceContainerHighest = Color(0xFFD9E6DD),
+    outline = Color(0xFFB9CCC0),
+    outlineVariant = Color(0xFFDCE8E1),
 )
 
 /**

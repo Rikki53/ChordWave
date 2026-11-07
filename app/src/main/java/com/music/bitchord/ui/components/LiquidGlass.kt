@@ -148,7 +148,7 @@ fun Modifier.lightweightLiquidGlass(
     val glassTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
         Color(0xFFFAFAFA)
     } else {
-        Color(0xFF121212)
+        Color(0xFF101613)
     }
     val shapeProvider = ShapeProvider { shape }
 
@@ -235,7 +235,7 @@ fun Modifier.liquidGlass(
     val themeTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
         Color(0xFFFAFAFA)
     } else {
-        Color(0xFF121212)
+        Color(0xFF101613)
     }
     val surfaceTintColor = surfaceTint ?: themeTint.copy(alpha = SURFACE_OPACITY)
 

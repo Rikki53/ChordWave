@@ -65,7 +65,7 @@ import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
-import com.music.bitchord.ui.theme.AccentRed
+import com.music.bitchord.ui.theme.AccentMint
 
 /** Whether the Replay page is being shown in dark mode (vs light). */
 @Composable
@@ -485,7 +485,7 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
             .padding(horizontal = PAGE_GUTTER + 4.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RankBadge(row.rank, AccentRed)
+        RankBadge(row.rank, AccentMint)
         if (row.artworkUrl != null) {
             AsyncImage(
                 model = row.artworkUrl.artworkAt(ROW_ART_PX),

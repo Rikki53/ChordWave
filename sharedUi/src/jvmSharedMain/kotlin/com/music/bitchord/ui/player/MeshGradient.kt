@@ -245,7 +245,7 @@ const val MESH_CYCLE_MILLIS = 3_600
  */
 val WelcomeMeshPalettes: List<MeshPalette> = listOf(
     // Red, violet, ember.
-    MeshPalette(listOf(Color(0xFFFA2D48), Color(0xFF7B2FF7), Color(0xFFFF7A45), Color(0xFF2E1A8A))),
+    MeshPalette(listOf(Color(0xFF2FE6B0), Color(0xFF0E9F7A), Color(0xFF38BDF8), Color(0xFF0B3B4B))),
     // Sunset.
     MeshPalette(listOf(Color(0xFFFF4E8A), Color(0xFFFF9A3C), Color(0xFFE0245E), Color(0xFF6A1B9A))),
     // Ocean.
