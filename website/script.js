@@ -1,148 +1,187 @@
-// ChordWave — galeri platform (tab + thumbnail). Data statis, tanpa pelacak.
-const REL = "https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/";
-
 const PLATFORMS = {
   phone: {
     title: "ChordWave di HP",
-    desc: "Beranda personal, radio, dan pemutar penuh — semua dalam genggaman.",
-    shotClass: "shot-phone",
-    thumbClass: "portrait",
-    download: REL + "ChordWave-v1.3.1_arm64-v8a.apk",
-    downloadLabel: "Unduh ChordWave v1.3.1 — HP",
+    desc: "Beranda personal, radio, dan pemutar penuh—semua dalam genggaman.",
+    shotClass: "device-phone",
+    thumbClass: "is-portrait",
     shots: [
-      { src: "assets/shot-phone-home.webp",     label: "Beranda",     sub: "Rekomendasi & pilihan cepat" },
-      { src: "assets/shot-phone-player.webp",   label: "Music Player", sub: "Sampul besar, latar mengikuti warna album" },
-      { src: "assets/shot-phone-lyrics.webp",   label: "Lirik",        sub: "Tersinkron baris demi baris" },
-      { src: "assets/shot-phone-download.webp", label: "Download",     sub: "Koleksi offline siap putar" }
+      { src: "assets/shot-phone-home.webp", label: "Beranda", sub: "Rekomendasi & pilihan cepat" },
+      { src: "assets/shot-phone-player.webp", label: "Music Player", sub: "Sampul besar, warna album" },
+      { src: "assets/shot-phone-lyrics.webp", label: "Lirik", sub: "Tersinkron baris demi baris" },
+      { src: "assets/shot-phone-download.webp", label: "Download", sub: "Koleksi offline siap putar" }
     ]
   },
   tv: {
     title: "ChordWave TV",
-    desc: "Dirancang untuk layar besar dan remote: huruf lega, navigasi arah yang jelas, dan Now Playing sinematik.",
-    shotClass: "shot-tv",
+    desc: "Dirancang untuk layar besar dan remote: navigasi jelas, tampilan lega, dan pemutar sinematik.",
+    shotClass: "device-tv",
     thumbClass: "",
-    download: REL + "ChordWaveTV-v1.3.1.apk",
-    downloadLabel: "Unduh ChordWave TV v1.3.1",
     shots: [
-      { src: "assets/shot-tv-home.webp",       label: "Beranda TV",   sub: "Album, single & video musik" },
-      { src: "assets/shot-tv-nowplaying.webp", label: "Now Playing",  sub: "Latar aurora mengikuti sampul lagu" },
-      { src: "assets/shot-tv-search.webp",     label: "Pencarian",    sub: "Hasil lagu, album, artis & playlist" }
+      { src: "assets/shot-tv-home.webp", label: "Beranda TV", sub: "Album, single & video musik" },
+      { src: "assets/shot-tv-nowplaying.webp", label: "Now Playing", sub: "Tampilan pemutar layar besar" },
+      { src: "assets/shot-tv-search.webp", label: "Pencarian", sub: "Lagu, album, artis & playlist" }
     ]
   },
   wear: {
     title: "ChordWave di Wear OS",
-    desc: "Kendali musik dari pergelangan tangan: putar, jeda, lanjut — tanpa meraih HP.",
-    shotClass: "shot-wear",
-    thumbClass: "round",
-    download: REL + "ChordWave-v1.3.1_arm64-v8a.apk",
-    downloadLabel: "Pasang lewat aplikasi HP",
+    desc: "Kendali musik dari pergelangan tangan—putar, jeda, dan lanjutkan tanpa meraih HP.",
+    shotClass: "device-wear",
+    thumbClass: "is-round",
     shots: [
-      { src: "assets/shot-wear-main.webp",   label: "Layar utama", sub: "Menunggu sambungan HP — kendali putar tampil begitu terhubung" }
+      { src: "assets/shot-wear-main.webp", label: "Layar utama", sub: "Kendali musik di jam tangan" }
     ]
   }
 };
 
+const platformTabs = [...document.querySelectorAll(".platform-tab")];
+const platformPanel = document.getElementById("platform-panel");
 const stageFigure = document.getElementById("stageFigure");
-const stageShot   = document.getElementById("stageShot");
-const stageImg    = document.getElementById("stageImg");
-const stageTitle  = document.getElementById("stageTitle");
-const stageDesc   = document.getElementById("stageDesc");
+const stageShot = document.getElementById("stageShot");
+const stageImg = document.getElementById("stageImg");
+const stageTitle = document.getElementById("stageTitle");
+const stageDesc = document.getElementById("stageDesc");
 const stageThumbs = document.getElementById("stageThumbs");
-const stageDl     = document.getElementById("stageDownload");
-const stageDlLbl  = document.getElementById("stageDownloadLabel");
-const tabs        = document.querySelectorAll(".tab");
 
-let current = "phone";
+let activePlatform = "phone";
+const activeShotByPlatform = { phone: 0, tv: 0, wear: 0 };
 
-function renderThumbs(key) {
-  const p = PLATFORMS[key];
-  stageThumbs.innerHTML = "";
-  p.shots.forEach((s, i) => {
-    const b = document.createElement("button");
-    b.className = "thumb " + p.thumbClass + (i === 0 ? " active" : "");
-    b.innerHTML = '<img src="' + s.src + '" alt="">' +
-                  '<span><b>' + s.label + '</b><span>' + s.sub + '</span></span>';
-    b.addEventListener("click", () => selectShot(key, i));
-    stageThumbs.appendChild(b);
+function setScreenshot(index) {
+  const platform = PLATFORMS[activePlatform];
+  const shot = platform?.shots[index];
+  if (!shot) return;
+  activeShotByPlatform[activePlatform] = index;
+  stageFigure.classList.add("is-changing");
+
+  const preview = new Image();
+  preview.onload = () => {
+    stageImg.src = shot.src;
+    stageImg.alt = `Tampilan ChordWave — ${shot.label}`;
+    stageFigure.classList.remove("is-changing");
+  };
+  preview.onerror = () => stageFigure.classList.remove("is-changing");
+  preview.src = shot.src;
+
+  stageThumbs.querySelectorAll(".shot-button").forEach((button, buttonIndex) => {
+    const selected = buttonIndex === index;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-pressed", String(selected));
   });
 }
 
-function swapImage(src, alt) {
-  stageFigure.classList.add("fading");
-  const pre = new Image();
-  pre.onload = () => {
-    stageImg.src = src;
-    stageImg.alt = alt;
-    stageFigure.classList.remove("fading");
-  };
-  pre.onerror = () => stageFigure.classList.remove("fading");
-  pre.src = src;
+function renderScreenshots(platformKey) {
+  const platform = PLATFORMS[platformKey];
+  stageThumbs.replaceChildren();
+
+  platform.shots.forEach((shot, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `shot-button ${platform.thumbClass}`.trim();
+    button.setAttribute("aria-pressed", String(index === activeShotByPlatform[platformKey]));
+    if (index === activeShotByPlatform[platformKey]) button.classList.add("is-active");
+
+    const thumb = document.createElement("span");
+    thumb.className = "shot-thumb";
+    const image = document.createElement("img");
+    image.src = shot.src;
+    image.alt = "";
+    image.loading = "lazy";
+    thumb.append(image);
+
+    const label = document.createElement("span");
+    label.className = "shot-button-label";
+    const title = document.createElement("strong");
+    title.textContent = shot.label;
+    const subtitle = document.createElement("small");
+    subtitle.textContent = shot.sub;
+    label.append(title, subtitle);
+    button.append(thumb, label);
+    button.addEventListener("click", () => setScreenshot(index));
+    stageThumbs.append(button);
+  });
 }
 
-function selectShot(key, idx) {
-  const p = PLATFORMS[key];
-  stageShot.className = p.shotClass;
-  swapImage(p.shots[idx].src, "Screenshot ChordWave — " + p.shots[idx].label);
-  stageThumbs.querySelectorAll(".thumb").forEach((t, i) =>
-    t.classList.toggle("active", i === idx));
+function selectPlatform(platformKey) {
+  if (!PLATFORMS[platformKey]) return;
+  activePlatform = platformKey;
+  const platform = PLATFORMS[platformKey];
+  const activeTab = document.getElementById(`tab-${platformKey}`);
+
+  platformTabs.forEach((tab) => {
+    const selected = tab.dataset.platform === platformKey;
+    tab.classList.toggle("is-active", selected);
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  });
+
+  platformPanel.setAttribute("aria-labelledby", activeTab.id);
+  stageTitle.textContent = platform.title;
+  stageDesc.textContent = platform.desc;
+  stageShot.className = `device-render ${platform.shotClass}`;
+  renderScreenshots(platformKey);
+  setScreenshot(activeShotByPlatform[platformKey]);
 }
 
-function selectPlatform(key) {
-  current = key;
-  const p = PLATFORMS[key];
-  tabs.forEach(t => t.classList.toggle("active", t.dataset.platform === key));
-  stageTitle.textContent = p.title;
-  stageDesc.textContent = p.desc;
-  stageDl.href = p.download;
-  stageDlLbl.textContent = p.downloadLabel;
-  renderThumbs(key);
-  selectShot(key, 0);
-}
-
-tabs.forEach(t => t.addEventListener("click", () => selectPlatform(t.dataset.platform)));
-renderThumbs("phone");
-
-
-/* ---------- Gerak: reveal per seksi, paralaks, gradasi gulir ---------- */
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const rootEl = document.documentElement;
-
-document.querySelectorAll(".sec-head, .tabs, .stage, .card, .dl-row, .step")
-  .forEach(el => el.setAttribute("data-reveal", ""));
-document.querySelectorAll(".bento, .steps, .dl-list").forEach(group => {
-  [...group.children].forEach((el, i) => el.style.setProperty("--d", (i * 0.07) + "s"));
+platformTabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => selectPlatform(tab.dataset.platform));
+  tab.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    let nextIndex = index;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % platformTabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (index - 1 + platformTabs.length) % platformTabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = platformTabs.length - 1;
+    platformTabs[nextIndex].focus();
+    selectPlatform(platformTabs[nextIndex].dataset.platform);
+  });
 });
 
-if ("IntersectionObserver" in window && !reduceMotion) {
-  const io = new IntersectionObserver(entries => {
-    entries.forEach(e => {
-      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+renderScreenshots("phone");
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (!reduceMotion && "IntersectionObserver" in window) {
+  document.body.classList.add("motion-ready");
+  const revealObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("is-visible");
+      observer.unobserve(entry.target);
     });
-  }, { threshold: 0.1, rootMargin: "0px 0px -5% 0px" });
-  document.querySelectorAll("[data-reveal]").forEach(el => io.observe(el));
-} else {
-  document.querySelectorAll("[data-reveal]").forEach(el => el.classList.add("in"));
+  }, { threshold: 0.12, rootMargin: "0px 0px -32px 0px" });
+  document.querySelectorAll("[data-reveal]").forEach((element) => revealObserver.observe(element));
 }
 
-const pxEls = [...document.querySelectorAll("[data-px]")];
-let ticking = false;
-function onScroll() {
-  const max = rootEl.scrollHeight - window.innerHeight;
-  const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
-  rootEl.style.setProperty("--sp", p.toFixed(4));
-  if (!reduceMotion) {
-    const vh = window.innerHeight;
-    pxEls.forEach(el => {
-      const r = el.getBoundingClientRect();
-      if (r.bottom < -120 || r.top > vh + 120) return;
-      const prog = (r.top + r.height / 2 - vh / 2) / vh;
-      const y = (-prog * parseFloat(el.dataset.px)).toFixed(1);
-      el.style.transform = "translate3d(0," + y + "px,0)";
+const parallaxElements = [...document.querySelectorAll("[data-parallax]")];
+if (!reduceMotion && parallaxElements.length && "IntersectionObserver" in window) {
+  const activeParallax = new Set();
+  const parallaxObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) activeParallax.add(entry.target);
+      else activeParallax.delete(entry.target);
     });
+    scheduleParallax();
+  }, { rootMargin: "140px 0px" });
+  parallaxElements.forEach((element) => parallaxObserver.observe(element));
+
+  let frameRequested = false;
+  function updateParallax() {
+    const viewportCenter = window.innerHeight / 2;
+    const smallScreen = window.matchMedia("(max-width: 720px)").matches;
+    const limit = smallScreen ? 9 : 18;
+    activeParallax.forEach((element) => {
+      const rect = element.getBoundingClientRect();
+      const speed = Number(element.dataset.parallax) || 0.04;
+      const offset = Math.max(-limit, Math.min(limit, (viewportCenter - (rect.top + rect.height / 2)) * speed));
+      element.style.setProperty("--parallax-shift", `${offset.toFixed(1)}px`);
+    });
+    frameRequested = false;
   }
-  ticking = false;
+  function scheduleParallax() {
+    if (frameRequested) return;
+    frameRequested = true;
+    window.requestAnimationFrame(updateParallax);
+  }
+  window.addEventListener("scroll", scheduleParallax, { passive: true });
+  window.addEventListener("resize", scheduleParallax, { passive: true });
+  scheduleParallax();
 }
-window.addEventListener("scroll", () => {
-  if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
-}, { passive: true });
-onScroll();

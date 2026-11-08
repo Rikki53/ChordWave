@@ -1,51 +1,30 @@
-# DESIGN.md — Situs Rilis ChordWave
+# DESIGN.md — ChordWave
 
-Sumber kebenaran desain untuk chordwave.rikinurjaman.my.id. Semua kerja UI merujuk ke sini.
+## Arah visual
 
-## Identitas
-- Produk: ChordWave — aplikasi musik gratis tanpa iklan untuk HP Android, Android TV, dan Wear OS.
-- Rujukan visual: landing page musik gelap premium (referensi Pinterest kiriman Riki, "Kedex") — diadaptasi ke identitas ChordWave, bukan disalin.
-- Bahasa situs: Bahasa Indonesia. Nada: percaya diri, ringkas, jujur (gratis, sumber terbuka, kredit upstream dipertahankan).
+Redesign memakai bahasa visual editorial terang yang berbeda dari versi gelap-mint sebelumnya. Kanvas warm-paper dan tinta navy menjadi dasar, dengan kobalt, ungu lembut, dan limau sebagai aksen dinamis. Headline Space Grotesk dipasangkan dengan Newsreader italic; DM Mono dipakai untuk label navigasi/perangkat. Nuansa Material 3 hadir lewat warna tonal, bentuk ekspresif, dan permukaan bertingkat. Efek glass hanya digunakan pada navigasi dan kontrol kecil agar keterbacaan konten tetap terjaga.
 
-## Warna (4 + 1 aksen)
-- `--ink`: #0A0A0E — latar utama (sama keluarga dengan latar ikon #101116)
-- `--panel`: #13131A — permukaan kartu
-- `--panel-2`: #1A1A23 — permukaan terangkat / hover
-- `--paper`: #F2F2ED — teks utama
-- `--muted`: #9B9BA6 — teks sekunder
-- Aksen `--mint`: #3CE8B5 — satu-satunya aksen (tombol utama, sorotan, garis aktif)
-- Aurora latar: cahaya mint/teal sangat lembut (radial, opacity rendah) di hero & CTA — BUKAN gradasi ungu-biru, bukan dekorasi di semua seksi.
+## Fakta yang harus dipertahankan
 
-## Tipografi
-- Plus Jakarta Sans (Google Fonts): 800 untuk judul editorial besar, 600 subjudul/tombol, 400 isi.
-- Judul hero: clamp(2.6rem, 7vw, 5.2rem), letter-spacing rapat (-0.02em), line-height 1.02.
-- Label seksi: 0.78rem, uppercase, letter-spacing 0.18em, warna mint.
+ChordWave adalah aplikasi musik gratis tanpa iklan untuk HP Android, Android TV, dan Wear OS. Bahasa halaman Indonesia. Versi, tanggal rilis, minimum Android, tautan APK dan ukuran, Listen Together hingga 5 perangkat, lebih dari 30 ribu stasiun radio, kode GPL-3.0, fork dari BitChord oleh kushagrasinghx, dan atribusi Radio Browser mengikuti fakta halaman sebelumnya. Jangan menambahkan kemampuan atau data katalog yang belum diverifikasi.
 
-## Bentuk & ruang
-- Radius: 20px kartu, 14px tombol kecil, 999px pil/tombol utama.
-- Shadow: 0 24px 60px rgba(0,0,0,.45) untuk perangkat/screenshot; tidak ada shadow berwarna.
-- Spacing kelipatan 8px; lebar konten maks 1180px; ruang napas lega antar seksi (padding seksi 96px desktop, 64px mobile).
-- Garis pemisah: 1px rgba(242,242,237,.08).
+## Susunan halaman baru
 
-## Tata letak
-- Nav: lengket, kaca gelap tipis (blur 14px, latar ink 72%), logo ikon + kata "ChordWave", tautan seksi, tombol Unduh (mint).
-- Hero: dua kolom desktop (teks kiri, visual kanan berupa TV shot lebar dalam bingkai perangkat + kartu HP melayang); satu kolom mobile (teks dulu, visual sesudah).
-- Platform: tab interaktif (HP / TV / Wear OS) — satu panggung screenshot besar berganti per tab + strip thumbnail; bukan tiga kartu identik.
-- Fitur: bento grid asimetris (Radio besar, Listen Together besar, sisanya kecil) — hindari grid 3 kolom seragam.
-- Unduh: tiga baris platform dengan tombol unduh per varian + ukuran berkas jujur + tautan GitHub Releases.
-- Footer: © Riki Nurjaman, kredit fork BitChord oleh kushagrasinghx, lisensi GPL-3.0, tautan repo.
-
-## Responsif
-- Desktop ≥1024px: hero 2 kolom, bento penuh, panggung screenshot 16:9.
-- Tablet 640–1023px: hero 1 kolom visual di bawah teks, bento 2 kolom.
-- Mobile <640px: nav ringkas (tautan disembunyikan, tombol Unduh tetap), judul mengecil, strip thumbnail geser horizontal.
-
-## Larangan (anti AI-slop)
-- Tanpa font Inter, tanpa gradasi ungu-biru, tanpa emoji sebagai ikon (ikon = SVG garis), tanpa kartu-dalam-kartu, tanpa animasi fade-in massal saat scroll (transisi hanya 150–200ms pada hover & pergantian tab), tanpa copy generik bahasa Inggris ("Unlock your potential") — copy Indonesia yang konkret.
+1. Navigasi kapsul kaca mengambang dengan tautan Perangkat, Yang bisa dilakukan, dan Unduh; sisi kanan memuat wave audio animasi dekoratif, bukan tombol unduh.
+2. Hero editorial terpusat dengan judul singkat dan panggung panorama HP, Android TV, serta Wear OS menggunakan screenshot produk yang autentik.
+3. Workbench perangkat: rail pilihan platform dan satu preview besar yang dapat diganti, disertai thumbnail saja. Satu CTA unduhan utama berada di hero; unduhan per perangkat dan varian TV hanya muncul di panel khusus unduhan.
+4. Cerita fitur berurutan: radio dan Listen Together dalam dua feature story, lalu lirik, offline, dan open-source dalam daftar editorial.
+5. Panel unduhan berwarna kontras untuk APK HP, opsi Universal/64-bit/32-bit Android TV, dan pemasangan Wear OS.
+6. Panduan pemasangan tiga langkah dan footer dengan kredit upstream.
 
 ## Aset
-- assets/icon.png — ikon resmi ChordWave (pita mint di atas hitam).
-- assets/shot-tv-home.png, shot-tv-nowplaying.png, shot-tv-search.png — screenshot asli TV (1280×720).
-- assets/shot-phone-*.png — screenshot asli HP (menyusul dari perangkat Riki).
-- assets/shot-wear-*.png — screenshot asli Wear OS dari emulator Dell (APK asli).
-- Semua screenshot dikonversi ke WebP kualitas 80 untuk web; PNG asli tetap diarsip.
+
+Aset tetap berasal dari `website/assets/`. Screenshot aplikasi asli digunakan pada panggung hero, workbench, dan cerita radio. Artwork `cover-01`, `cover-02`, dan `cover-06` hanya memberi konteks visual; tidak dipakai sebagai klaim katalog musik tertentu.
+
+## Gerak dan aksesibilitas
+
+Gelombang SVG bergerak lambat, wave audio di header serta bar di hero hanya dekorasi, dan parallax menggunakan offset kecil pada elemen gambar. Tidak ada audio autoplay. Workbench memakai pola tab ARIA, tombol panah/Home/End, status thumbnail `aria-pressed`, dan fokus keyboard yang terlihat. Tautan lewati konten tersedia. Semua animasi, scroll-reveal, dan parallax menghormati `prefers-reduced-motion`; konten tetap tampil ketika JavaScript atau IntersectionObserver tidak tersedia.
+
+## Responsif dan pratinjau
+
+Layout diuji pada desktop, ponsel, tablet, dan lebar 320 px; tidak boleh ada overflow horizontal. Pada ponsel, workbench, cerita fitur, opsi unduhan, dan langkah instalasi disusun ulang tanpa menghilangkan detail penting. Folder deploy terpisah hanya berisi dokumen web serta aset yang benar-benar dirujuk.

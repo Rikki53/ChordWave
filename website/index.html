@@ -1,312 +1,118 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ChordWave — Musik Tanpa Batas | HP, TV &amp; Wear OS</title>
-<meta name="description" content="ChordWave adalah aplikasi musik gratis tanpa iklan untuk HP Android, Android TV, dan Wear OS. Radio dunia, Listen Together, lirik, dan unduhan offline dalam satu versi seragam.">
-<meta property="og:title" content="ChordWave — Musik Tanpa Batas">
-<meta property="og:description" content="Satu aplikasi musik untuk HP, TV, dan jam tanganmu. Gratis, tanpa iklan, sumber terbuka.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://chordwave.rikinurjaman.my.id/">
-<meta property="og:image" content="https://chordwave.rikinurjaman.my.id/assets/shot-tv-nowplaying.webp">
-<link rel="icon" type="image/png" href="assets/icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<script>document.documentElement.classList.add("js")</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f2f1ea">
+  <title>ChordWave — Musik, ke mana pun</title>
+  <meta name="description" content="ChordWave adalah aplikasi musik gratis tanpa iklan untuk HP Android, Android TV, dan Wear OS. Dengarkan radio dunia, lirik tersinkron, Listen Together, dan musik offline.">
+  <meta property="og:title" content="ChordWave — Musik, ke mana pun">
+  <meta property="og:description" content="Satu aplikasi musik untuk HP, TV, dan Wear OS. Gratis, tanpa iklan, sumber terbuka.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://chordwave.rikinurjaman.my.id/">
+  <meta property="og:image" content="https://chordwave.rikinurjaman.my.id/assets/shot-tv-nowplaying.webp">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-<div class="bg-aurora" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
-<div class="scroll-progress" aria-hidden="true"></div>
-
-<header class="nav">
-  <div class="wrap nav-in">
-    <a class="brand" href="#atas">
-      <img src="assets/icon.webp" alt="Ikon ChordWave">
-      ChordWave
-    </a>
-    <nav class="nav-links">
-      <a href="#platform">Platform</a>
-      <a href="#fitur">Fitur</a>
-      <a href="#unduh">Unduh</a>
-      <a href="#pasang">Cara Pasang</a>
-    </nav>
-    <a class="btn btn-mint" href="#unduh">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Unduh v1.3.1
-    </a>
-  </div>
-</header>
-
-<main id="atas">
-
-  <!-- ================= HERO ================= -->
-  <div class="hero">
-    <div class="wrap hero-grid">
-      <div>
-        <h1><span class="line"><span>Musik</span></span><span class="line"><span>Tanpa <em>Batas.</em></span></span></h1>
-        <p class="lead">Satu aplikasi untuk semua layarmu. ChordWave memutar lagu, radio dunia, dan koleksimu di HP, TV, dan jam tangan &mdash; sinkron, gratis, dan tanpa satu pun iklan.</p>
-        <div class="hero-cta">
-          <a class="btn btn-mint" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWave-v1.3.1_arm64-v8a.apk">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Unduh untuk HP
-          </a>
-          <a class="btn btn-ghost" href="#platform">Lihat Platform</a>
-        </div>
-        <div class="hero-stats">
-          <div class="stat"><b>3</b><span>platform, satu versi</span></div>
-          <div class="stat"><b>30 rb+</b><span>stasiun radio dunia</span></div>
-          <div class="stat"><b>Rp0</b><span>selamanya, tanpa langganan</span></div>
-        </div>
-      </div>
-      <div class="hero-visual">
-        <div class="hero-chip" data-px="34"><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>v1.3.1 &mdash; HP &middot; TV &middot; Wear OS</div>
-        <div class="frame-tv" data-px="10">
-          <img src="assets/shot-tv-nowplaying.webp" alt="ChordWave TV menampilkan layar Now Playing dengan latar mengikuti sampul album">
-        </div>
-        <div class="frame-phone" data-px="24">
-          <img src="assets/shot-phone-home.webp" alt="Layar Beranda ChordWave di HP Android">
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="waves" aria-hidden="true">
-    <svg class="w-back" viewBox="0 0 2880 110" preserveAspectRatio="none"><path d="M0,58 C240,102 480,14 720,58 C960,102 1200,14 1440,58 C1680,102 1920,14 2160,58 C2400,102 2640,14 2880,58 L2880,110 L0,110 Z"/></svg>
-    <svg class="w-front" viewBox="0 0 2880 110" preserveAspectRatio="none"><path d="M0,72 C240,28 480,104 720,72 C960,40 1200,100 1440,72 C1680,28 1920,104 2160,72 C2400,40 2640,100 2880,72 L2880,110 L0,110 Z"/></svg>
-  </div>
-
-  <!-- ================= PLATFORM ================= -->
-  <section id="platform">
+  <a class="skip-link" href="#konten">Lewati ke konten</a>
+  <header class="site-header">
     <div class="wrap">
-      <div class="sec-head">
-        <p class="sec-label">Platform</p>
-        <h2>Satu ChordWave, di setiap layar</h2>
-        <p>HP, TV, dan Wear OS dirilis bersamaan dengan nomor versi yang sama. Fitur yang ada di HP, ada juga di TV dan di pergelangan tanganmu.</p>
-      </div>
-
-      <div class="tabs" role="tablist">
-        <button class="tab active" data-platform="phone" role="tab">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-          HP Android
-        </button>
-        <button class="tab" data-platform="tv" role="tab">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
-          Android TV
-        </button>
-        <button class="tab" data-platform="wear" role="tab">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><polyline points="12 10 12 12 13 13"/><path d="m16.13 7.66-.81-4.26a2 2 0 0 0-1.93-1.65h-2.78a2 2 0 0 0-1.93 1.65L7.87 7.66"/><path d="M7.88 16.34l.81 4.26a2 2 0 0 0 1.93 1.65h2.78a2 2 0 0 0 1.93-1.65l.81-4.26"/></svg>
-          Wear OS
-        </button>
-      </div>
-
-      <div class="stage">
-        <div class="stage-main">
-          <figure id="stageFigure">
-            <div id="stageShot" class="shot-phone">
-              <img id="stageImg" src="assets/shot-phone-home.webp" alt="Screenshot ChordWave">
-            </div>
-          </figure>
-        </div>
-        <div class="stage-side">
-          <h3 id="stageTitle">ChordWave di HP</h3>
-          <p id="stageDesc">Beranda personal, radio, dan pemutar penuh &mdash; semua dalam genggaman.</p>
-          <div class="thumbs" id="stageThumbs"></div>
-          <div class="stage-dl">
-            <a class="btn btn-mint" id="stageDownload" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWave-v1.3.1_arm64-v8a.apk">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span id="stageDownloadLabel">Unduh ChordWave v1.3.1</span>
-            </a>
-          </div>
-        </div>
+      <div class="header-inner">
+        <a class="brand" href="#atas" aria-label="ChordWave, kembali ke atas"><span class="brand-mark"><img src="assets/icon.webp" alt="" width="34" height="34"></span><span>Chord<span>Wave</span></span></a>
+        <nav class="main-nav" aria-label="Navigasi utama"><a href="#platform">Perangkat</a><a href="#fitur">Yang bisa dilakukan</a><a href="#unduh">Unduh</a></nav>
+        <div class="header-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
     </div>
-  </section>
+  </header>
 
-  <!-- ================= FITUR ================= -->
-  <section id="fitur">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="sec-label">Fitur</p>
-        <h2>Lengkap, tanpa bayar sepeser pun</h2>
-        <p>Tidak ada fitur yang dikunci di balik langganan. Semua yang kamu lihat di bawah ini langsung bisa dipakai setelah memasang.</p>
-      </div>
-
-      <div class="bento">
-        <article class="card big card-photo">
-          <img src="assets/shot-radio.webp" alt="Layar Radio ChordWave dengan kartu stasiun besar bergaya Apple Music">
-          <div class="txt">
-            <h3>Radio dunia, tampil premium</h3>
-            <p>Puluhan ribu stasiun dari Radio Browser, ditata ulang bergaya Apple Music: kartu hero besar untuk stasiun teratas dunia, baris favorit, dan pilihan stasiun Indonesia &mdash; dari I-Radio Jakarta sampai radio dangdut lokal.</p>
-          </div>
-        </article>
-
-        <article class="card big">
-          <div class="ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </div>
-          <h3>Listen Together</h3>
-          <p>Dengar bareng sampai 5 perangkat dengan putar yang sinkron dan antrean bersama. Satu orang menekan play, semua ikut mendengar &mdash; cocok untuk rumah, kos, atau perjalanan bareng teman.</p>
-        </article>
-
-        <article class="card">
-          <div class="ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          </div>
-          <h3>Lirik tersinkron</h3>
-          <p>Ikuti lagu baris demi baris, menyala mengikuti vokal yang sedang berbunyi.</p>
-        </article>
-
-        <article class="card">
-          <div class="ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </div>
-          <h3>Unduh &amp; dengar offline</h3>
-          <p>Simpan lagu ke perangkat dan putar kapan saja tanpa kuota &mdash; kini juga langsung dari menu lagu di TV. Tersimpan rapi di folder Music/ChordWave.</p>
-        </article>
-
-        <article class="card">
-          <div class="ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
-          </div>
-          <h3>Tanpa iklan, tanpa langganan</h3>
-          <p>Tidak ada jeda iklan, tidak ada paywall, tidak ada masa coba. Gratis sepenuhnya.</p>
-        </article>
-
-        <article class="card">
-          <div class="ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-          </div>
-          <h3>Update dari dalam aplikasi</h3>
-          <p>Versi baru muncul sebagai pemberitahuan di aplikasi dan terpasang sekali ketuk &mdash; tidak perlu berburu file lagi.</p>
-        </article>
-
-        <article class="card wide">
-          <div class="ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-          </div>
-          <h3>Sumber terbuka, bisa diaudit siapa pun</h3>
-          <p>Kode ChordWave terbuka di GitHub di bawah lisensi GPL-3.0. ChordWave adalah fork dari BitChord karya kushagrasinghx &mdash; dikembangkan, diterjemahkan, dan diseragamkan untuk HP, TV, dan Wear OS oleh Riki Nurjaman.</p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= UNDUH ================= -->
-  <section id="unduh">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="sec-label">Unduh</p>
-        <h2>ChordWave v1.3.1</h2>
-        <p>Rilis 8 November 2026 &mdash; rilis pertama yang menyatukan HP, TV, dan Wear OS dalam satu nama dan satu versi.</p>
-      </div>
-
-      <div class="dl-list">
-        <div class="dl-row">
-          <div class="dl-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-          </div>
-          <div>
-            <h3>HP Android</h3>
-            <p>Android 8.0 ke atas &middot; arm64 &mdash; cocok untuk hampir semua HP modern</p>
-          </div>
-          <div class="dl-actions">
-            <a class="btn btn-mint btn-small" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWave-v1.3.1_arm64-v8a.apk">Unduh APK &middot; 90 MB</a>
-          </div>
+  <main id="konten">
+    <section class="hero" id="atas" aria-labelledby="hero-title">
+      <div class="hero-grain" aria-hidden="true"></div>
+      <div class="wrap">
+        <div class="hero-overline"><span><i></i> DENGARKAN MUSIK TANPA GANGGUAN</span><span>CHORDWAVE <b>·</b> VOL. 1.3.1</span></div>
+        <div class="hero-intro" data-reveal>
+          <p class="hero-kicker">BUKA. PUTAR. BAWA KE MANA SAJA.</p>
+          <h1 id="hero-title">Putar musik.<br><em>Di mana pun.</em></h1>
+          <p class="hero-description">Radio yang baru kamu temukan, lagu yang sudah kamu hafal. Dengarkan di HP Android, Android TV, atau Wear OS—tanpa iklan dan tanpa langganan.</p>
+          <div class="hero-actions"><a class="button button-lime" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWave-v1.3.1_arm64-v8a.apk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>Unduh untuk Android</a><a class="hero-text-link" href="#platform">Lihat cara kerjanya <span aria-hidden="true">↘</span></a></div>
         </div>
 
-        <div class="dl-row">
-          <div class="dl-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
-          </div>
-          <div>
-            <h3>Android TV</h3>
-            <p>Android TV 8.0 ke atas &middot; pilih Universal bila ragu, atau varian sesuai prosesor TV-mu</p>
-          </div>
-          <div class="dl-actions">
-            <a class="btn btn-mint btn-small" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWaveTV-v1.3.1.apk">Universal &middot; 179 MB</a>
-            <a class="btn btn-ghost btn-small" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWaveTV-v1.3.1_arm64-v8a.apk">64-bit &middot; 79 MB</a>
-            <a class="btn btn-ghost btn-small" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWaveTV-v1.3.1_armeabi-v7a.apk">32-bit &middot; 69 MB</a>
-          </div>
+        <div class="hero-stage" aria-label="ChordWave berjalan di tiga perangkat">
+          <div class="stage-copy"><span class="stage-index">01 / THE PLAYBACK</span><strong>Suaramu,<br>tiga cara.</strong><span class="stage-caption">PHONE <b>·</b> TV <b>·</b> WRIST</span></div>
+          <svg class="stage-wave" viewBox="0 0 1200 420" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="hero-wave-gradient" x1="0" x2="1"><stop offset="0" stop-color="#f1ff75" stop-opacity="0"/><stop offset=".44" stop-color="#dfff73" stop-opacity=".84"/><stop offset="1" stop-color="#d5c9ff" stop-opacity=".12"/></linearGradient></defs><path d="M-40 205 C90 205 112 62 205 62 S298 355 389 355 492 73 581 73 684 315 778 315 876 99 971 99 1087 220 1240 220"/><path d="M-40 215 C80 215 121 134 205 134 S295 290 389 290 493 149 581 149 685 255 778 255 876 165 971 165 1091 208 1240 208"/><path d="M-40 210 C85 210 124 180 205 180 S298 245 389 245 491 179 581 179 686 238 778 238 875 185 971 185 1091 212 1240 212"/></svg>
+          <div class="stage-device stage-tv" data-parallax="0.07"><span class="device-label">ANDROID TV</span><img src="assets/shot-tv-nowplaying.webp" alt="Layar pemutar ChordWave pada Android TV" loading="lazy"></div>
+          <div class="stage-device stage-phone" data-parallax="0.12"><span class="device-label">ANDROID</span><img src="assets/shot-phone-player.webp" alt="Layar pemutar ChordWave di HP Android" fetchpriority="high"></div>
+          <div class="stage-device stage-watch" data-parallax="0.09" aria-hidden="true"><span class="device-label">WEAR OS</span><div class="wear-signal"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="29"/><path d="M13 42h11l6-14 10 26 8-20 5 8h14"/></svg></div></div>
+          <div class="stage-glass-note"><img src="assets/artwork/cover-02.jpg" alt="" width="42" height="42" loading="lazy"><span><small>CHORDWAVE · 1.3.1</small><strong>Musik tetap jalan.</strong></span><span class="note-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
+          <span class="stage-side-note">SESUAI PERANGKATMU <b>↗</b></span>
         </div>
+        <div class="hero-bottomline"><span>01 — TEMUKAN FREKUENSIMU</span><a href="#platform">GULIR UNTUK MENJELAJAHI <b aria-hidden="true">↓</b></a></div>
+      </div>
+    </section>
 
-        <div class="dl-row">
-          <div class="dl-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><polyline points="12 10 12 12 13 13"/><path d="m16.13 7.66-.81-4.26a2 2 0 0 0-1.93-1.65h-2.78a2 2 0 0 0-1.93 1.65L7.87 7.66"/><path d="M7.88 16.34l.81 4.26a2 2 0 0 0 1.93 1.65h2.78a2 2 0 0 0 1.93-1.65l.81-4.26"/></svg>
+    <section class="platform-section section-pad" id="platform" aria-labelledby="platform-title">
+      <div class="wrap">
+        <div class="section-intro" data-reveal><div><p class="eyebrow"><span>02</span> PILIH LAYARMU</p><h2 id="platform-title">Satu aplikasi.<br><em>Pas di perangkatmu.</em></h2></div><p class="section-intro-copy">Tiap layar punya cara sendiri. Jelajahi tampilan ChordWave dan pilih yang ingin kamu coba.</p></div>
+        <div class="platform-workbench">
+          <div class="platform-rail" role="tablist" aria-label="Pilih platform ChordWave">
+            <button class="platform-tab is-active" id="tab-phone" type="button" role="tab" aria-selected="true" aria-controls="platform-panel" data-platform="phone"><span class="tab-index">01</span><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.3"/><path d="M10.5 18.5h3"/></svg></span><span class="tab-copy"><strong>HP Android</strong><small>Musik di saku</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
+            <button class="platform-tab" id="tab-tv" type="button" role="tab" aria-selected="false" aria-controls="platform-panel" data-platform="tv" tabindex="-1"><span class="tab-index">02</span><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="m8 3 4 4 4-4"/></svg></span><span class="tab-copy"><strong>Android TV</strong><small>Ruang dengar luas</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
+            <button class="platform-tab" id="tab-wear" type="button" role="tab" aria-selected="false" aria-controls="platform-panel" data-platform="wear" tabindex="-1"><span class="tab-index">03</span><span class="tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.8"/><path d="m9.5 3 1-1h3l1 1 1 3M9.5 21l1 1h3l1-1 1-3"/></svg></span><span class="tab-copy"><strong>Wear OS</strong><small>Kendali di pergelangan</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
           </div>
-          <div>
-            <h3>Wear OS</h3>
-            <p>Aplikasi jam terbundel di dalam aplikasi HP &mdash; pasang ChordWave di HP, lalu pasang ke jam dari menu di aplikasi</p>
-          </div>
-          <div class="dl-actions">
-            <a class="btn btn-ghost btn-small" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWave-v1.3.1_arm64-v8a.apk">Pasang lewat HP</a>
+          <div class="platform-panel" id="platform-panel" role="tabpanel" aria-labelledby="tab-phone">
+            <div class="platform-visual"><div class="visual-topline"><span><i></i> CHORDWAVE / LIVE PREVIEW</span><span>SCREEN <b>01</b></span></div><div id="stageFigure" class="screen-figure"><div id="stageShot" class="device-render device-phone"><img id="stageImg" src="assets/shot-phone-home.webp" alt="Tampilan beranda ChordWave di HP Android"></div><span class="visual-index">AUDIO<br>ON YOUR<br>TERMS</span></div><div class="visual-bottomline"><span>UI YANG MENYESUAIKAN DIRI</span><span class="visual-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div></div>
+            <div class="platform-details"><div class="details-overline"><span class="detail-dot"></span><span class="section-kicker">DIRANCANG KHUSUS</span></div><h3 id="stageTitle">ChordWave di HP</h3><p id="stageDesc">Beranda personal, radio, dan pemutar penuh—semua dalam genggaman.</p><div class="shot-list" id="stageThumbs" aria-label="Pilih tampilan layar"></div></div>
           </div>
         </div>
       </div>
+    </section>
 
-      <p class="dl-note">Semua berkas dan catatan perubahan tersedia juga di <a href="https://github.com/Rikki53/ChordWave/releases">GitHub Releases</a>. Berkas ditandatangani dengan kunci rilis resmi ChordWave &mdash; update berikutnya terpasang mulus di atas versi ini.</p>
-    </div>
-  </section>
-
-  <!-- ================= CARA PASANG ================= -->
-  <section id="pasang">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="sec-label">Cara Pasang</p>
-        <h2>Tiga langkah, langsung dengar</h2>
+    <section class="features-section section-pad" id="fitur" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="section-intro feature-intro" data-reveal><div><p class="eyebrow"><span>03</span> LEBIH DARI PLAYLIST</p><h2 id="features-title">Dengarkan<br><em>sesukamu.</em></h2></div><p class="section-intro-copy">Buat suasana sendiri, atau berbagi momen dengar dengan teman. Tak ada biaya tersembunyi.</p></div>
+        <article class="feature-radio feature-story" data-reveal>
+          <div class="feature-story-copy"><span class="feature-number">01 / SIARAN DUNIA</span><h3>Geser sedikit.<br>Temukan banyak hal.</h3><p>Jelajahi puluhan ribu stasiun dari berbagai negara, termasuk pilihan radio Indonesia.</p><div class="feature-stat"><strong>30 rb<span>+</span></strong><small>stasiun radio menunggu ditemukan</small></div></div>
+          <div class="feature-image"><img src="assets/shot-radio.webp" alt="Tampilan jelajah stasiun radio di aplikasi ChordWave" loading="lazy"><span class="image-caption">01 — RADIO BROWSER</span><span class="image-ring" aria-hidden="true"></span></div>
+        </article>
+        <article class="feature-together feature-story" data-reveal>
+          <div class="together-art"><svg class="together-wave" viewBox="0 0 700 280" preserveAspectRatio="none" aria-hidden="true"><path d="M-20 145 C60 145 65 40 130 40 S190 240 255 240 320 62 385 62 450 215 515 215 580 105 645 105 695 160 730 160"/><path d="M-20 145 C60 145 65 95 130 95 S190 190 255 190 320 106 385 106 450 177 515 177 580 126 645 126 695 150 730 150"/></svg><div class="together-artwork"><img src="assets/artwork/cover-01.jpg" alt="" loading="lazy"><img src="assets/artwork/cover-06.jpg" alt="" loading="lazy"></div><span class="together-badge">LISTEN TOGETHER</span><span class="together-number">UP TO 05 DEVICES</span></div>
+          <div class="feature-story-copy"><span class="feature-number">02 / DENGAR BARENGAN</span><h3>Tekan putar.<br>Serempak.</h3><p>Listen Together menyinkronkan pemutaran dan antrean hingga 5 perangkat.</p><span class="feature-link-note">BAGIKAN SATU MOMEN, BUKAN LINK LAGU SAJA.</span></div>
+        </article>
+        <div class="feature-row-set">
+          <article class="feature-row" data-reveal><span class="row-index">03</span><span class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span><div><span class="feature-number">IKUTI LAGU</span><h3>Lirik tersinkron.</h3><p>Ikuti lagu baris demi baris, seirama dengan vokal.</p></div></article>
+          <article class="feature-row" data-reveal><span class="row-index">04</span><span class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg></span><div><span class="feature-number">TANPA KUOTA</span><h3>Unduh, lalu dengarkan.</h3><p>Simpan musik di perangkat dan putar saat offline.</p></div></article>
+          <article class="feature-row feature-open" data-reveal><span class="row-index">05</span><span class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 17-5-5 5-5M16 7l5 5-5 5M14 4l-4 16"/></svg></span><div><span class="feature-number">DIBANGUN TERBUKA</span><h3>Kode sumber GPL-3.0.</h3><p>Bisa ditinjau dan dikembangkan bersama.</p></div></article>
+        </div>
+        <div class="promise-strip" data-reveal><span class="promise-check" aria-hidden="true">✓</span><span>GRATIS DIGUNAKAN</span><b>·</b><span>TANPA IKLAN</span><b>·</b><span>TANPA LANGGANAN</span><span class="promise-note">Sederhana seperti seharusnya.</span></div>
       </div>
-      <div class="steps">
-        <div class="step">
-          <b class="num">1</b>
-          <h3>Unduh APK</h3>
-          <p>Ketuk tombol unduh sesuai perangkatmu di bagian Unduh. Untuk TV, unduh dari HP lalu kirim ke TV lewat flashdisk atau aplikasi pengirim file.</p>
+    </section>
+
+    <section class="download-section section-pad" id="unduh" aria-labelledby="download-title">
+      <div class="download-orbit download-orbit-a" aria-hidden="true"></div><div class="download-orbit download-orbit-b" aria-hidden="true"></div>
+      <div class="wrap download-wrap">
+        <div class="download-heading" data-reveal><div><p class="download-kicker">04 / AMBIL YANG COCOK</p><h2 id="download-title">Sudah siap<br><em>mendengar?</em></h2><p>ChordWave v1.3.1 <span>· Rilis 8 November 2026</span></p></div><a class="download-release" href="https://github.com/Rikki53/ChordWave/releases">Catatan rilis lengkap <span aria-hidden="true">↗</span></a></div>
+        <div class="download-list">
+          <article class="download-row download-featured" data-reveal><div class="download-device"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.3"/><path d="M10.5 18.5h3"/></svg></div><div class="download-info"><span class="download-tag">ANDROID 8.0+ <b>·</b> 90 MB</span><h3>HP Android</h3><p>Arm64 — cocok untuk hampir semua HP modern.</p></div><a class="button button-lime download-button" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWave-v1.3.1_arm64-v8a.apk">Unduh APK <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg></a></article>
+          <article class="download-row" data-reveal><div class="download-device"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="m8 3 4 4 4-4"/></svg></div><div class="download-info"><span class="download-tag">ANDROID 8.0+</span><h3>Android TV</h3><p>Pilih Universal bila belum tahu prosesor TV-mu.</p></div><div class="download-options"><a class="download-option option-main" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWaveTV-v1.3.1.apk"><span>Universal</span><small>179 MB</small><b aria-hidden="true">↓</b></a><a class="download-option" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWaveTV-v1.3.1_arm64-v8a.apk"><span>64-bit</span><small>79 MB</small><b aria-hidden="true">↓</b></a><a class="download-option" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWaveTV-v1.3.1_armeabi-v7a.apk"><span>32-bit</span><small>69 MB</small><b aria-hidden="true">↓</b></a></div></article>
+          <article class="download-row" data-reveal><div class="download-device"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.8"/><path d="m9.5 3 1-1h3l1 1 1 3M9.5 21l1 1h3l1-1 1-3"/></svg></div><div class="download-info"><span class="download-tag">TERBUNDLE DI APK HP</span><h3>Wear OS</h3><p>Pasang lewat menu Wear OS di aplikasi HP.</p></div><a class="download-link" href="https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/ChordWave-v1.3.1_arm64-v8a.apk">Lihat APK HP <span aria-hidden="true">↗</span></a></article>
         </div>
-        <div class="step">
-          <b class="num">2</b>
-          <h3>Izinkan pemasangan</h3>
-          <p>Saat pertama memasang APK di luar Play Store, Android akan meminta izin untuk sumber tersebut. Setujui sekali saja &mdash; ChordWave tidak meminta izin aneh di luar kebutuhan musik.</p>
-        </div>
-        <div class="step">
-          <b class="num">3</b>
-          <h3>Buka &amp; dengarkan</h3>
-          <p>Langsung putar lagu atau radio favoritmu. Mau dengar bareng? Buat sesi Listen Together dan bagikan kodenya ke temanmu.</p>
-        </div>
+        <p class="download-footnote">Ukuran berkas mengikuti catatan rilis v1.3.1. Pembaruan dan catatan lengkap tersedia di <a href="https://github.com/Rikki53/ChordWave/releases">GitHub Releases</a>.</p>
       </div>
-    </div>
-  </section>
+    </section>
 
-</main>
+    <section class="install-section section-pad" id="pasang" aria-labelledby="install-title">
+      <div class="wrap">
+        <div class="section-intro install-intro" data-reveal><div><p class="eyebrow"><span>05</span> TIGA LANGKAH SAJA</p><h2 id="install-title">Beres dalam<br><em>beberapa menit.</em></h2></div><p class="section-intro-copy">Pasang APK di HP atau TV Android. Setelah itu, tinggal pilih apa yang mau didengar.</p></div>
+        <div class="install-steps"><article class="install-step" data-reveal><span class="step-index">01</span><div class="step-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg></div><h3>Unduh APK</h3><p>Pilih berkas untuk perangkatmu. Untuk TV, pindahkan APK lewat flashdisk atau aplikasi pengirim berkas.</p></article><article class="install-step" data-reveal><span class="step-index">02</span><div class="step-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg></div><h3>Izinkan pemasangan</h3><p>Android akan meminta izin memasang APK dari sumber ini. Setujui sekali untuk melanjutkan.</p></article><article class="install-step" data-reveal><span class="step-index">03</span><div class="step-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 12 7-12 7V5Z"/></svg></div><h3>Buka & dengarkan</h3><p>Putar lagu atau radio favorit. Buat sesi Listen Together untuk mendengar bersama teman.</p></article></div>
+      </div>
+    </section>
+  </main>
 
-<div class="waves waves-foot" aria-hidden="true">
-  <svg class="w-back" viewBox="0 0 2880 110" preserveAspectRatio="none"><path d="M0,58 C240,102 480,14 720,58 C960,102 1200,14 1440,58 C1680,102 1920,14 2160,58 C2400,102 2640,14 2880,58 L2880,110 L0,110 Z"/></svg>
-  <svg class="w-front" viewBox="0 0 2880 110" preserveAspectRatio="none"><path d="M0,72 C240,28 480,104 720,72 C960,40 1200,100 1440,72 C1680,28 1920,104 2160,72 C2400,40 2640,100 2880,72 L2880,110 L0,110 Z"/></svg>
-</div>
-
-<footer>
-  <div class="wrap">
-    <div class="foot">
-      <a class="brand" href="#atas">
-        <img src="assets/icon.webp" alt="Ikon ChordWave">
-        ChordWave
-      </a>
-      <nav>
-        <a href="#platform">Platform</a>
-        <a href="#fitur">Fitur</a>
-        <a href="#unduh">Unduh</a>
-        <a href="https://github.com/Rikki53/ChordWave">GitHub</a>
-        <a href="https://github.com/Rikki53/ChordWave/releases">Semua Rilis</a>
-      </nav>
-    </div>
-    <small>
-      &copy; 2026 Riki Nurjaman. ChordWave adalah fork dari <a class="src" href="https://github.com/kushagrasinghx/BitChord">BitChord</a> karya kushagrasinghx, dirilis di bawah lisensi GPL-3.0.<br>
-      Radio dipersembahkan oleh komunitas Radio Browser. Konten lagu berasal dari layanan masing-masing pemiliknya.
-    </small>
-  </div>
-</footer>
-
-<script src="script.js"></script>
+  <footer class="site-footer"><div class="wrap"><div class="footer-top"><a class="brand footer-brand" href="#atas"><span class="brand-mark"><img src="assets/icon.webp" alt="" width="34" height="34"></span><span>Chord<span>Wave</span></span></a><p>Musik, ke mana pun.</p><nav aria-label="Tautan footer"><a href="#platform">Perangkat</a><a href="#fitur">Fitur</a><a href="#unduh">Unduh</a><a href="https://github.com/Rikki53/ChordWave">GitHub ↗</a></nav></div><div class="footer-bottom"><span>© 2026 Riki Nurjaman</span><span>ChordWave adalah fork dari <a href="https://github.com/kushagrasinghx/BitChord">BitChord</a> oleh kushagrasinghx.</span><span>GPL-3.0 <b>·</b> Radio oleh komunitas Radio Browser.</span></div></div></footer>
+  <script src="script.js" defer></script>
 </body>
 </html>
