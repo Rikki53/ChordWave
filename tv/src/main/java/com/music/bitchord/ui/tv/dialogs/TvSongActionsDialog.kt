@@ -18,7 +18,10 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Info
@@ -37,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
@@ -50,6 +54,8 @@ import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.download.DownloadState
+import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.SleepTimer
 import com.music.bitchord.playback.beginRadioQueue
 import com.music.bitchord.playback.commitRadioQueue
@@ -119,6 +125,11 @@ fun TvSongActionMenuDialog(
     val sleepDeadline by SleepTimer.deadline.collectAsState()
     val sleepAfterTrack by SleepTimer.afterTrack.collectAsState()
     val nerdStats by AppSettings.showNerdStats.collectAsState()
+    val context = LocalContext.current
+    val downloadActive by Downloads.active.collectAsState()
+    val downloadedSongs by Downloads.saved.collectAsState()
+    val dlState = downloadActive[song.videoId]
+    val isDownloaded = downloadedSongs.containsKey(song.videoId)
 
     when (sheet) {
         SongSheet.Playlist -> {
@@ -199,6 +210,46 @@ fun TvSongActionMenuDialog(
                     trailingIcon = Icons.AutoMirrored.Rounded.PlaylistAdd,
                     onClick = { sheet = SongSheet.Playlist },
                 )
+            }
+            item {
+                when {
+                    dlState is DownloadState.Running -> TvListRow(
+                        title = "Downloading…",
+                        value = (dlState as DownloadState.Running).fraction
+                            .takeIf { it > 0f }?.let { "${(it * 100).toInt()}%" },
+                        trailingIcon = Icons.Rounded.Download,
+                        onClick = { Downloads.cancel(song.videoId) },
+                    )
+                    dlState is DownloadState.Queued -> TvListRow(
+                        title = "Queued for Download",
+                        value = "Cancel",
+                        trailingIcon = Icons.Rounded.Download,
+                        onClick = { Downloads.cancel(song.videoId) },
+                    )
+                    dlState is DownloadState.Failed -> TvListRow(
+                        title = "Download Failed",
+                        value = "Retry",
+                        trailingIcon = Icons.Rounded.ErrorOutline,
+                        onClick = { Downloads.enqueue(context, song) },
+                    )
+                    isDownloaded -> TvListRow(
+                        title = "Delete Download",
+                        trailingIcon = Icons.Rounded.Delete,
+                        destructive = true,
+                        onClick = {
+                            scope.launch { Downloads.delete(context, song.videoId) }
+                            onDismiss()
+                        },
+                    )
+                    else -> TvListRow(
+                        title = "Download",
+                        trailingIcon = Icons.Rounded.Download,
+                        onClick = {
+                            Downloads.enqueue(context, song)
+                            onDismiss()
+                        },
+                    )
+                }
             }
             if (onOpenAlbum != null) {
                 item {
