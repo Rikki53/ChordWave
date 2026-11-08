@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Proof, for the addons that ask for it, that a request comes from the genuine
- * BitChord app and not a fork, another app or a script.
+ * ChordWave app and not a fork, another app or a script.
  *
  * The client name and User-Agent cannot do this: this app is open source, so
  * anything it sends can be copied. The one thing a copy cannot have is the
@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit
  * in the device's secure hardware comes with a certificate chain, rooted at
  * Google, in which Android states the package name and signing certificate of
  * the app that asked for the key, and whether the OS was booted verified. The
- * BitChord auth service checks that chain once and returns a short-lived token
+ * ChordWave auth service checks that chain once and returns a short-lived token
  * bound to the key. Each addon request then carries the token and a signature
  * made with the hardware key, which never leaves the device. A token copied off
  * a phone is therefore useless anywhere else.
@@ -49,7 +49,7 @@ import java.util.concurrent.TimeUnit
  * `WWW-Authenticate: BitChord`. Other addons never see the token. Even when
  * they do, a proof is bound to one host, so it cannot be replayed to another.
  *
- * Wire format: "Addon auth" in the BitChord addon docs, protocol version 1.
+ * Wire format: "Addon auth" in the ChordWave addon docs, protocol version 1.
  */
 object AddonAuth {
     const val TOKEN_HEADER = "X-BitChord-Token"
@@ -145,7 +145,7 @@ object AddonAuth {
                 drop(current)
             }
         }
-        throw AddonException("BitChord couldn't use this device's secure key store")
+        throw AddonException("ChordWave couldn't use this device's secure key store")
     }
 
     /**
@@ -199,8 +199,8 @@ object AddonAuth {
     /** What to tell the listener when an addon refused credentials that were sent. */
     fun rejectionMessage(code: String?): String = when (code) {
         "stale_proof" -> "This addon rejected the request because this phone's clock is wrong"
-        "unavailable" -> "This addon couldn't check BitChord's verification right now"
-        else -> "This addon didn't accept BitChord's verification" + (code?.let { " ($it)" } ?: "")
+        "unavailable" -> "This addon couldn't check ChordWave's verification right now"
+        else -> "This addon didn't accept ChordWave's verification" + (code?.let { " ($it)" } ?: "")
     }
 
     // ── Session ───────────────────────────────────────────────────────────
@@ -222,7 +222,7 @@ object AddonAuth {
                 Refusal(e.message ?: "Verification refused", System.currentTimeMillis() + e.backoffMs, transient = false)
                     .also { refusal = it }.raise()
             } catch (e: Exception) {
-                val message = "Couldn't reach BitChord's addon verification service"
+                val message = "Couldn't reach ChordWave's addon verification service"
                 TrackLog.w(TAG, "addon auth: $message", e)
                 Refusal(message, System.currentTimeMillis() + TRANSIENT_BACKOFF_MS, transient = true)
                     .also { refusal = it }.raise()
@@ -281,7 +281,7 @@ object AddonAuth {
             generateAttestedKey(alias, Base64.getUrlDecoder().decode(challenge.challenge))
         } catch (e: Exception) {
             deleteKey(alias)
-            throw AttestRefused("This device can't prove it is running the official BitChord app (no hardware key attestation)")
+            throw AttestRefused("This device can't prove it is running the official ChordWave app (no hardware key attestation)")
         }
         try {
             val body = json.encodeToString(
@@ -316,7 +316,7 @@ object AddonAuth {
                     // Fixable by updating rather than waiting: check again soon after.
                     val backoff = if (error?.error == "outdated_app") TRANSIENT_BACKOFF_MS else REFUSED_BACKOFF_MS
                     throw AttestRefused(
-                        "BitChord couldn't verify this device: " + (error?.message?.ifBlank { null } ?: "HTTP ${response.code}"),
+                        "ChordWave couldn't verify this device: " + (error?.message?.ifBlank { null } ?: "HTTP ${response.code}"),
                         backoff,
                     )
                 }

@@ -103,7 +103,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
             }
             if (!manifest.isPlayable) {
                 val declared = manifest.resources.joinToString(", ")
-                throw AddonException("This addon declares $declared — BitChord needs search")
+                throw AddonException("This addon declares $declared — ChordWave needs search")
             }
             if (manifest.requiresBitChordAuth) authRequired = true
             manifest
@@ -271,7 +271,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
      *
      * Without it an addon holding an Atmos mix has no way to know it may serve
      * one, so it takes its default branch and sends stereo. That is the whole
-     * of why BitChord never heard Atmos from an addon: not a detection bug —
+     * of why ChordWave never heard Atmos from an addon: not a detection bug —
      * [AddonStream.isDolbyAtmos] reads every spelling an addon sends — but a
      * question that was never asked.
      *
@@ -406,7 +406,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
                     // sends people to re-paste a URL that was always correct.
                     response.code >= 500 -> throw AddonUnavailable("HTTP ${response.code}")
                     response.code != 429 -> throw AddonException("HTTP ${response.code}")
-                    attempt >= MAX_RETRIES -> throw AddonUnavailable("This addon is rate limiting BitChord")
+                    attempt >= MAX_RETRIES -> throw AddonUnavailable("This addon is rate limiting ChordWave")
                     else -> retryAfterMs(response.header("Retry-After"), attempt)
                 }
             }
@@ -429,7 +429,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
         val parsed = url.toHttpUrlOrNull() ?: throw AddonException("Invalid addon URL")
         val loopback = parsed.host == "localhost" || parsed.host == "127.0.0.1" || parsed.host == "::1"
         if (!parsed.isHttps && !loopback) {
-            throw AddonException("This addon asks for BitChord verification but isn't using HTTPS")
+            throw AddonException("This addon asks for ChordWave verification but isn't using HTTPS")
         }
         return AddonAuth.headersFor(parsed.host, rejectedToken)
     }
@@ -580,7 +580,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
         private const val BACKOFF_BASE_MS = 500L
         private const val BACKOFF_CAP_MS = 8_000L
 
-        private val USER_AGENT = "BitChord/v${com.music.bitchord.BuildConfig.VERSION_NAME}"
+        private val USER_AGENT = "ChordWave/v${com.music.bitchord.BuildConfig.VERSION_NAME}"
 
         /**
          * What [probeSearch] asks for. Deliberately an ordinary word rather

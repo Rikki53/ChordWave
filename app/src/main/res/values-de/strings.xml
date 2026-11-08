@@ -104,7 +104,7 @@
     <string name="dolby_atmos_open_failed">Dolby-Atmos-Einstellungen konnten nicht geöffnet werden</string>
     <string name="update_available">Update verfügbar: v%1$s</string>
     <string name="software_update">Softwareupdate</string>
-    <string name="update_available_body">bitchord %1$s steht zum Download bereit.</string>
+    <string name="update_available_body">ChordWave %1$s steht zum Download bereit.</string>
     <string name="update_downloading_body">bitchord %1$s wird heruntergeladen…</string>
     <string name="update_ready_body">bitchord %1$s ist bereit zur Installation.</string>
     <string name="update_failed_body">bitchord %1$s konnte nicht heruntergeladen werden.</string>

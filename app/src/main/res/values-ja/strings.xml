@@ -99,7 +99,7 @@
     <string name="dolby_atmos_open_failed">Dolby Atmosの設定を開けませんでした</string>
     <string name="update_available">アップデートが利用可能です：v%1$s</string>
     <string name="software_update">ソフトウェアアップデート</string>
-    <string name="update_available_body">bitchord %1$s がダウンロード可能です。</string>
+    <string name="update_available_body">ChordWave %1$s がダウンロード可能です。</string>
     <string name="update_downloading_body">bitchord %1$s をダウンロード中…</string>
     <string name="update_ready_body">bitchord %1$s のインストール準備ができました。</string>
     <string name="update_failed_body">bitchord %1$s をダウンロードできませんでした。</string>

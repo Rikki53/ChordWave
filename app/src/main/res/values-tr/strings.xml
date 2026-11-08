@@ -109,7 +109,7 @@
     <string name="dolby_atmos_open_failed">Dolby Atmos ayarları açılamadı</string>
     <string name="update_available">Güncelleme mevcut: v%1$s</string>
     <string name="software_update">Yazılım Güncellemesi</string>
-    <string name="update_available_body">bitchord %1$s indirilmeye hazır.</string>
+    <string name="update_available_body">ChordWave %1$s indirilmeye hazır.</string>
     <string name="update_downloading_body">bitchord %1$s indiriliyor…</string>
     <string name="update_ready_body">bitchord %1$s yüklenmeye hazır.</string>
     <string name="update_failed_body">bitchord %1$s indirilemedi.</string>
