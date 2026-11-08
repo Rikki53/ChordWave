@@ -112,7 +112,7 @@ class PhoneStreamDataSource(context: Context) : BaseDataSource(true) {
 
         @Volatile private var phoneNode: String? = null
 
-        /** The phone with this build of BitChord on it. Blocking: loader threads only. */
+        /** The phone with this build of ChordWave on it. Blocking: loader threads only. */
         fun phoneNode(context: Context): String? {
             phoneNode?.let { return it }
             val info = runCatching {

@@ -44,7 +44,7 @@ val LocalAmbient = compositionLocalOf { Ambient() }
 /**
  * The player as the always-on display shows it — the way Spotify's watch app
  * does: the time at the top (the scaffold's own clock), the song and artist in
- * the middle, BitChord's mark at the bottom, and nothing else.
+ * the middle, ChordWave's mark at the bottom, and nothing else.
  *
  * Built to the AOD rules rather than dimmed from the live screen: black, text
  * and one small glyph, so a few percent of pixels are lit; no cover, no mesh,

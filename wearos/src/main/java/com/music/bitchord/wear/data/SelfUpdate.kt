@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import com.music.bitchord.wear.WearProtocol as P
 
 /**
- * What the phone's "BitChord for Wear OS" settings need from this side: which
+ * What the phone's "ChordWave for Wear OS" settings need from this side: which
  * build is installed, and a way to put a newer one on without a computer.
  *
  * The phone carries the watch APK built alongside it and sends it over a
@@ -32,7 +32,7 @@ import com.music.bitchord.wear.WearProtocol as P
  * wearer to confirm the first time — the app was installed by ADB, so it is
  * not yet the installer of record — and a background app may not open that
  * prompt itself, so it is offered as a notification to tap. Once an update has
- * gone through here, BitChord *is* the installer of record and later updates
+ * gone through here, ChordWave *is* the installer of record and later updates
  * need no tap at all.
  */
 object SelfUpdate {
@@ -75,7 +75,7 @@ object SelfUpdate {
         return hash
     }
 
-    private fun incoming(context: Context) = File(context.cacheDir, "update/BitChord.apk")
+    private fun incoming(context: Context) = File(context.cacheDir, "update/ChordWave.apk")
 
     /**
      * A newer APK arriving on [P.PATH_APK].

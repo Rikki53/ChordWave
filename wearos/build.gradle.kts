@@ -54,11 +54,11 @@ android {
         create("dev") {
             dimension = "env"
             applicationId = "com.riki.chordwave.dev"
-            resValue("string", "app_name", "BitChord Dev")
+            resValue("string", "app_name", "ChordWave Dev")
         }
         create("prod") {
             dimension = "env"
-            resValue("string", "app_name", "BitChord")
+            resValue("string", "app_name", "ChordWave")
         }
     }
 

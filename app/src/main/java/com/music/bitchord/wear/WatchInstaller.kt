@@ -227,7 +227,7 @@ object WatchInstaller {
     private fun bundledApk(app: Context): File {
         val target = File(app.cacheDir, "wear/ChordWaveWear.apk")
         val hash = bundledHash(app)
-        val stamp = File(target.parentFile, "BitChordWear.sha256")
+        val stamp = File(target.parentFile, "ChordWaveWear.sha256")
         if (target.exists() && stamp.exists() && stamp.readText() == hash) return target
         target.parentFile?.mkdirs()
         app.assets.open(APK_ASSET).use { input -> target.outputStream().use { input.copyTo(it) } }

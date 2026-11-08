@@ -88,7 +88,7 @@ enum class Link {
     /** Looking for the phone, or waiting on its first answer. */
     Connecting,
 
-    /** No reachable phone with this build of BitChord on it. */
+    /** No reachable phone with this build of ChordWave on it. */
     NoPhone,
 
     Connected,
