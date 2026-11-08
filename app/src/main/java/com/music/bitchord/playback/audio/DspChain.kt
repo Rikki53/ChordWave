@@ -6,6 +6,7 @@ import com.music.bitchord.playback.EqualizerProcessor
 import com.music.bitchord.playback.LoudnessProcessor
 import com.music.bitchord.playback.SpatialAudioProcessor
 import com.music.bitchord.playback.TransitionFilterProcessor
+import com.music.bitchord.karaoke.ai.StemMixProcessor
 
 /**
  * Composite DSP chain executing BitChord's custom audio processors in their canonical sequence:
@@ -37,6 +38,7 @@ class DspChain(
     val transition: TransitionFilterProcessor = TransitionFilterProcessor(),
     val loudness: LoudnessProcessor = LoudnessProcessor(),
     val karaoke: KaraokeProcessor = KaraokeProcessor(),
+    val stemMix: StemMixProcessor = StemMixProcessor(),
 ) : FloatAudioProcessor {
 
     private var currentSampleRate: Int = 0
@@ -45,6 +47,7 @@ class DspChain(
     override fun configure(sampleRate: Int, channelCount: Int) {
         this.currentSampleRate = sampleRate
         karaoke.configure(sampleRate, channelCount)
+        stemMix.configure(sampleRate, channelCount)
         spatial.configure(sampleRate, channelCount)
         equalizer.configure(sampleRate, channelCount)
         transition.configure(sampleRate, channelCount)
@@ -83,6 +86,9 @@ class DspChain(
         // has to happen before the spatial stage can smear the centre into
         // the sides. Self-bypasses at full vocal — see [KaraokeProcessor].
         karaoke.process(block)
+        // AI mode: the block is the instrumental stem; add the vocal stem
+        // back at the slider's level. Self-bypasses outside mode AI.
+        stemMix.process(block)
         spatial.process(block)
         equalizer.process(block)
         transition.process(block)
@@ -95,6 +101,7 @@ class DspChain(
     @Suppress("DEPRECATION")
     override fun flush() {
         karaoke.flush()
+        stemMix.flush()
         spatial.flush()
         equalizer.flush()
         transition.flush()
@@ -104,6 +111,7 @@ class DspChain(
     override fun reset() {
         processCounter = 0L
         karaoke.reset()
+        stemMix.reset()
         spatial.reset()
         equalizer.reset()
         transition.reset()

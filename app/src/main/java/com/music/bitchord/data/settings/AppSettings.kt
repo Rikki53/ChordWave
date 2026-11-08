@@ -141,6 +141,8 @@ enum class AppFont { DEFAULT, LEGACY }
  * same curve, and summing them would mean a tone pad sitting at dead centre
  * still quietly altering whatever the sliders said.
  */
+enum class KaraokeMode { INSTANT, AI }
+
 enum class EqualizerMode {
     /** The tone pad: tilt, contour, and how wide each is. */
     DYNAMIC,
@@ -383,6 +385,9 @@ object AppSettings {
      * so it persists across sessions like the equaliser's bands do.
      */
     val karaokeVocalLevel = MutableStateFlow(1f)
+
+    /** Instant centre-cancel or AI stems — see KaraokeMode. */
+    val karaokeMode = MutableStateFlow(KaraokeMode.INSTANT)
 
     /**
      * The app's own equaliser, master switch.
@@ -1013,6 +1018,9 @@ object AppSettings {
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         karaokeEnabled.value = prefs.getBoolean(KEY_KARAOKE_ENABLED, false)
         karaokeVocalLevel.value = prefs.getFloat(KEY_KARAOKE_VOCAL_LEVEL, 1f).coerceIn(0f, 1f)
+        karaokeMode.value = runCatching {
+            KaraokeMode.valueOf(prefs.getString(KEY_KARAOKE_MODE, null) ?: KaraokeMode.INSTANT.name)
+        }.getOrDefault(KaraokeMode.INSTANT)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
             EqualizerMode.valueOf(prefs.getString(KEY_EQ_MODE, null) ?: EqualizerMode.DYNAMIC.name)
@@ -1341,6 +1349,11 @@ object AppSettings {
     fun setKaraokeEnabled(value: Boolean) {
         karaokeEnabled.value = value
         prefs.edit().putBoolean(KEY_KARAOKE_ENABLED, value).apply()
+    }
+
+    fun setKaraokeMode(value: KaraokeMode) {
+        karaokeMode.value = value
+        prefs.edit().putString(KEY_KARAOKE_MODE, value.name).apply()
     }
 
     fun setKaraokeVocalLevel(value: Float) {
@@ -2298,6 +2311,7 @@ object AppSettings {
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_KARAOKE_ENABLED = "karaoke_enabled"
     private const val KEY_KARAOKE_VOCAL_LEVEL = "karaoke_vocal_level"
+    private const val KEY_KARAOKE_MODE = "karaoke_mode"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"
     private const val KEY_EQ_TONE_X = "equalizer_tone_x"

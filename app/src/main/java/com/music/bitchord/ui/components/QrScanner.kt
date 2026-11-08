@@ -15,6 +15,11 @@ import com.journeyapps.barcodescanner.ScanOptions
  * half. The activity asks for the camera permission itself; a refusal
  * simply ends the scan, and every caller keeps its manual path, which is
  * the polite failure mode: nothing here is the only way in.
+ *
+ * Portrait: the app manifest redeclares CaptureActivity with
+ * android:screenOrientation="portrait" (the library default is
+ * sensorLandscape), and setOrientationLocked(true) below makes
+ * CaptureManager lock that portrait orientation when the scan starts.
  */
 @Composable
 fun rememberQrCodeScanner(onScanned: (String?) -> Unit): () -> Unit {
@@ -28,7 +33,7 @@ fun rememberQrCodeScanner(onScanned: (String?) -> Unit): () -> Unit {
                 setPrompt("")
                 setBeepEnabled(false)
                 setBarcodeImageEnabled(false)
-                setOrientationLocked(false)
+                setOrientationLocked(true)
             },
         )
     }

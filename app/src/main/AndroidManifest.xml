@@ -119,6 +119,22 @@
             android:resource="@xml/automotive_app_desc" />
 
         <!--
+          QR scanner (ZXing embedded, via ScanContract in QrScanner.kt):
+          the library manifest declares CaptureActivity as
+          sensorLandscape, which made the scanner open sideways on
+          phones. Redeclare it here as portrait; tools:replace is
+          required because the merger would otherwise keep the library
+          value. The other library attributes (theme, clearTaskOnLaunch,
+          stateNotNeeded, windowSoftInputMode) are left to merge in.
+          QrScanner also sets setOrientationLocked(true), so
+          CaptureManager locks the (now portrait) orientation at start.
+        -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="portrait"
+            tools:replace="android:screenOrientation" />
+
+        <!--
           No android:screenOrientation here, deliberately: the app follows the
           system's own auto-rotate setting on every device, phones included.
 
@@ -657,6 +673,12 @@
         -->
         <service
             android:name=".download.DownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- AI karaoke stem creation. Same shape as downloads: app-started only. -->
+        <service
+            android:name=".karaoke.ai.KaraokeAiService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

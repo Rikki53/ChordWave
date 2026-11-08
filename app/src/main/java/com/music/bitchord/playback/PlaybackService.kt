@@ -82,6 +82,9 @@ import com.music.bitchord.playback.cast.RemoteSpeaker
 import com.music.bitchord.playback.cast.Speakers
 import com.music.bitchord.playback.cast.CastStream
 import com.music.bitchord.playback.audio.KaraokeProcessor
+import com.music.bitchord.data.settings.KaraokeMode
+import com.music.bitchord.karaoke.ai.KaraokeAi
+import com.music.bitchord.karaoke.ai.StemMixProcessor
 import com.music.bitchord.playback.audio.PrecisionAudioSink
 import com.music.bitchord.playback.dsd.DsdExtractorsFactory
 import com.music.bitchord.playback.audio.DirectAudioProbe
@@ -616,6 +619,18 @@ class PlaybackService : MediaLibraryService() {
     /** Karaoke vocal suppression, one per player like the other stages. */
     private val karaokeProcessorA = KaraokeProcessor()
     private val karaokeProcessorB = KaraokeProcessor()
+
+    /** AI stem mixing, one per player; position clock bound to the live player. */
+    private val stemMixProcessorA = StemMixProcessor().apply {
+        bindPositionProvider { sr -> (player?.currentPosition ?: 0L) * sr / 1000L }
+    }
+    private val stemMixProcessorB = StemMixProcessor().apply {
+        bindPositionProvider { sr -> (player?.currentPosition ?: 0L) * sr / 1000L }
+    }
+
+    /** The item AI mode swapped away from, so turning AI off restores it. */
+    private var aiSwappedMediaId: String? = null
+    private var aiOriginalItem: MediaItem? = null
     private var loudnessRetryJob: Job? = null
 
     /** The platform audio session currently advertised to system audio tools. */
@@ -1768,6 +1783,7 @@ class PlaybackService : MediaLibraryService() {
             transitionFilterA,
             loudnessA,
             karaokeProcessorA,
+            stemMixProcessorA,
             ownsSession = true,
         )
         val sparePlayer = buildPlayer(
@@ -1776,6 +1792,7 @@ class PlaybackService : MediaLibraryService() {
             transitionFilterB,
             loudnessB,
             karaokeProcessorB,
+            stemMixProcessorB,
             ownsSession = false,
         )
         player = exoPlayer
@@ -3465,9 +3482,10 @@ class PlaybackService : MediaLibraryService() {
         filter: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
         karaoke: KaraokeProcessor,
+        stemMix: StemMixProcessor,
         ownsSession: Boolean,
     ): ExoPlayer = ExoPlayer.Builder(this)
-        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness, karaoke))
+        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness, karaoke, stemMix))
         .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
         .setLoadControl(farBufferingLoadControl())
         .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
@@ -3679,6 +3697,7 @@ class PlaybackService : MediaLibraryService() {
         // is precisely what carries the applied gain across the swap.
         setupLoudness(mediaItem?.mediaId)
         scheduleLoudnessRetry(mediaItem?.mediaId)
+        scope.launch { applyKaraoke() }
 
         // Keep a real, bounded history in the player rather than merely hiding
         // old rows in Compose. MediaController mirrors the playlist across the
@@ -6805,6 +6824,7 @@ class PlaybackService : MediaLibraryService() {
         transition: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
         karaoke: KaraokeProcessor,
+        stemMix: StemMixProcessor,
     ) = object : FfmpegFallbackRenderersFactory(this) {
         init {
             // Do not force PCM_FLOAT onto an OEM speaker mixer merely because
@@ -6885,7 +6905,7 @@ class PlaybackService : MediaLibraryService() {
             // them for the same reason: it belongs to the listener and
             // the whole session, while the transition filter belongs to
             // one handoff and has to have the last word on it.
-            val dspChain = DspChain(spatial, equalizer, transition, loudness, karaoke)
+            val dspChain = DspChain(spatial, equalizer, transition, loudness, karaoke, stemMix)
             val precision = PrecisionAudioSink(
                 delegate = defaultSink,
                 dspChain = dspChain,
@@ -7135,6 +7155,7 @@ class PlaybackService : MediaLibraryService() {
             transitionFilterA,
             loudnessA,
             karaokeProcessorA,
+            stemMixProcessorA,
             ownsSession = true,
         )
         val newSpare = buildPlayer(
@@ -7143,6 +7164,7 @@ class PlaybackService : MediaLibraryService() {
             transitionFilterB,
             loudnessB,
             karaokeProcessorB,
+            stemMixProcessorB,
             ownsSession = false,
         )
         player = newActive
@@ -7374,18 +7396,83 @@ class PlaybackService : MediaLibraryService() {
             combine<Any, Unit>(
                 AppSettings.karaokeEnabled,
                 AppSettings.karaokeVocalLevel,
+                AppSettings.karaokeMode,
             ) { }.collect { applyKaraoke() }
+        }
+        scope.launch {
+            // A stem finishing for the song on air swaps it in.
+            KaraokeAi.job.collect { if (it?.done == true) applyKaraoke() }
         }
     }
 
-    /** Hands the karaoke switch and vocal slider to both players' processors. */
+    /** Hands the karaoke switch, mode and vocal slider to both players. */
     private fun applyKaraoke() {
         val enabled = AppSettings.karaokeEnabled.value
         val level = AppSettings.karaokeVocalLevel.value
-        karaokeProcessorA.enabled = enabled
+        val ai = enabled && AppSettings.karaokeMode.value == KaraokeMode.AI
+        // Instant centre-cancel must never stack on top of AI stems.
+        karaokeProcessorA.enabled = enabled && !ai
         karaokeProcessorA.vocalLevel = level
-        karaokeProcessorB.enabled = enabled
+        karaokeProcessorB.enabled = enabled && !ai
         karaokeProcessorB.vocalLevel = level
+        stemMixProcessorA.enabled = ai
+        stemMixProcessorA.vocalLevel = level
+        stemMixProcessorB.enabled = ai
+        stemMixProcessorB.vocalLevel = level
+        applyKaraokeAiSource()
+    }
+
+    /**
+     * Mode AI source swap: while AI karaoke is on and the current song has
+     * stems, the player plays the instrumental file (same mediaId and
+     * metadata, queue and position untouched) and [StemMixProcessor] adds
+     * the vocal stem back at the slider level. Turning AI off — or moving
+     * to a song without stems — restores the original item the same way.
+     * The swap rides [swappingMediaId], the quality-upgrade guard, so it
+     * is not booked as a new track.
+     */
+    private fun applyKaraokeAiSource() {
+        val p = player ?: return
+        val item = p.currentMediaItem ?: return
+        val mid = item.mediaId
+        if (aiSwappedMediaId != null && aiSwappedMediaId != mid) {
+            aiSwappedMediaId = null
+            aiOriginalItem = null
+        }
+        val want = AppSettings.karaokeEnabled.value &&
+            AppSettings.karaokeMode.value == KaraokeMode.AI &&
+            KaraokeAi.hasStem(this, mid)
+        val instUri = android.net.Uri.fromFile(KaraokeAi.instFile(this, mid)).toString()
+        val curUri = item.localConfiguration?.uri?.toString()
+        if (want && curUri != instUri) {
+            if (aiSwappedMediaId != mid) aiOriginalItem = item
+            aiSwappedMediaId = mid
+            swappingMediaId = mid
+            val pos = p.currentPosition
+            val idx = p.currentMediaItemIndex
+            val pwr = p.playWhenReady
+            p.replaceMediaItem(idx, item.buildUpon().setUri(instUri).build())
+            p.seekTo(idx, pos)
+            p.prepare()
+            p.playWhenReady = pwr
+        } else if (!want && aiSwappedMediaId == mid && curUri == instUri) {
+            val orig = aiOriginalItem
+            aiSwappedMediaId = null
+            aiOriginalItem = null
+            if (orig != null) {
+                swappingMediaId = mid
+                val pos = p.currentPosition
+                val idx = p.currentMediaItemIndex
+                val pwr = p.playWhenReady
+                p.replaceMediaItem(idx, orig)
+                p.seekTo(idx, pos)
+                p.prepare()
+                p.playWhenReady = pwr
+            }
+        }
+        val vocal = if (want) KaraokeAi.vocalFile(this, mid) else null
+        stemMixProcessorA.setVocalFile(vocal)
+        stemMixProcessorB.setVocalFile(vocal)
     }
 
     /**

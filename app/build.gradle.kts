@@ -420,7 +420,7 @@ dependencies {
     // The full android artifact, not onnxruntime-mobile: mobile only loads .ort
     // files, which would put an offline conversion step between the model and
     // the app for a saving that does not matter in a self-distributed APK.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.1")
 
     // ---- Casting: Google Cast sender + the route discovery it sits on ----
     // The framework and the router only. media3-cast is left out on purpose:
@@ -450,6 +450,10 @@ dependencies {
     implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
 
     testImplementation("junit:junit:4.13.2")
+    // Desktop ONNX Runtime for the JVM parity test (MdxParityTest): the same
+    // ai.onnxruntime API as the Android artifact above, at the same version,
+    // with the x86_64 Linux native the Dell build box needs.
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.31.1")
     // A real HTTP server for the addon tests. The addon protocol is entirely
     // "what does this app send, and what does it do with what comes back", and
     // a hand-rolled fake of the client would be a test of the fake. Pinned to

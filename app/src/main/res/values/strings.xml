@@ -1348,6 +1348,15 @@
     <string name="karaoke">Karaoke</string>
     <string name="karaoke_subtitle">Turn the singer down and take the stage</string>
     <string name="karaoke_vocal_volume">Vocal volume</string>
+    <string name="karaoke_mode_instant">Instan</string>
+    <string name="karaoke_mode_ai">AI</string>
+    <string name="karaoke_ai_create">Buat versi karaoke (AI)</string>
+    <string name="karaoke_ai_ready">Versi karaoke AI siap</string>
+    <string name="karaoke_ai_not_ready">Stem AI lagu ini belum dibuat — mode AI tidak mengubah suara sampai stem dibuat.</string>
+    <string name="karaoke_ai_no_song">Tidak ada lagu yang sedang dipilih/diputar.</string>
+    <string name="karaoke_ai_delete">Hapus stem lagu ini</string>
+    <string name="karaoke_ai_clear_all">Bersihkan semua cache karaoke AI</string>
+    <string name="karaoke_ai_cancel">Batal</string>
     <string name="karaoke_footer">Karaoke turns down whatever is mixed in the centre of the stereo image — usually the lead vocal, but also kick drum and bass. It is not AI separation: a mono recording has nothing to separate and will simply go quiet.</string>
     <string name="karaoke_remote_title">TV Karaoke Remote</string>
     <string name="karaoke_remote_subtitle">Drive the TV\'s karaoke from this phone</string>
