@@ -5,10 +5,10 @@ const PLATFORMS = {
     shotClass: "device-phone",
     thumbClass: "is-portrait",
     shots: [
-      { src: "assets/shot-phone-home.webp", label: "Beranda", sub: "Rekomendasi & pilihan cepat" },
-      { src: "assets/shot-phone-player.webp", label: "Music Player", sub: "Sampul besar, warna album" },
-      { src: "assets/shot-phone-lyrics.webp", label: "Lirik", sub: "Tersinkron baris demi baris" },
-      { src: "assets/shot-phone-download.webp", label: "Download", sub: "Koleksi offline siap putar" }
+      { src: "assets/shot-phone-home.webp?v=20261108-2", label: "Beranda", sub: "Rekomendasi & pilihan cepat" },
+      { src: "assets/shot-phone-player.webp?v=20261108-2", label: "Music Player", sub: "Sampul besar, warna album" },
+      { src: "assets/shot-phone-lyrics.webp?v=20261108-2", label: "Lirik", sub: "Tersinkron baris demi baris" },
+      { src: "assets/shot-phone-download.webp?v=20261108-2", label: "Download", sub: "Koleksi offline siap putar" }
     ]
   },
   tv: {
@@ -17,9 +17,9 @@ const PLATFORMS = {
     shotClass: "device-tv",
     thumbClass: "",
     shots: [
-      { src: "assets/shot-tv-home.webp", label: "Beranda TV", sub: "Album, single & video musik" },
-      { src: "assets/shot-tv-nowplaying.webp", label: "Now Playing", sub: "Tampilan pemutar layar besar" },
-      { src: "assets/shot-tv-search.webp", label: "Pencarian", sub: "Lagu, album, artis & playlist" }
+      { src: "assets/shot-tv-home.webp?v=20261108-2", label: "Beranda TV", sub: "Album, single & video musik" },
+      { src: "assets/shot-tv-nowplaying.webp?v=20261108-2", label: "Now Playing", sub: "Tampilan pemutar layar besar" },
+      { src: "assets/shot-tv-search.webp?v=20261108-2", label: "Pencarian", sub: "Lagu, album, artis & playlist" }
     ]
   },
   wear: {
@@ -28,7 +28,7 @@ const PLATFORMS = {
     shotClass: "device-wear",
     thumbClass: "is-round",
     shots: [
-      { src: "assets/shot-wear-main.webp", label: "Layar utama", sub: "Kendali musik di jam tangan" }
+      { src: "assets/shot-wear-main.webp?v=20261108-2", label: "Layar utama", sub: "Kendali musik di jam tangan" }
     ]
   }
 };
