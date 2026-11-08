@@ -1,5 +1,5 @@
 // ChordWave — galeri platform (tab + thumbnail). Data statis, tanpa pelacak.
-const REL = "https://github.com/Rikki53/ChordWave/releases/download/v1.3.0/";
+const REL = "https://github.com/Rikki53/ChordWave/releases/download/v1.3.1/";
 
 const PLATFORMS = {
   phone: {
@@ -7,8 +7,8 @@ const PLATFORMS = {
     desc: "Beranda personal, radio, dan pemutar penuh — semua dalam genggaman.",
     shotClass: "shot-phone",
     thumbClass: "portrait",
-    download: REL + "ChordWave-v1.3.0_arm64-v8a.apk",
-    downloadLabel: "Unduh ChordWave v1.3.0 — HP",
+    download: REL + "ChordWave-v1.3.1_arm64-v8a.apk",
+    downloadLabel: "Unduh ChordWave v1.3.1 — HP",
     shots: [
       { src: "assets/shot-phone-home.webp",     label: "Beranda",     sub: "Rekomendasi & pilihan cepat" },
       { src: "assets/shot-phone-player.webp",   label: "Music Player", sub: "Sampul besar, latar mengikuti warna album" },
@@ -21,8 +21,8 @@ const PLATFORMS = {
     desc: "Dirancang untuk layar besar dan remote: huruf lega, navigasi arah yang jelas, dan Now Playing sinematik.",
     shotClass: "shot-tv",
     thumbClass: "",
-    download: REL + "ChordWaveTV-v1.3.0.apk",
-    downloadLabel: "Unduh ChordWave TV v1.3.0",
+    download: REL + "ChordWaveTV-v1.3.1.apk",
+    downloadLabel: "Unduh ChordWave TV v1.3.1",
     shots: [
       { src: "assets/shot-tv-home.webp",       label: "Beranda TV",   sub: "Album, single & video musik" },
       { src: "assets/shot-tv-nowplaying.webp", label: "Now Playing",  sub: "Latar aurora mengikuti sampul lagu" },
@@ -34,7 +34,7 @@ const PLATFORMS = {
     desc: "Kendali musik dari pergelangan tangan: putar, jeda, lanjut — tanpa meraih HP.",
     shotClass: "shot-wear",
     thumbClass: "round",
-    download: REL + "ChordWave-v1.3.0_arm64-v8a.apk",
+    download: REL + "ChordWave-v1.3.1_arm64-v8a.apk",
     downloadLabel: "Pasang lewat aplikasi HP",
     shots: [
       { src: "assets/shot-wear-main.webp",   label: "Layar utama", sub: "Menunggu sambungan HP — kendali putar tampil begitu terhubung" }
