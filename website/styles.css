@@ -1,0 +1,361 @@
+/* ChordWave — situs rilis. Patokan: DESIGN.md */
+:root{
+  --ink:#0A0A0E;
+  --panel:#13131A;
+  --panel-2:#1A1A23;
+  --paper:#F2F2ED;
+  --muted:#9B9BA6;
+  --mint:#3CE8B5;
+  --mint-dark:#0E3B2E;
+  --line:rgba(242,242,237,.08);
+  --radius:20px;
+  --shadow:0 24px 60px rgba(0,0,0,.45);
+  --font:"Plus Jakarta Sans",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font);
+  background:var(--ink);
+  color:var(--paper);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+.wrap{width:min(1180px,100% - 48px);margin-inline:auto}
+
+/* ---------- Nav ---------- */
+.nav{
+  position:sticky;top:0;z-index:50;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  background:rgba(10,10,14,.72);
+  border-bottom:1px solid var(--line);
+}
+.nav-in{display:flex;align-items:center;gap:32px;height:68px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:1.15rem;letter-spacing:-.01em}
+.brand img{width:34px;height:34px;border-radius:9px}
+.nav-links{display:flex;gap:28px;margin-left:auto;color:var(--muted);font-size:.95rem;font-weight:600}
+.nav-links a{transition:color .16s ease}
+.nav-links a:hover{color:var(--paper)}
+.btn{
+  display:inline-flex;align-items:center;gap:9px;
+  font-weight:700;font-size:.95rem;line-height:1;
+  padding:14px 24px;border-radius:999px;border:1px solid transparent;
+  transition:transform .16s ease,background .16s ease,border-color .16s ease;
+  cursor:pointer;white-space:nowrap;
+}
+.btn svg{width:17px;height:17px;flex:none}
+.btn-mint{background:var(--mint);color:#06231A}
+.btn-mint:hover{background:#5BF0C6;transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--paper);border-color:rgba(242,242,237,.22)}
+.btn-ghost:hover{border-color:var(--mint);color:var(--mint)}
+.nav .btn{margin-left:8px;padding:11px 20px}
+
+/* ---------- Hero ---------- */
+.hero{position:relative;padding:88px 0 96px;overflow:hidden}
+.hero::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(560px 380px at 82% 18%,rgba(60,232,181,.13),transparent 65%),
+    radial-gradient(700px 500px at 8% 88%,rgba(43,182,155,.08),transparent 65%);
+}
+.hero-grid{position:relative;display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:.78rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--mint);
+  border:1px solid rgba(60,232,181,.35);border-radius:999px;padding:8px 16px;margin-bottom:26px;
+}
+.eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--mint);flex:none}
+.hero h1{
+  font-size:clamp(2.7rem,6.2vw,4.9rem);font-weight:800;
+  letter-spacing:-.02em;line-height:1.02;margin-bottom:22px;
+}
+.hero h1 em{font-style:normal;color:var(--mint)}
+.hero p.lead{font-size:1.13rem;color:var(--muted);max-width:34rem;margin-bottom:34px}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:44px}
+.hero-stats{display:flex;gap:0;border-top:1px solid var(--line);padding-top:26px;max-width:32rem}
+.stat{padding-right:28px;margin-right:28px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:0;margin-right:0;padding-right:0}
+.stat b{display:block;font-size:1.35rem;font-weight:800;letter-spacing:-.01em}
+.stat span{font-size:.83rem;color:var(--muted)}
+
+.hero-visual{position:relative}
+.frame-tv{
+  border-radius:var(--radius);overflow:hidden;border:1px solid rgba(242,242,237,.12);
+  box-shadow:var(--shadow);background:var(--panel);
+}
+.frame-tv img{width:100%;aspect-ratio:16/9;object-fit:cover}
+.frame-phone{
+  position:absolute;left:-38px;bottom:-46px;width:172px;
+  border-radius:26px;overflow:hidden;border:1px solid rgba(242,242,237,.16);
+  box-shadow:var(--shadow);background:var(--panel);
+}
+.frame-phone img{width:100%;aspect-ratio:9/19.2;object-fit:cover;object-position:top}
+.hero-chip{
+  position:absolute;right:18px;top:-22px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:999px;
+  padding:9px 16px;font-size:.82rem;font-weight:700;display:flex;gap:8px;align-items:center;
+  box-shadow:0 12px 32px rgba(0,0,0,.4);
+}
+.hero-chip i{width:8px;height:8px;border-radius:50%;background:var(--mint)}
+
+/* ---------- Seksi umum ---------- */
+section{padding:96px 0}
+.sec-head{max-width:44rem;margin-bottom:48px}
+.sec-label{font-size:.78rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--mint);margin-bottom:14px}
+.sec-head h2{font-size:clamp(1.9rem,3.6vw,2.7rem);font-weight:800;letter-spacing:-.02em;line-height:1.12;margin-bottom:14px}
+.sec-head p{color:var(--muted);font-size:1.05rem}
+
+/* ---------- Platform ---------- */
+#platform{background:linear-gradient(180deg,transparent,rgba(255,255,255,.014) 18%,rgba(255,255,255,.014) 82%,transparent)}
+.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:30px}
+.tab{
+  font-family:var(--font);font-size:.95rem;font-weight:700;color:var(--muted);
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:12px 22px;cursor:pointer;display:inline-flex;align-items:center;gap:9px;
+  transition:color .16s ease,background .16s ease,border-color .16s ease;
+}
+.tab svg{width:17px;height:17px}
+.tab:hover{color:var(--paper)}
+.tab.active{background:var(--mint);color:#06231A;border-color:var(--mint)}
+.stage{display:grid;grid-template-columns:1.55fr .45fr;gap:28px;align-items:start}
+.stage-main{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:34px;display:flex;align-items:center;justify-content:center;min-height:480px;
+}
+.stage-main figure{transition:opacity .18s ease}
+.stage-main figure.fading{opacity:0}
+.shot-tv{width:100%;border-radius:12px;overflow:hidden;border:1px solid rgba(242,242,237,.1)}
+.shot-tv img{width:100%;aspect-ratio:16/9;object-fit:cover}
+.shot-phone{width:min(264px,72vw);border-radius:30px;overflow:hidden;border:1px solid rgba(242,242,237,.14);box-shadow:var(--shadow)}
+.shot-phone img{width:100%;aspect-ratio:9/19.2;object-fit:cover;object-position:top}
+.shot-wear{width:min(300px,74vw);aspect-ratio:1;border-radius:50%;overflow:hidden;border:1px solid rgba(242,242,237,.14);box-shadow:var(--shadow)}
+.shot-wear img{width:100%;height:100%;object-fit:cover}
+.stage-side h3{font-size:1.45rem;font-weight:800;letter-spacing:-.01em;margin-bottom:10px}
+.stage-side>p{color:var(--muted);margin-bottom:22px}
+.thumbs{display:grid;gap:10px}
+.thumb{
+  display:flex;align-items:center;gap:13px;text-align:left;width:100%;
+  font-family:var(--font);color:var(--paper);cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;
+  transition:border-color .16s ease,background .16s ease;
+}
+.thumb:hover{background:var(--panel-2)}
+.thumb.active{border-color:var(--mint)}
+.thumb img{width:52px;height:38px;object-fit:cover;border-radius:8px;flex:none}
+.thumb.portrait img{width:30px;height:52px}
+.thumb.round img{border-radius:50%}
+.thumb b{display:block;font-size:.92rem;line-height:1.3}
+.thumb span{font-size:.8rem;color:var(--muted)}
+.stage-dl{margin-top:24px}
+
+/* ---------- Fitur bento ---------- */
+.bento{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:28px;overflow:hidden;position:relative;
+}
+.card h3{font-size:1.22rem;font-weight:800;letter-spacing:-.01em;margin-bottom:9px}
+.card p{color:var(--muted);font-size:.96rem}
+.card .ic{
+  width:44px;height:44px;border-radius:13px;background:var(--mint-dark);
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;
+}
+.card .ic svg{width:22px;height:22px;color:var(--mint)}
+.card.big{grid-column:span 2}
+.card.wide{grid-column:span 2}
+.card-photo{padding:0;display:flex;flex-direction:column}
+.card-photo .txt{padding:26px 28px}
+.card-photo img{width:100%;height:230px;object-fit:cover;object-position:top}
+
+/* ---------- Unduh ---------- */
+#unduh{position:relative;overflow:hidden}
+#unduh::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(640px 420px at 50% 0%,rgba(60,232,181,.09),transparent 65%);
+}
+.dl-list{position:relative;display:grid;gap:16px}
+.dl-row{
+  display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px 28px;
+}
+.dl-ic{width:52px;height:52px;border-radius:15px;background:var(--panel-2);display:flex;align-items:center;justify-content:center}
+.dl-ic svg{width:26px;height:26px;color:var(--mint)}
+.dl-row h3{font-size:1.18rem;font-weight:800}
+.dl-row p{color:var(--muted);font-size:.93rem}
+.dl-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.btn-small{padding:11px 18px;font-size:.88rem}
+.dl-note{position:relative;color:var(--muted);font-size:.9rem;margin-top:18px}
+.dl-note a{color:var(--mint);font-weight:600}
+
+/* ---------- Langkah pasang ---------- */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:28px}
+.step b.num{
+  display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;
+  background:var(--mint);color:#06231A;font-size:1rem;margin-bottom:16px;
+}
+.step h3{font-size:1.08rem;font-weight:800;margin-bottom:8px}
+.step p{color:var(--muted);font-size:.95rem}
+
+/* ---------- Footer ---------- */
+footer{border-top:1px solid var(--line);padding:52px 0 44px;color:var(--muted);font-size:.92rem}
+.foot{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}
+.foot .brand{color:var(--paper)}
+.foot nav{display:flex;gap:22px;flex-wrap:wrap}
+.foot nav a:hover{color:var(--mint)}
+.foot small{display:block;margin-top:26px;line-height:1.7}
+.foot a.src{color:var(--mint);font-weight:600}
+
+/* ---------- Tablet ---------- */
+@media (max-width:1023px){
+  .hero-grid{grid-template-columns:1fr;gap:64px}
+  .hero-visual{max-width:640px}
+  .frame-phone{left:auto;right:-14px;bottom:-40px;width:150px}
+  .stage{grid-template-columns:1fr}
+  .stage-main{min-height:0;padding:26px}
+  .thumbs{grid-template-columns:repeat(2,1fr)}
+  .bento{grid-template-columns:repeat(2,1fr)}
+  .steps{grid-template-columns:1fr 1fr}
+}
+/* ---------- Mobile ---------- */
+@media (max-width:639px){
+  .wrap{width:calc(100% - 36px)}
+  section{padding:64px 0}
+  .hero{padding:56px 0 72px}
+  .nav-links{display:none}
+  .nav .btn{margin-left:auto}
+  .hero-stats{flex-wrap:wrap;gap:18px}
+  .stat{padding-right:18px;margin-right:18px}
+  .frame-phone{width:118px;bottom:-30px}
+  .thumbs{grid-template-columns:1fr}
+  .bento{grid-template-columns:1fr}
+  .card.big,.card.wide{grid-column:span 1}
+  .steps{grid-template-columns:1fr}
+  .dl-row{grid-template-columns:1fr;gap:16px}
+  .dl-actions{justify-content:flex-start}
+  .stage-main{padding:18px}
+}
+
+/* ================================================================
+   GERAK & SUASANA — aurora hidup, paralaks, gelombang, reveal.
+   Semua animasi hanya transform/opacity; hormati reduced-motion.
+   ================================================================ */
+
+/* Lapisan aurora tetap di belakang semua konten */
+.bg-aurora{
+  position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;
+  filter:hue-rotate(calc(var(--sp,0)*22deg));
+  transform:translateY(calc(var(--sp,0)*-26px));
+}
+.bg-aurora i{position:absolute;border-radius:50%;filter:blur(72px);will-change:transform}
+.bg-aurora .a1{
+  width:58vw;height:58vw;left:-14vw;top:-20vh;
+  background:radial-gradient(circle,rgba(60,232,181,.16),transparent 65%);
+  animation:drift1 26s ease-in-out infinite alternate;
+}
+.bg-aurora .a2{
+  width:46vw;height:46vw;right:-12vw;top:24vh;
+  background:radial-gradient(circle,rgba(43,182,155,.12),transparent 65%);
+  animation:drift2 32s ease-in-out infinite alternate;
+}
+.bg-aurora .a3{
+  width:52vw;height:52vw;left:22vw;bottom:-26vh;
+  background:radial-gradient(circle,rgba(13,92,80,.20),transparent 65%);
+  animation:drift3 38s ease-in-out infinite alternate;
+}
+@keyframes drift1{to{transform:translate(6vw,5vh) scale(1.12)}}
+@keyframes drift2{to{transform:translate(-5vw,-6vh) scale(1.08)}}
+@keyframes drift3{to{transform:translate(-6vw,-4vh) scale(1.15)}}
+main,footer{position:relative;z-index:1}
+
+/* Bilah kemajuan gulir */
+.scroll-progress{
+  position:fixed;top:0;left:0;height:3px;z-index:60;
+  width:calc(var(--sp,0)*100%);
+  background:linear-gradient(90deg,var(--mint),#2BB39B);
+  border-radius:0 3px 3px 0;
+}
+
+/* Judul hero: teks gradien bergerak */
+.hero h1 em{
+  background:linear-gradient(92deg,var(--mint) 10%,#8CF5D6 38%,#2BB39B 62%,var(--mint) 92%);
+  background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  animation:gradSlide 7s ease-in-out infinite alternate;
+}
+@keyframes gradSlide{to{background-position:100% 0}}
+
+/* Chip hero: bar equalizer hidup menggantikan titik statis */
+.eq{display:inline-flex;align-items:flex-end;gap:2.5px;height:12px;flex:none}
+.hero-chip .eq i{
+  width:3px;height:100%;border-radius:2px;background:var(--mint);
+  transform-origin:bottom;animation:eqB 1.05s ease-in-out infinite;
+}
+.hero-chip .eq i:nth-child(1){transform:scaleY(.55)}
+.hero-chip .eq i:nth-child(2){animation-delay:.14s;transform:scaleY(.95)}
+.hero-chip .eq i:nth-child(3){animation-delay:.28s;transform:scaleY(.45)}
+.hero-chip .eq i:nth-child(4){animation-delay:.42s;transform:scaleY(.8)}
+@keyframes eqB{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+
+/* Gelombang animasi antar-seksi */
+.waves{position:relative;height:92px;overflow:hidden;z-index:1;margin-top:-34px}
+.waves svg{position:absolute;left:0;bottom:0;width:200%;height:100%;display:block}
+.waves .w-back path{fill:rgba(60,232,181,.07)}
+.waves .w-front path{fill:rgba(60,232,181,.12)}
+.waves .w-back{animation:waveSlide 22s linear infinite}
+.waves .w-front{animation:waveSlideR 13s linear infinite}
+@keyframes waveSlide{to{transform:translateX(-50%)}}
+@keyframes waveSlideR{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.waves-foot{margin-top:0;transform:scaleY(-1);opacity:.55}
+
+/* Reveal saat masuk layar (kelas .js dipasang skrip kecil di head) */
+.js [data-reveal]{
+  opacity:0;transform:translateY(26px);
+  transition:opacity .7s ease,transform .75s cubic-bezier(.22,.61,.21,1);
+  transition-delay:var(--d,0s);
+}
+.js [data-reveal].in{opacity:1;transform:none}
+
+/* Masuk hero: garis judul naik satu per satu */
+@media (prefers-reduced-motion: no-preference){
+  .hero h1 .line{display:block;overflow:hidden;padding-bottom:.09em;margin-bottom:-.09em}
+  .hero h1 .line>span{display:block;transform:translateY(108%);animation:lineUp .9s cubic-bezier(.22,.61,.21,1) forwards}
+  .hero h1 .line:nth-child(2)>span{animation-delay:.13s}
+  @keyframes lineUp{to{transform:none}}
+  .eyebrow{animation:fadeUp .8s .02s cubic-bezier(.22,.61,.21,1) both}
+  .hero p.lead{animation:fadeUp .8s .18s cubic-bezier(.22,.61,.21,1) both}
+  .hero-cta{animation:fadeUp .8s .28s cubic-bezier(.22,.61,.21,1) both}
+  .hero-stats{animation:fadeUp .8s .38s cubic-bezier(.22,.61,.21,1) both}
+  .hero-visual{animation:fadeUp 1s .22s cubic-bezier(.22,.61,.21,1) both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+}
+
+/* Matikan gerak bagi yang memintanya */
+@media (prefers-reduced-motion: reduce){
+  .bg-aurora i,.waves svg,.hero h1 em,.hero-chip .eq i{animation:none}
+  .js [data-reveal]{opacity:1;transform:none;transition:none}
+  .bg-aurora{filter:none;transform:none}
+}
+
+/* ---------- Perbaikan tumpukan di layar kecil ---------- */
+@media (max-width:1023px){
+  .frame-phone{right:0}
+}
+@media (max-width:639px){
+  .hero{padding-bottom:96px}
+  .hero-visual{margin-top:10px}
+  .hero-chip{
+    left:12px;right:auto;top:-18px;max-width:calc(100% - 24px);
+    font-size:.76rem;padding:8px 13px;white-space:nowrap;
+  }
+  .frame-phone{width:104px;bottom:-24px;right:8px;border-radius:20px}
+}
+
+/* Susunan tumpuk hero: chip di atas bingkai TV, HP di tengah */
+.frame-tv{position:relative;z-index:1}
+.frame-phone{z-index:2}
+.hero-chip{z-index:3}
