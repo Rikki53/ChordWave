@@ -50,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import com.music.bitchord.ui.components.IosSwitch
+import com.music.bitchord.ui.components.rememberQrCodeScanner
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -232,6 +233,55 @@ fun ListenTogetherScreen(
         }
     }
 
+    /**
+     * The third door in, beside a tapped link and six typed characters: the
+     * host's QR code, read by this phone's camera. Whatever it decodes to —
+     * an invite link, a custom server's invite page, or a bare code — lands
+     * in the same preview a typed code reaches, under the same server
+     * consent rule a tapped link follows.
+     */
+    val launchQrScanner = rememberQrCodeScanner { raw ->
+        if (raw == null) return@rememberQrCodeScanner
+        val parsed = JamInviteLink.parseInvite(raw)
+        val scannedCode: String?
+        val scannedServer: String?
+        if (parsed != null) {
+            scannedCode = parsed.code
+            scannedServer = parsed.serverUrl
+        } else {
+            // The strict parser only knows the official host's links. A
+            // custom server's invite page is <server>/invite/<CODE> — read
+            // that shape directly and keep the server it names.
+            val match = Regex("""/invite/([A-Za-z0-9]{${ListenTogether.CODE_LENGTH}})""").find(raw)
+            if (match != null) {
+                scannedCode = match.groupValues[1].uppercase()
+                scannedServer = raw.substring(0, match.range.first).trimEnd('/')
+            } else {
+                val cleaned = raw.filter(Char::isLetterOrDigit).uppercase()
+                if (cleaned.length == ListenTogether.CODE_LENGTH) {
+                    scannedCode = cleaned
+                    scannedServer = null
+                } else {
+                    scannedCode = null
+                    scannedServer = null
+                }
+            }
+        }
+        if (scannedCode == null) {
+            failure = context.getString(R.string.listen_together_scan_invalid)
+            return@rememberQrCodeScanner
+        }
+        codeInput = scannedCode
+        val activeServer = (ListenTogether.activePartyServerBase()
+            ?: ListenTogether.effectiveIdleServerBase()).trim().trimEnd('/')
+        val targetServer = scannedServer?.trim()?.trimEnd('/')
+        if (!targetServer.isNullOrBlank() && !targetServer.equals(activeServer, ignoreCase = true)) {
+            pendingServerSwitchInvite = scannedCode to targetServer
+        } else {
+            openPartyPreview(scannedCode, targetServer)
+        }
+    }
+
     // A membership outlives the process; the socket does not. Opening it when
     // the screen is looked at — rather than on every cold start — is what keeps
     // a feature nobody is currently using off the radio.
@@ -394,6 +444,7 @@ fun ListenTogetherScreen(
                     enabled = signedIn && ListenTogether.hasServer,
                     error = failure,
                     onSubmit = { openPartyPreview(codeInput, null) },
+                    onScanQr = { launchQrScanner() },
                 )
 
                 is PartySheet.Confirm -> JoinConfirmSheet(

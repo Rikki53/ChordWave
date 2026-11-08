@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Karaoke remote server on the LAN: NSD advertisement needs the
+         multicast lock. The TV serves; it never scans or records. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+
     <!-- Touch feedback. The system's own haptics switch is honoured on top of
          this, so granting it doesn't override a user who turned buzzing off. -->
     <uses-permission android:name="android.permission.VIBRATE" />

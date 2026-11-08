@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Radio
@@ -118,6 +119,7 @@ fun TvSongActionMenuDialog(
     onToggleLike: () -> Unit,
     onOpenAlbum: ((String) -> Unit)? = null,
     onOpenArtist: ((String) -> Unit)? = null,
+    onOpenKaraokeRemote: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -210,6 +212,15 @@ fun TvSongActionMenuDialog(
                     trailingIcon = Icons.AutoMirrored.Rounded.PlaylistAdd,
                     onClick = { sheet = SongSheet.Playlist },
                 )
+            }
+            if (onOpenKaraokeRemote != null) {
+                item {
+                    TvListRow(
+                        title = "Karaoke Remote (Phone)…",
+                        trailingIcon = Icons.Rounded.Mic,
+                        onClick = { onOpenKaraokeRemote() },
+                    )
+                }
             }
             item {
                 when {

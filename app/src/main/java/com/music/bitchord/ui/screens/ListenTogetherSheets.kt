@@ -25,7 +25,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -434,6 +436,7 @@ internal fun JoinPartySheet(
     enabled: Boolean,
     error: String?,
     onSubmit: () -> Unit,
+    onScanQr: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -464,6 +467,26 @@ internal fun JoinPartySheet(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+        }
+        if (onScanQr != null) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onScanQr,
+                enabled = enabled && !busy,
+                shape = RoundedCornerShape(percent = 50),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.QrCodeScanner,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.listen_together_scan_qr),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
         }
         SheetError(error)
         Spacer(Modifier.height(16.dp))

@@ -371,6 +371,20 @@ object AppSettings {
     val spatialAudio = MutableStateFlow(false)
 
     /**
+     * Karaoke mode: centre-channel vocal suppression in the DSP chain — see
+     * [com.music.bitchord.playback.audio.KaraokeProcessor]. Off by default;
+     * [karaokeVocalLevel] only has an audible effect while this is on.
+     */
+    val karaokeEnabled = MutableStateFlow(false)
+
+    /**
+     * How much of the centre (vocal) signal survives karaoke mode:
+     * 1 = the full original mix, 0 = maximum suppression. A slider position,
+     * so it persists across sessions like the equaliser's bands do.
+     */
+    val karaokeVocalLevel = MutableStateFlow(1f)
+
+    /**
      * The app's own equaliser, master switch.
      *
      * Separate from the system equaliser row beside it, which is still there and
@@ -997,6 +1011,8 @@ object AppSettings {
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, false)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
+        karaokeEnabled.value = prefs.getBoolean(KEY_KARAOKE_ENABLED, false)
+        karaokeVocalLevel.value = prefs.getFloat(KEY_KARAOKE_VOCAL_LEVEL, 1f).coerceIn(0f, 1f)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
             EqualizerMode.valueOf(prefs.getString(KEY_EQ_MODE, null) ?: EqualizerMode.DYNAMIC.name)
@@ -1320,6 +1336,17 @@ object AppSettings {
     fun setSpatialAudio(value: Boolean) {
         spatialAudio.value = value
         prefs.edit().putBoolean(KEY_SPATIAL_AUDIO, value).apply()
+    }
+
+    fun setKaraokeEnabled(value: Boolean) {
+        karaokeEnabled.value = value
+        prefs.edit().putBoolean(KEY_KARAOKE_ENABLED, value).apply()
+    }
+
+    fun setKaraokeVocalLevel(value: Float) {
+        val normalized = value.coerceIn(0f, 1f)
+        karaokeVocalLevel.value = normalized
+        prefs.edit().putFloat(KEY_KARAOKE_VOCAL_LEVEL, normalized).apply()
     }
 
     fun setEqualizerEnabled(value: Boolean) {
@@ -2269,6 +2296,8 @@ object AppSettings {
     private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_DIRECT_SOURCE_STREAM = "direct_source_stream"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
+    private const val KEY_KARAOKE_ENABLED = "karaoke_enabled"
+    private const val KEY_KARAOKE_VOCAL_LEVEL = "karaoke_vocal_level"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"
     private const val KEY_EQ_TONE_X = "equalizer_tone_x"

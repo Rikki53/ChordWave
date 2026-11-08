@@ -32,6 +32,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import com.music.bitchord.ui.components.IosSwitch
+import com.music.bitchord.ui.components.KaraokeSettingsGroup
+import com.music.bitchord.ui.screens.KaraokeRemoteDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -103,6 +105,8 @@ fun EqualizerScreen(
     val preset by AppSettings.equalizerPreset.collectAsStateWithLifecycle()
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
 
+    var karaokeRemoteOpen by remember { mutableStateOf(false) }
+
     val haptics = rememberHaptics()
 
     Column(
@@ -133,6 +137,16 @@ fun EqualizerScreen(
                     AppSettings.setEqualizerEnabled(!enabled)
                 },
             )
+        }
+
+        // Karaoke sits outside the dimming below on purpose: it is its own
+        // switch, not part of the equaliser's apparatus, and the TV remote's
+        // door has to stay tappable while the EQ is off.
+        KaraokeSettingsGroup(
+            onOpenRemote = { karaokeRemoteOpen = true },
+        )
+        if (karaokeRemoteOpen) {
+            KaraokeRemoteDialog(onDismiss = { karaokeRemoteOpen = false })
         }
 
         // Off, the whole apparatus below reads as unavailable rather than

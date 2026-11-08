@@ -36,6 +36,7 @@ class DspChain(
     val equalizer: EqualizerProcessor = EqualizerProcessor(),
     val transition: TransitionFilterProcessor = TransitionFilterProcessor(),
     val loudness: LoudnessProcessor = LoudnessProcessor(),
+    val karaoke: KaraokeProcessor = KaraokeProcessor(),
 ) : FloatAudioProcessor {
 
     private var currentSampleRate: Int = 0
@@ -43,6 +44,7 @@ class DspChain(
 
     override fun configure(sampleRate: Int, channelCount: Int) {
         this.currentSampleRate = sampleRate
+        karaoke.configure(sampleRate, channelCount)
         spatial.configure(sampleRate, channelCount)
         equalizer.configure(sampleRate, channelCount)
         transition.configure(sampleRate, channelCount)
@@ -77,6 +79,10 @@ class DspChain(
             }
         }
 
+        // Karaoke first, on the decoder's own stereo image: centre extraction
+        // has to happen before the spatial stage can smear the centre into
+        // the sides. Self-bypasses at full vocal — see [KaraokeProcessor].
+        karaoke.process(block)
         spatial.process(block)
         equalizer.process(block)
         transition.process(block)
@@ -88,6 +94,7 @@ class DspChain(
 
     @Suppress("DEPRECATION")
     override fun flush() {
+        karaoke.flush()
         spatial.flush()
         equalizer.flush()
         transition.flush()
@@ -96,6 +103,7 @@ class DspChain(
 
     override fun reset() {
         processCounter = 0L
+        karaoke.reset()
         spatial.reset()
         equalizer.reset()
         transition.reset()

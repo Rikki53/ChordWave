@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -96,6 +97,8 @@ fun TvEqualizerDialog(
     val enabled by AppSettings.equalizerEnabled.collectAsState()
     val currentPreset by AppSettings.equalizerPreset.collectAsState()
     val bands by AppSettings.equalizerBands.collectAsState()
+    val karaokeOn by AppSettings.karaokeEnabled.collectAsState()
+    val karaokeLevel by AppSettings.karaokeVocalLevel.collectAsState()
     var tab by remember { mutableStateOf(EqTab.BANDS) }
 
     val presets: List<Pair<EqualizerPreset, String>> = remember {
@@ -126,6 +129,35 @@ fun TvEqualizerDialog(
             modifier = Modifier.tvInitialFocus(),
             onClick = { AppSettings.setEqualizerEnabled(!enabled) },
         )
+        Spacer(modifier = Modifier.height(5.dp))
+        TvListRow(
+            title = "Karaoke",
+            value = if (karaokeOn) "On" else "Off",
+            onClick = { AppSettings.setKaraokeEnabled(!karaokeOn) },
+        )
+        if (karaokeOn) {
+            Spacer(modifier = Modifier.height(5.dp))
+            TvListRow(
+                title = "Vocal Volume",
+                value = "${(karaokeLevel * 100).roundToInt()}%",
+                subtitle = "Left and right set how much of the singer stays.",
+                modifier = Modifier.onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (event.nativeKeyEvent.keyCode) {
+                        KeyEvent.KEYCODE_DPAD_LEFT -> {
+                            AppSettings.setKaraokeVocalLevel((karaokeLevel - 0.05f).coerceIn(0f, 1f))
+                            true
+                        }
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            AppSettings.setKaraokeVocalLevel((karaokeLevel + 0.05f).coerceIn(0f, 1f))
+                            true
+                        }
+                        else -> false
+                    }
+                },
+                onClick = {},
+            )
+        }
         Spacer(modifier = Modifier.height(14.dp))
         TvSegmented(
             options = EqTab.entries.map { it.label },

@@ -12,6 +12,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Karaoke remote on the LAN (NSD discovery listens for multicast),
+         QR-code party join, and the phone-as-microphone stream. The camera
+         and microphone permissions are only ever *requested* at the moment
+         the matching feature is first used; everything else works without
+         them, and neither is declared required. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!-- Touch feedback. The system's own haptics switch is honoured on top of
          this, so granting it doesn't override a user who turned buzzing off. -->
     <uses-permission android:name="android.permission.VIBRATE" />

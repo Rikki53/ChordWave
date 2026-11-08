@@ -1343,4 +1343,34 @@
     <string name="radio_on_air">On air</string>
     <string name="radio_paused">Paused</string>
     <string name="radio_favourite">Favourite</string>
+    <string name="listen_together_scan_invalid">That QR code is not a Listen Together invite.</string>
+
+    <string name="karaoke">Karaoke</string>
+    <string name="karaoke_subtitle">Turn the singer down and take the stage</string>
+    <string name="karaoke_vocal_volume">Vocal volume</string>
+    <string name="karaoke_footer">Karaoke turns down whatever is mixed in the centre of the stereo image — usually the lead vocal, but also kick drum and bass. It is not AI separation: a mono recording has nothing to separate and will simply go quiet.</string>
+    <string name="karaoke_remote_title">TV Karaoke Remote</string>
+    <string name="karaoke_remote_subtitle">Drive the TV\'s karaoke from this phone</string>
+    <string name="karaoke_remote_heading">TV Karaoke Remote</string>
+    <string name="karaoke_remote_how">On the TV, open the player menu during karaoke and choose “Use phone as remote”. Then scan its QR code, or find the TV below and type the code it shows.</string>
+    <string name="karaoke_remote_scan">Scan the TV\'s QR code</string>
+    <string name="karaoke_remote_found_tvs">TVs on this network</string>
+    <string name="karaoke_remote_searching">Looking for TVs…</string>
+    <string name="karaoke_remote_code_hint">6-digit code from the TV</string>
+    <string name="karaoke_remote_connect">Connect</string>
+    <string name="karaoke_remote_connecting">Connecting…</string>
+    <string name="karaoke_remote_connected">Connected to the TV</string>
+    <string name="karaoke_remote_disconnect">Disconnect</string>
+    <string name="karaoke_remote_failed">Could not connect. Check the code and that both devices share a Wi-Fi network.</string>
+    <string name="karaoke_remote_bad_qr">That QR code is not a TV karaoke remote.</string>
+    <string name="karaoke_remote_now_playing">Now playing</string>
+    <string name="karaoke_remote_nothing">Nothing is playing on the TV.</string>
+    <string name="karaoke_remote_queue">Up next on the TV</string>
+    <string name="karaoke_remote_queue_empty">The TV queue is empty. Search below to add a song.</string>
+    <string name="karaoke_remote_search_hint">Search a song to add</string>
+    <string name="karaoke_remote_add">Add</string>
+    <string name="karaoke_remote_mic">Use this phone as the microphone</string>
+    <string name="karaoke_remote_mic_live">Microphone live — sing!</string>
+    <string name="karaoke_remote_mic_volume">Mic volume</string>
+    <string name="karaoke_remote_mic_permission">Microphone permission is needed to sing into the TV. You can still use the remote without it.</string>
 </resources>

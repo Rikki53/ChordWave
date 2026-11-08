@@ -81,6 +81,7 @@ import com.music.bitchord.playback.cast.CastSink
 import com.music.bitchord.playback.cast.RemoteSpeaker
 import com.music.bitchord.playback.cast.Speakers
 import com.music.bitchord.playback.cast.CastStream
+import com.music.bitchord.playback.audio.KaraokeProcessor
 import com.music.bitchord.playback.audio.PrecisionAudioSink
 import com.music.bitchord.playback.dsd.DsdExtractorsFactory
 import com.music.bitchord.playback.audio.DirectAudioProbe
@@ -611,6 +612,10 @@ class PlaybackService : MediaLibraryService() {
      */
     private val loudnessA = LoudnessProcessor().apply { gainFor = ::loudnessGainFor }
     private val loudnessB = LoudnessProcessor().apply { gainFor = ::loudnessGainFor }
+
+    /** Karaoke vocal suppression, one per player like the other stages. */
+    private val karaokeProcessorA = KaraokeProcessor()
+    private val karaokeProcessorB = KaraokeProcessor()
     private var loudnessRetryJob: Job? = null
 
     /** The platform audio session currently advertised to system audio tools. */
@@ -1762,6 +1767,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorA,
             transitionFilterA,
             loudnessA,
+            karaokeProcessorA,
             ownsSession = true,
         )
         val sparePlayer = buildPlayer(
@@ -1769,6 +1775,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorB,
             transitionFilterB,
             loudnessB,
+            karaokeProcessorB,
             ownsSession = false,
         )
         player = exoPlayer
@@ -3457,9 +3464,10 @@ class PlaybackService : MediaLibraryService() {
         equalizer: EqualizerProcessor,
         filter: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
+        karaoke: KaraokeProcessor,
         ownsSession: Boolean,
     ): ExoPlayer = ExoPlayer.Builder(this)
-        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness))
+        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness, karaoke))
         .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
         .setLoadControl(farBufferingLoadControl())
         .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
@@ -6796,6 +6804,7 @@ class PlaybackService : MediaLibraryService() {
         equalizer: EqualizerProcessor,
         transition: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
+        karaoke: KaraokeProcessor,
     ) = object : FfmpegFallbackRenderersFactory(this) {
         init {
             // Do not force PCM_FLOAT onto an OEM speaker mixer merely because
@@ -6876,7 +6885,7 @@ class PlaybackService : MediaLibraryService() {
             // them for the same reason: it belongs to the listener and
             // the whole session, while the transition filter belongs to
             // one handoff and has to have the last word on it.
-            val dspChain = DspChain(spatial, equalizer, transition, loudness)
+            val dspChain = DspChain(spatial, equalizer, transition, loudness, karaoke)
             val precision = PrecisionAudioSink(
                 delegate = defaultSink,
                 dspChain = dspChain,
@@ -7125,6 +7134,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorA,
             transitionFilterA,
             loudnessA,
+            karaokeProcessorA,
             ownsSession = true,
         )
         val newSpare = buildPlayer(
@@ -7132,6 +7142,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorB,
             transitionFilterB,
             loudnessB,
+            karaokeProcessorB,
             ownsSession = false,
         )
         player = newActive
@@ -7144,6 +7155,7 @@ class PlaybackService : MediaLibraryService() {
         newActive.shuffleModeEnabled = shuffleMode
         applyEqualizer()
         applySpatialAudioEnabled()
+        applyKaraoke()
         if (items.isNotEmpty()) {
             newActive.setMediaItems(items, index.coerceIn(items.indices), position)
             // By hand, because the listener is attached below this: the
@@ -7358,6 +7370,22 @@ class PlaybackService : MediaLibraryService() {
                 AppSettings.equalizerBands,
             ) { }.collect { applyEqualizer() }
         }
+        scope.launch {
+            combine<Any, Unit>(
+                AppSettings.karaokeEnabled,
+                AppSettings.karaokeVocalLevel,
+            ) { }.collect { applyKaraoke() }
+        }
+    }
+
+    /** Hands the karaoke switch and vocal slider to both players' processors. */
+    private fun applyKaraoke() {
+        val enabled = AppSettings.karaokeEnabled.value
+        val level = AppSettings.karaokeVocalLevel.value
+        karaokeProcessorA.enabled = enabled
+        karaokeProcessorA.vocalLevel = level
+        karaokeProcessorB.enabled = enabled
+        karaokeProcessorB.vocalLevel = level
     }
 
     /**

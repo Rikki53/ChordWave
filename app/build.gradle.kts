@@ -360,6 +360,9 @@ dependencies {
     // [com.music.bitchord.ui.components.QrCode], so the result is styled like
     // the rest of the app rather than a stock black-and-white bitmap.
     implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("org.java-websocket:Java-WebSocket:1.5.7")
+    implementation("org.slf4j:slf4j-api:2.0.9")
 
     // ---- Markdown rendering (release notes in the update dialog) ----
     // Pure Compose, not an AndroidView wrapper — needed so the text composes
