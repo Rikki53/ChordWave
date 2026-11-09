@@ -141,7 +141,7 @@ enum class AppFont { DEFAULT, LEGACY }
  * same curve, and summing them would mean a tone pad sitting at dead centre
  * still quietly altering whatever the sliders said.
  */
-enum class KaraokeMode { INSTANT, AI }
+enum class KaraokeMode { INSTANT, AI, YT }
 
 enum class EqualizerMode {
     /** The tone pad: tilt, contour, and how wide each is. */
@@ -1362,6 +1362,49 @@ object AppSettings {
         prefs.edit().putFloat(KEY_KARAOKE_VOCAL_LEVEL, normalized).apply()
     }
 
+    /** One remembered Karaoke YT pairing: the karaoke video a song maps to. */
+    data class KaraokeYtPairing(val videoId: String, val title: String)
+
+    /**
+     * The remembered Karaoke YT pairings, oldest first. Stored as one
+     * string of tab-separated lines (song id, karaoke video id, karaoke
+     * title) because a pairing is written whole and read whole — the same
+     * reason the stems keep their facts on disk rather than in a table.
+     */
+    private fun karaokeYtPairings(): LinkedHashMap<String, KaraokeYtPairing> {
+        val map = LinkedHashMap<String, KaraokeYtPairing>()
+        val raw = prefs.getString(KEY_KARAOKE_YT_PAIRS, null).orEmpty()
+        for (line in raw.split('\n')) {
+            val parts = line.split('\t')
+            if (parts.size >= 3 && parts[0].isNotBlank()) {
+                map[parts[0]] = KaraokeYtPairing(parts[1], parts[2])
+            }
+        }
+        return map
+    }
+
+    fun karaokeYtPairing(songId: String): KaraokeYtPairing? = karaokeYtPairings()[songId]
+
+    fun setKaraokeYtPairing(songId: String, videoId: String, title: String) {
+        val map = karaokeYtPairings()
+        map.remove(songId)
+        map[songId] = KaraokeYtPairing(
+            videoId,
+            title.replace('\t', ' ').replace('\n', ' '),
+        )
+        while (map.size > MAX_KARAOKE_YT_PAIRS) map.remove(map.keys.first())
+        val raw = map.entries.joinToString("\n") { (id, pairing) ->
+            "$id\t${pairing.videoId}\t${pairing.title}"
+        }
+        prefs.edit().putString(KEY_KARAOKE_YT_PAIRS, raw).apply()
+    }
+
+    fun karaokeYtPairingCount(): Int = karaokeYtPairings().size
+
+    fun clearKaraokeYtPairings() {
+        prefs.edit().remove(KEY_KARAOKE_YT_PAIRS).apply()
+    }
+
     fun setEqualizerEnabled(value: Boolean) {
         equalizerEnabled.value = value
         prefs.edit().putBoolean(KEY_EQ_ENABLED, value).apply()
@@ -2312,6 +2355,8 @@ object AppSettings {
     private const val KEY_KARAOKE_ENABLED = "karaoke_enabled"
     private const val KEY_KARAOKE_VOCAL_LEVEL = "karaoke_vocal_level"
     private const val KEY_KARAOKE_MODE = "karaoke_mode"
+    private const val KEY_KARAOKE_YT_PAIRS = "karaoke_yt_pairs"
+    private const val MAX_KARAOKE_YT_PAIRS = 200
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"
     private const val KEY_EQ_TONE_X = "equalizer_tone_x"

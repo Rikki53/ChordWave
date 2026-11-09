@@ -84,6 +84,7 @@ import com.music.bitchord.playback.cast.CastStream
 import com.music.bitchord.playback.audio.KaraokeProcessor
 import com.music.bitchord.data.settings.KaraokeMode
 import com.music.bitchord.karaoke.ai.KaraokeAi
+import com.music.bitchord.karaoke.yt.KaraokeYt
 import com.music.bitchord.karaoke.ai.StemMixProcessor
 import com.music.bitchord.playback.audio.PrecisionAudioSink
 import com.music.bitchord.playback.dsd.DsdExtractorsFactory
@@ -631,6 +632,17 @@ class PlaybackService : MediaLibraryService() {
     /** The item AI mode swapped away from, so turning AI off restores it. */
     private var aiSwappedMediaId: String? = null
     private var aiOriginalItem: MediaItem? = null
+
+    /** The item Karaoke YT mode swapped away from, and the twin it swapped to. */
+    private var ytSwappedMediaId: String? = null
+    private var ytSwappedKaraokeId: String? = null
+    private var ytOriginalItem: MediaItem? = null
+
+    /** The song a Karaoke YT candidate search is currently running for. */
+    private var ytSearchSongId: String? = null
+
+    /** Songs searched this session with no usable karaoke twin — no silent retries. */
+    private val ytNoResultSongs = HashSet<String>()
     private var loudnessRetryJob: Job? = null
 
     /** The platform audio session currently advertised to system audio tools. */
@@ -7403,23 +7415,42 @@ class PlaybackService : MediaLibraryService() {
             // A stem finishing for the song on air swaps it in.
             KaraokeAi.job.collect { if (it?.done == true) applyKaraoke() }
         }
+        scope.launch {
+            // A Karaoke YT decision made in the karaoke block — a pairing
+            // picked by hand, "Versi asli", the pairings cleared — is just
+            // a re-apply away from the player.
+            KaraokeYt.revision.collect { applyKaraoke() }
+        }
+        scope.launch {
+            // "Cari lagi" in the karaoke block: forget the miss, re-apply.
+            KaraokeYt.searchRequests.collect { songId ->
+                ytNoResultSongs.remove(songId)
+                if (player?.currentMediaItem?.mediaId == songId) applyKaraoke()
+            }
+        }
     }
 
     /** Hands the karaoke switch, mode and vocal slider to both players. */
     private fun applyKaraoke() {
         val enabled = AppSettings.karaokeEnabled.value
         val level = AppSettings.karaokeVocalLevel.value
-        val ai = enabled && AppSettings.karaokeMode.value == KaraokeMode.AI
-        // Instant centre-cancel must never stack on top of AI stems.
-        karaokeProcessorA.enabled = enabled && !ai
+        val mode = AppSettings.karaokeMode.value
+        val ai = enabled && mode == KaraokeMode.AI
+        // Centre-cancel is the Instant mode only, and must never stack on
+        // top of the other two: AI stems carry their own vocal to mix, and
+        // a Karaoke YT track is already vocal-free — running the centre
+        // cut over either would only eat their middle.
+        val instant = enabled && mode == KaraokeMode.INSTANT
+        karaokeProcessorA.enabled = instant
         karaokeProcessorA.vocalLevel = level
-        karaokeProcessorB.enabled = enabled && !ai
+        karaokeProcessorB.enabled = instant
         karaokeProcessorB.vocalLevel = level
         stemMixProcessorA.enabled = ai
         stemMixProcessorA.vocalLevel = level
         stemMixProcessorB.enabled = ai
         stemMixProcessorB.vocalLevel = level
         applyKaraokeAiSource()
+        applyKaraokeYtSource()
     }
 
     /**
@@ -7473,6 +7504,179 @@ class PlaybackService : MediaLibraryService() {
         val vocal = if (want) KaraokeAi.vocalFile(this, mid) else null
         stemMixProcessorA.setVocalFile(vocal)
         stemMixProcessorB.setVocalFile(vocal)
+    }
+
+    /**
+     * Mode Karaoke YT source swap: while Karaoke YT is on, the player
+     * plays the paired karaoke video's YouTube stream — the same mediaId
+     * and metadata, queue and position untouched, only the URI changes
+     * to a direct-YouTube rendition of the paired video (see
+     * [KaraokeYt]) — so the title, artwork and lyrics on screen stay the
+     * original song's. Choosing "Versi asli", switching the mode off, or
+     * clearing the pairings restores the stashed original item the same
+     * way. Like the AI swap, this rides [swappingMediaId].
+     *
+     * With no pairing yet, the first apply runs the candidate search. A
+     * hit is remembered ([AppSettings.setKaraokeYtPairing]) and swapped
+     * in; a miss is remembered for the session, so playback is never
+     * interrupted by repeat searches and the original simply plays —
+     * the honest fallback the mode promises.
+     */
+    private fun applyKaraokeYtSource() {
+        val p = player ?: return
+        val item = p.currentMediaItem ?: return
+        val mid = item.mediaId
+        if (ytSwappedMediaId != null && ytSwappedMediaId != mid) {
+            ytSwappedMediaId = null
+            ytSwappedKaraokeId = null
+            ytOriginalItem = null
+        }
+        val curUri = item.localConfiguration?.uri
+        val active = AppSettings.karaokeEnabled.value &&
+            AppSettings.karaokeMode.value == KaraokeMode.YT
+        val previous = KaraokeYt.state.value?.takeIf { it.songId == mid }
+        val pairing = if (active && !KaraokeYt.isOriginalOverride(mid)) {
+            AppSettings.karaokeYtPairing(mid)
+        } else null
+
+        if (pairing != null) {
+            if (curUri?.toString() != karaokeYtUri(pairing.videoId)) {
+                if (ytSwappedMediaId != mid) ytOriginalItem = item
+                ytSwappedMediaId = mid
+                ytSwappedKaraokeId = pairing.videoId
+                swappingMediaId = mid
+                val pos = p.currentPosition
+                val idx = p.currentMediaItemIndex
+                val pwr = p.playWhenReady
+                p.replaceMediaItem(
+                    idx,
+                    item.buildUpon().setUri(karaokeYtUri(pairing.videoId)).build(),
+                )
+                p.seekTo(idx, pos)
+                p.prepare()
+                p.playWhenReady = pwr
+            }
+            KaraokeYt.publish(
+                KaraokeYt.State(
+                    songId = mid,
+                    status = KaraokeYt.Status.KARAOKE,
+                    karaokeTitle = pairing.title,
+                    candidates = previous?.candidates.orEmpty(),
+                ),
+            )
+            return
+        }
+
+        // Not (or no longer) on the karaoke take: hand the original back.
+        if (ytSwappedMediaId == mid && curUri != null && isKaraokeYtUri(curUri)) {
+            val orig = ytOriginalItem
+            ytSwappedMediaId = null
+            ytSwappedKaraokeId = null
+            ytOriginalItem = null
+            if (orig != null) {
+                swappingMediaId = mid
+                val pos = p.currentPosition
+                val idx = p.currentMediaItemIndex
+                val pwr = p.playWhenReady
+                p.replaceMediaItem(idx, orig)
+                p.seekTo(idx, pos)
+                p.prepare()
+                p.playWhenReady = pwr
+            }
+        }
+        if (!active) return
+        if (KaraokeYt.isOriginalOverride(mid)) {
+            KaraokeYt.publish(
+                KaraokeYt.State(
+                    songId = mid,
+                    status = KaraokeYt.Status.ORIGINAL,
+                    candidates = previous?.candidates.orEmpty(),
+                ),
+            )
+            return
+        }
+        if (mid in ytNoResultSongs) {
+            KaraokeYt.publish(
+                KaraokeYt.State(
+                    songId = mid,
+                    status = KaraokeYt.Status.NOT_FOUND,
+                    candidates = previous?.candidates.orEmpty(),
+                ),
+            )
+            return
+        }
+        if (ytSearchSongId != null) {
+            if (ytSearchSongId == mid) {
+                KaraokeYt.publish(
+                    KaraokeYt.State(songId = mid, status = KaraokeYt.Status.SEARCHING),
+                )
+            }
+            return
+        }
+        if (!isPlainYouTubeItem(item)) return
+        val song = item.toSong()
+        // The queued row often carries no duration text; the player
+        // knows the original's real length, and the search scores
+        // against it so the duration window is enforced anyway.
+        val fallbackSec = p.duration
+            .takeIf { it > 0 }
+            ?.let { (it / 1000).toInt() }
+        ytSearchSongId = mid
+        KaraokeYt.publish(KaraokeYt.State(songId = mid, status = KaraokeYt.Status.SEARCHING))
+        scope.launch {
+            val candidates = withContext(Dispatchers.IO) {
+                runCatching { KaraokeYt.search(song, fallbackSec) }.getOrDefault(emptyList())
+            }
+            if (ytSearchSongId == mid) ytSearchSongId = null
+            if (player?.currentMediaItem?.mediaId != mid) {
+                // The listener moved on while the search ran: the result
+                // is stale — drop it, and let the song now on air resolve
+                // itself instead of pairing a song nobody is hearing.
+                applyKaraoke()
+                return@launch
+            }
+            val best = candidates.firstOrNull { it.autoPickable }
+            if (best != null) {
+                AppSettings.setKaraokeYtPairing(mid, best.videoId, best.title)
+                KaraokeYt.publish(
+                    KaraokeYt.State(
+                        songId = mid,
+                        status = KaraokeYt.Status.KARAOKE,
+                        karaokeTitle = best.title,
+                        candidates = candidates,
+                    ),
+                )
+                applyKaraokeYtSource()
+            } else {
+                ytNoResultSongs += mid
+                KaraokeYt.publish(
+                    KaraokeYt.State(
+                        songId = mid,
+                        status = KaraokeYt.Status.NOT_FOUND,
+                        candidates = candidates,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** The karaoke twin's rendition: exactly that video, from YouTube alone. */
+    private fun karaokeYtUri(karaokeVideoId: String): String =
+        "bitchord://watch?v=$karaokeVideoId&$DIRECT_YOUTUBE_PARAMETER=1&q=karaoke"
+
+    private fun isKaraokeYtUri(uri: android.net.Uri): Boolean =
+        uri.getQueryParameter(DIRECT_YOUTUBE_PARAMETER) == "1" &&
+            uri.getQueryParameter("q") == "karaoke"
+
+    /** A plain YouTube catalogue track — the only kind a karaoke twin can exist for. */
+    private fun isPlainYouTubeItem(item: MediaItem): Boolean {
+        val id = item.mediaId
+        if (id.startsWith("content://") || id.startsWith("file://") ||
+            id.startsWith("http://") || id.startsWith("https://")
+        ) return false
+        if (SourceRegistry.parseTrackKey(id) != null) return false
+        val uri = item.localConfiguration?.uri ?: return false
+        return uri.scheme == "bitchord"
     }
 
     /**

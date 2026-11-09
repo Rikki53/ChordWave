@@ -1,6 +1,9 @@
 package com.music.bitchord.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.SettingsRemote
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,6 +37,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.KaraokeMode
 import com.music.bitchord.karaoke.ai.KaraokeAi
 import com.music.bitchord.karaoke.ai.KaraokeAiService
+import com.music.bitchord.karaoke.yt.KaraokeYt
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.ui.screens.RowDivider
@@ -108,13 +114,26 @@ fun KaraokeSettingsGroup(
                     value = vocalLevel,
                     onValueChange = { AppSettings.setKaraokeVocalLevel(it) },
                     valueRange = 0f..1f,
+                    // In Karaoke YT mode there is no vocal stem to fade —
+                    // the track itself is the karaoke take. The slider
+                    // steps aside for the Versi asli / Versi karaoke
+                    // buttons in the section below.
+                    enabled = mode != KaraokeMode.YT,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (mode == KaraokeMode.YT) {
+                    Text(
+                        text = stringResource(R.string.karaoke_yt_slider_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(Modifier.height(2.dp))
                 PillSegmentedControl(
                     options = listOf(
                         stringResource(R.string.karaoke_mode_instant),
                         stringResource(R.string.karaoke_mode_ai),
+                        stringResource(R.string.karaoke_mode_yt),
                     ),
                     selectedIndex = KaraokeMode.entries.indexOf(mode),
                     onSelect = { AppSettings.setKaraokeMode(KaraokeMode.entries[it]) },
@@ -123,6 +142,10 @@ fun KaraokeSettingsGroup(
                 if (mode == KaraokeMode.AI) {
                     Spacer(Modifier.height(10.dp))
                     KaraokeAiSection()
+                }
+                if (mode == KaraokeMode.YT) {
+                    Spacer(Modifier.height(10.dp))
+                    KaraokeYtSection()
                 }
             }
         }
@@ -281,3 +304,199 @@ private fun formatBytes(bytes: Long): String = when {
     bytes >= 1_000L -> "%.0f KB".format(bytes / 1_000.0)
     else -> "$bytes B"
 }
+
+/** The mode-Karaoke-YT half of the karaoke block: match status and corrections. */
+@Composable
+private fun KaraokeYtSection() {
+    val controller = rememberMediaController()
+    val player = rememberPlayerState(controller)
+    val song = player.song
+    val ytState by KaraokeYt.state.collectAsStateWithLifecycle()
+    var showPicker by remember { mutableStateOf(false) }
+
+    // The pairing count is a prefs fact, not a flow: re-read it on a slow
+    // tick while this section is on screen, like the AI section does.
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(song?.videoId) {
+        while (true) {
+            tick++
+            delay(1000)
+        }
+    }
+    @Suppress("UNUSED_EXPRESSION") tick
+    val pairCount = AppSettings.karaokeYtPairingCount()
+    val st = ytState?.takeIf { it.songId == song?.videoId }
+    val pairing = song?.let { AppSettings.karaokeYtPairing(it.videoId) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        when {
+            song == null -> {
+                Text(
+                    text = stringResource(R.string.karaoke_ai_no_song),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            st?.status == KaraokeYt.Status.SEARCHING -> {
+                Text(
+                    text = stringResource(R.string.karaoke_yt_searching),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            st?.status == KaraokeYt.Status.KARAOKE -> {
+                Text(
+                    text = stringResource(R.string.karaoke_yt_playing),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                st?.karaokeTitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row {
+                    TextButton(onClick = { KaraokeYt.useOriginal(song.videoId) }) {
+                        Text(stringResource(R.string.karaoke_yt_use_original))
+                    }
+                    TextButton(
+                        onClick = { showPicker = true },
+                        enabled = st?.candidates?.isNotEmpty() == true,
+                    ) {
+                        Text(stringResource(R.string.karaoke_yt_change))
+                    }
+                }
+            }
+            st?.status == KaraokeYt.Status.NOT_FOUND -> {
+                Text(
+                    text = stringResource(R.string.karaoke_yt_not_found),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row {
+                    TextButton(onClick = { KaraokeYt.requestSearch(song.videoId) }) {
+                        Text(stringResource(R.string.karaoke_yt_retry))
+                    }
+                    if (st?.candidates?.isNotEmpty() == true) {
+                        TextButton(onClick = { showPicker = true }) {
+                            Text(stringResource(R.string.karaoke_yt_pick))
+                        }
+                    }
+                }
+            }
+            else -> {
+                Text(
+                    text = stringResource(R.string.karaoke_yt_original),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                pairing?.let {
+                    Text(
+                        text = it.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row {
+                    TextButton(onClick = {
+                        KaraokeYt.useKaraoke(song.videoId)
+                        if (pairing == null) KaraokeYt.requestSearch(song.videoId)
+                    }) {
+                        Text(stringResource(R.string.karaoke_yt_use_karaoke))
+                    }
+                    if (st?.candidates?.isNotEmpty() == true) {
+                        TextButton(onClick = { showPicker = true }) {
+                            Text(stringResource(R.string.karaoke_yt_change))
+                        }
+                    }
+                }
+            }
+        }
+        if (pairCount > 0) {
+            Spacer(Modifier.height(2.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.karaoke_yt_pairs, pairCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { KaraokeYt.clearPairings() }) {
+                    Text(stringResource(R.string.karaoke_yt_clear_pairs))
+                }
+            }
+        }
+    }
+    if (showPicker && song != null && st != null && st.candidates.isNotEmpty()) {
+        KaraokeYtPickerDialog(
+            songId = song.videoId,
+            candidates = st.candidates,
+            onDismiss = { showPicker = false },
+        )
+    }
+}
+
+/** The manual correction list: the ranked candidates — tap one to play it. */
+@Composable
+private fun KaraokeYtPickerDialog(
+    songId: String,
+    candidates: List<KaraokeYt.Candidate>,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.karaoke_yt_pick_title)) },
+        text = {
+            LazyColumn {
+                items(candidates) { candidate ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                KaraokeYt.choose(songId, candidate)
+                                onDismiss()
+                            }
+                            .padding(vertical = 8.dp),
+                    ) {
+                        Text(
+                            text = candidate.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 2,
+                        )
+                        Text(
+                            text = buildString {
+                                append(candidate.artist)
+                                candidate.durationSec?.let {
+                                    append(" \u2022 ")
+                                    append(formatDuration(it))
+                                }
+                                candidate.durationDiffSec?.let {
+                                    append(" \u2022 \u0394 ")
+                                    append(it)
+                                    append(" dtk")
+                                }
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.karaoke_ai_cancel))
+            }
+        },
+    )
+}
+
+private fun formatDuration(totalSec: Int): String =
+    "%d:%02d".format(totalSec / 60, totalSec % 60)
