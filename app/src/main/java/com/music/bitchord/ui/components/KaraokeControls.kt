@@ -95,32 +95,35 @@ fun KaraokeSettingsGroup(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 10.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.karaoke_vocal_volume),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = "${(vocalLevel * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // The vocal level only exists in Instan and AI. In
+                // Karaoke YT mode the track itself is the karaoke take —
+                // there is no vocal stem to fade — so the row and slider
+                // are not drawn at all rather than drawn disabled; the
+                // note below points at the Versi asli / Versi karaoke
+                // buttons instead. The stored level is left untouched.
+                if (mode != KaraokeMode.YT) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.karaoke_vocal_volume),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "${(vocalLevel * 100).roundToInt()}%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Slider(
+                        value = vocalLevel,
+                        onValueChange = { AppSettings.setKaraokeVocalLevel(it) },
+                        valueRange = 0f..1f,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                Slider(
-                    value = vocalLevel,
-                    onValueChange = { AppSettings.setKaraokeVocalLevel(it) },
-                    valueRange = 0f..1f,
-                    // In Karaoke YT mode there is no vocal stem to fade —
-                    // the track itself is the karaoke take. The slider
-                    // steps aside for the Versi asli / Versi karaoke
-                    // buttons in the section below.
-                    enabled = mode != KaraokeMode.YT,
-                    modifier = Modifier.fillMaxWidth(),
-                )
                 if (mode == KaraokeMode.YT) {
                     Text(
                         text = stringResource(R.string.karaoke_yt_slider_note),

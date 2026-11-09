@@ -1797,6 +1797,13 @@ internal fun LyricsPanel(
      * read from its top edge leaves most of the screen below the words.
      */
     centerFocus: Boolean = false,
+    /**
+     * Extra room held open at the list's end edge, for a control floated
+     * over the panel there — the karaoke mic rail on the portrait player.
+     * Lines wrap short of it, so no words ever run underneath the floated
+     * control, whether it stands open or shut.
+     */
+    endReserve: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     val panelPlaying = isPlaying && active
@@ -2066,7 +2073,7 @@ internal fun LyricsPanel(
             },
             bottom = with(LocalDensity.current) { viewportHeight.toDp() } * 0.8f,
             start = PLAYER_GUTTER - GLOW_ROOM,
-            end = PLAYER_GUTTER - GLOW_ROOM,
+            end = PLAYER_GUTTER - GLOW_ROOM + endReserve,
         ),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {

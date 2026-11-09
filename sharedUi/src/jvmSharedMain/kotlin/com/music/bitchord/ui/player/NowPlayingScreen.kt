@@ -3872,6 +3872,12 @@ fun NowPlayingScreen(
                                         onHideControls = { lyricsControlsOpen = false },
                                         translationProgress = particleProgress,
                                         onScrollingChange = { lyricsScrolling = it },
+                                        // Room held open at the words' right
+                                        // edge for the karaoke mic rail floated
+                                        // there: its column (44.dp at a 10.dp
+                                        // inset) plus air, so no line of the
+                                        // song ever runs underneath it.
+                                        endReserve = 60.dp,
                                         canPick = lyricsShareEnabled,
                                         picking = lyricPicker.picking,
                                         picked = lyricPicker.picks,

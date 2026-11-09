@@ -33,6 +33,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -162,6 +164,7 @@ import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.components.DacVolumeHud
 import com.music.bitchord.ui.components.DacVolumeKeys
+import com.music.bitchord.ui.components.KaraokeSettingsGroup
 import com.music.bitchord.ui.components.LocalPlayingBarsMotion
 import com.music.bitchord.ui.components.handleDacVolumeKey
 import com.music.bitchord.ui.components.VolumeHud
@@ -640,6 +643,10 @@ private fun BitChordApp(
     var replayLandingPage by rememberSaveable { mutableStateOf(ReplayStoryPage.INTRO) }
     var replayStory by rememberSaveable { mutableStateOf<ReplayStoryPage?>(null) }
     var showReplayShare by rememberSaveable { mutableStateOf(false) }
+    // The karaoke sheet opened from the player's ⋯ — separate from
+    // [songActions] so the menu can close behind it, like the playlist
+    // picker.
+    var karaokeSheetOpen by remember { mutableStateOf(false) }
     /** Which story card the share sheet is for, or null for the whole Replay. */
     var replaySharePage by rememberSaveable { mutableStateOf<ReplayStoryPage?>(null) }
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
@@ -4573,6 +4580,14 @@ private fun BitChordApp(
                 // looked up as the menu opens — see `needsLinks` above.
                 resolvingLinks = if (fromPlayer) linksLoading else needsLinks && menuLinksLoading,
                 showSleepTimer = fromPlayer,
+                onOpenKaraoke = if (fromPlayer) {
+                    {
+                        songActions = null
+                        karaokeSheetOpen = true
+                    }
+                } else {
+                    null
+                },
                 // Offered for every playing track with a YouTube upload
                 // behind it, not only for one an upgrade visibly swapped:
                 // a source ranked above YouTube can be playing its own
@@ -4879,6 +4894,26 @@ private fun BitChordApp(
                         page = replaySharePage,
                         onDismiss = { showReplayShare = false },
                     )
+                }
+            }
+        }
+
+        // ---- Karaoke sheet ----
+        // Opened from the player's ⋯. The Equalizer page's block and this
+        // sheet are the one [KaraokeSettingsGroup], so the two doors can
+        // never disagree about karaoke's state.
+        if (karaokeSheetOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { karaokeSheetOpen = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.background,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 28.dp),
+                ) {
+                    KaraokeSettingsGroup(topSpacing = 0.dp)
                 }
             }
         }

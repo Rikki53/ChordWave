@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -60,6 +62,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.LikeStatus
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.KaraokeMode
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
@@ -169,6 +173,13 @@ fun SongActionsMenu(
      * except the player, where "this track" means something.
      */
     onCopyLog: (() -> Unit)? = null,
+    /**
+     * Opens the karaoke sheet: the whole block (switch, modes, stem and
+     * version controls) is a sheet of its own, so this menu only carries
+     * the door. Null hides the row — the player passes one, lists don't:
+     * karaoke is about the track playing, not about a row's song.
+     */
+    onOpenKaraoke: (() -> Unit)? = null,
     /** Opens the timing control offered only by the main player's menu. */
     onLyricsOffset: (() -> Unit)? = null,
     /**
@@ -193,6 +204,9 @@ fun SongActionsMenu(
     // or the player, and an accent pitched against the artwork's tint is not
     // guaranteed to read against the panel.
     val palette = neutralMenuPalette()
+    // For the karaoke row's value: which mode would greet the listener.
+    val karaokeEnabled by AppSettings.karaokeEnabled.collectAsStateWithLifecycle()
+    val karaokeMode by AppSettings.karaokeMode.collectAsStateWithLifecycle()
     val liked = likeStatus == LikeStatus.LIKE
     val disliked = likeStatus == LikeStatus.DISLIKE
     // A local file or a finished download has no YouTube identity behind it to
@@ -377,7 +391,7 @@ fun SongActionsMenu(
 
         // The player's own: about the track playing right now rather than
         // about the song as a thing in a library.
-        if (showSleepTimer || onLyricsOffset != null || onAutomixOverview != null || onCopyLog != null) {
+        if (showSleepTimer || onOpenKaraoke != null || onLyricsOffset != null || onAutomixOverview != null || onCopyLog != null) {
             if (startsGroup()) IosMenuSeparator()
             if (showSleepTimer) {
                 ActionRow(
@@ -386,6 +400,25 @@ fun SongActionsMenu(
                     value = sleepTimerStatus(),
                     accent = palette.accent,
                 ) { pickingSleepTimer = true }
+            }
+            onOpenKaraoke?.let {
+                ActionRow(
+                    icon = Icons.Rounded.Mic,
+                    label = stringResource(R.string.karaoke),
+                    value = if (karaokeEnabled) {
+                        stringResource(
+                            when (karaokeMode) {
+                                KaraokeMode.INSTANT -> R.string.karaoke_mode_instant
+                                KaraokeMode.AI -> R.string.karaoke_mode_ai
+                                KaraokeMode.YT -> R.string.karaoke_mode_yt
+                            },
+                        )
+                    } else {
+                        null
+                    },
+                    accent = palette.accent,
+                    onClick = it,
+                )
             }
             // The same popup "Mixing" opens mid-blend, on the transition
             // still to come.

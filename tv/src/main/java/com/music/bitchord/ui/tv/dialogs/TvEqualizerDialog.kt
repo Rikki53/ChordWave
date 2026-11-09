@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.KaraokeMode
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import com.music.bitchord.ui.tv.components.TvButton
@@ -99,6 +100,7 @@ fun TvEqualizerDialog(
     val bands by AppSettings.equalizerBands.collectAsState()
     val karaokeOn by AppSettings.karaokeEnabled.collectAsState()
     val karaokeLevel by AppSettings.karaokeVocalLevel.collectAsState()
+    val karaokeMode by AppSettings.karaokeMode.collectAsState()
     var tab by remember { mutableStateOf(EqTab.BANDS) }
 
     val presets: List<Pair<EqualizerPreset, String>> = remember {
@@ -135,7 +137,9 @@ fun TvEqualizerDialog(
             value = if (karaokeOn) "On" else "Off",
             onClick = { AppSettings.setKaraokeEnabled(!karaokeOn) },
         )
-        if (karaokeOn) {
+        // No vocal row in Karaoke YT mode, as on the phone: the track
+        // itself is the karaoke take, so there is no level to set.
+        if (karaokeOn && karaokeMode != KaraokeMode.YT) {
             Spacer(modifier = Modifier.height(5.dp))
             TvListRow(
                 title = "Vocal Volume",
