@@ -22,6 +22,20 @@ import kotlin.math.max
  *    bins 3072..3840 zero, irFFT 7680, window again, overlap-add with hop
  *    1024, per-sample division by the overlap-added window^2 (clamped
  *    below at 1e-8), drop the 3840-sample pad, keep 261120 samples.
+ *
+ * Memory (dev4): every workspace — the padded channel, the FFT buffers,
+ * the model tensor, the full spectra and the overlap-add accumulators —
+ * is allocated ONCE per instance and reused for every segment. The
+ * previous version allocated the 12.6 MB tensor plus ~25 MB of spectra
+ * and double buffers per segment, which (on top of the song-length
+ * arrays the old pipeline held) is what pushed phones over their
+ * per-app heap limit. Reuse changes no arithmetic: each buffer is fully
+ * rewritten (or explicitly re-zeroed where the old code relied on fresh
+ * zeroed arrays) before use.
+ *
+ * The arrays handed back by [stftToModelInput] and [istft] are these
+ * shared workspaces: callers must consume them before the next call.
+ * Not thread-safe; one instance serves one separation worker thread.
  */
 object MdxConstants {
     const val SAMPLE_RATE = 44100
@@ -44,20 +58,35 @@ class MdxStft {
     }
     private val windowSq = DoubleArray(MdxConstants.NFFT) { window[it] * window[it] }
 
+    // ---- Reused workspaces (see the class doc) ------------------------------
+
+    private val padded = DoubleArray(MdxConstants.SEG + 2 * MdxConstants.PAD)
+    private val fftRe = DoubleArray(MdxConstants.NFFT)
+    private val fftIm = DoubleArray(MdxConstants.NFFT)
+    private val tensor = FloatArray(4 * MdxConstants.DIM_F * MdxConstants.DIM_T)
+    private val specRe = FloatArray(2 * MdxConstants.BINS * MdxConstants.DIM_T)
+    private val specIm = FloatArray(2 * MdxConstants.BINS * MdxConstants.DIM_T)
+    private val istftLength = (MdxConstants.DIM_T - 1) * MdxConstants.HOP + MdxConstants.NFFT // 268800
+    private val acc = DoubleArray(istftLength)
+    private val norm = DoubleArray(istftLength)
+    private val segOut = FloatArray(MdxConstants.SEG * 2)
+
     /**
-     * STFT of one stereo segment into the model's input tensor, returned as
-     * a flat float32 array in (4, 3072, 256) C order — ready to wrap as a
+     * STFT of one stereo segment into the model's input tensor, as a flat
+     * float32 array in (4, 3072, 256) C order — ready to wrap as a
      * (1, 4, 3072, 256) ONNX tensor. [left] and [right] must each hold
      * exactly [MdxConstants.SEG] samples.
+     *
+     * The returned array is the shared tensor workspace: it is overwritten
+     * by the next call on this instance.
      */
     fun stftToModelInput(left: FloatArray, right: FloatArray): FloatArray {
         require(left.size == MdxConstants.SEG && right.size == MdxConstants.SEG) {
             "segment must be ${MdxConstants.SEG} samples per channel"
         }
-        val out = FloatArray(4 * MdxConstants.DIM_F * MdxConstants.DIM_T)
-        stftChannelInto(left, out, channelOutBase = 0)
-        stftChannelInto(right, out, channelOutBase = 2 * MdxConstants.DIM_F * MdxConstants.DIM_T)
-        return out
+        stftChannelInto(left, channelOutBase = 0)
+        stftChannelInto(right, channelOutBase = 2 * MdxConstants.DIM_F * MdxConstants.DIM_T)
+        return tensor
     }
 
     /** Interleaved-stereo convenience form of [stftToModelInput]. */
@@ -74,11 +103,11 @@ class MdxStft {
         return stftToModelInput(left, right)
     }
 
-    private fun stftChannelInto(x: FloatArray, out: FloatArray, channelOutBase: Int) {
+    private fun stftChannelInto(x: FloatArray, channelOutBase: Int) {
         val pad = MdxConstants.PAD
         val n = MdxConstants.SEG
         val paddedLength = n + 2 * pad
-        val padded = DoubleArray(paddedLength)
+        val out = tensor
         // numpy mode='reflect': mirror without repeating the edge sample —
         // padded index -k reads x[k], index n-1+k reads x[n-1-k].
         for (p in 0 until paddedLength) {
@@ -89,8 +118,8 @@ class MdxStft {
             }
             padded[p] = x[src].toDouble()
         }
-        val re = DoubleArray(MdxConstants.NFFT)
-        val im = DoubleArray(MdxConstants.NFFT)
+        val re = fftRe
+        val im = fftIm
         for (t in 0 until MdxConstants.DIM_T) {
             val start = t * MdxConstants.HOP
             for (j in 0 until MdxConstants.NFFT) {
@@ -111,30 +140,31 @@ class MdxStft {
     /**
      * iSTFT of a full vocal spectrum (2, 3841, 256), supplied as separate
      * real/imag flat arrays in ((channel * 3841) + bin) * 256 + frame order.
-     * Returns one interleaved stereo segment of [MdxConstants.SEG] frames.
+     * Returns one interleaved stereo segment of [MdxConstants.SEG] frames —
+     * the shared output workspace, overwritten by the next call.
      */
-    fun istft(specRe: FloatArray, specIm: FloatArray): FloatArray {
-        require(specRe.size == 2 * MdxConstants.BINS * MdxConstants.DIM_T)
-        require(specIm.size == specRe.size)
+    fun istft(inRe: FloatArray, inIm: FloatArray): FloatArray {
+        require(inRe.size == 2 * MdxConstants.BINS * MdxConstants.DIM_T)
+        require(inIm.size == inRe.size)
         val frames = MdxConstants.DIM_T
-        val length = (frames - 1) * MdxConstants.HOP + MdxConstants.NFFT // 268800
-        val outInterleaved = FloatArray(MdxConstants.SEG * 2)
-        val re = DoubleArray(MdxConstants.NFFT)
-        val im = DoubleArray(MdxConstants.NFFT)
+        val length = istftLength
+        val outInterleaved = segOut
+        val re = fftRe
+        val im = fftIm
         for (ch in 0 until 2) {
-            val acc = DoubleArray(length)
-            val norm = DoubleArray(length)
+            acc.fill(0.0)
+            norm.fill(0.0)
             val chBase = ch * MdxConstants.BINS * frames
             for (t in 0 until frames) {
                 // Rebuild the Hermitian full spectrum from the rFFT half.
                 for (f in 0 until MdxConstants.BINS) {
-                    re[f] = specRe[chBase + f * frames + t].toDouble()
-                    im[f] = specIm[chBase + f * frames + t].toDouble()
+                    re[f] = inRe[chBase + f * frames + t].toDouble()
+                    im[f] = inIm[chBase + f * frames + t].toDouble()
                 }
                 for (f in MdxConstants.BINS until MdxConstants.NFFT) {
                     val mirror = MdxConstants.NFFT - f
-                    re[f] = specRe[chBase + mirror * frames + t].toDouble()
-                    im[f] = -specIm[chBase + mirror * frames + t].toDouble()
+                    re[f] = inRe[chBase + mirror * frames + t].toDouble()
+                    im[f] = -inIm[chBase + mirror * frames + t].toDouble()
                 }
                 ComplexFft.inverse(re, im)
                 val start = t * MdxConstants.HOP
@@ -159,19 +189,22 @@ class MdxStft {
      */
     fun istftFromModelOutput(modelOutput: FloatArray): FloatArray {
         require(modelOutput.size == 4 * MdxConstants.DIM_F * MdxConstants.DIM_T)
-        val specRe = FloatArray(2 * MdxConstants.BINS * MdxConstants.DIM_T)
-        val specIm = FloatArray(2 * MdxConstants.BINS * MdxConstants.DIM_T)
         val plane = MdxConstants.DIM_F * MdxConstants.DIM_T
         val fullPlane = MdxConstants.BINS * MdxConstants.DIM_T
         for (ch in 0 until 2) {
-            val realSrc = modelOutput.copyOfRange(ch * 2 * plane, ch * 2 * plane + plane)
-            val imagSrc = modelOutput.copyOfRange(ch * 2 * plane + plane, ch * 2 * plane + 2 * plane)
+            val realSrc = ch * 2 * plane
+            val imagSrc = realSrc + plane
+            val dstPlane = ch * fullPlane
             for (f in 0 until MdxConstants.DIM_F) {
                 val srcBase = f * MdxConstants.DIM_T
-                val dstBase = ch * fullPlane + f * MdxConstants.DIM_T
-                realSrc.copyInto(specRe, dstBase, srcBase, srcBase + MdxConstants.DIM_T)
-                imagSrc.copyInto(specIm, dstBase, srcBase, srcBase + MdxConstants.DIM_T)
+                val dstBase = dstPlane + f * MdxConstants.DIM_T
+                modelOutput.copyInto(specRe, dstBase, realSrc + srcBase, realSrc + srcBase + MdxConstants.DIM_T)
+                modelOutput.copyInto(specIm, dstBase, imagSrc + srcBase, imagSrc + srcBase + MdxConstants.DIM_T)
             }
+            // The spectrum above the model's bins must be zero; the arrays
+            // are reused, so clear the tail the copy did not touch.
+            specRe.fill(0f, dstPlane + plane, dstPlane + fullPlane)
+            specIm.fill(0f, dstPlane + plane, dstPlane + fullPlane)
         }
         return istft(specRe, specIm)
     }

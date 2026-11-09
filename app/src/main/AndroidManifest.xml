@@ -72,6 +72,7 @@
 
     <application
         android:name=".BitChordApplication"
+        android:largeHeap="true"
         android:allowBackup="true"
         android:appCategory="audio"
         android:usesCleartextTraffic="false"

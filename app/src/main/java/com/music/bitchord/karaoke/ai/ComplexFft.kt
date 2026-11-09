@@ -21,6 +21,12 @@ import kotlin.math.sin
  * The inverse transform is the conjugate trick over the forward one:
  * IFFT(x) = conj(FFT(conj(x))) / n, so there is exactly one DFT
  * implementation to get right.
+ *
+ * The Bluestein convolution scratch (2 x 16384 doubles, ~256 KB) is held
+ * per-thread and reused across calls: one segment runs ~1000 transforms,
+ * and allocating the scratch per call was pure GC churn. ThreadLocal
+ * keeps the previous thread-safety (all other state was already local or
+ * in the synchronised plan cache).
  */
 object ComplexFft {
 
@@ -158,16 +164,29 @@ object ComplexFft {
     @Synchronized
     private fun planFor(n: Int): BluesteinPlan = plans.getOrPut(n) { BluesteinPlan(n) }
 
+    /** Per-thread convolution scratch, grown to the largest plan seen. */
+    private val scratch = ThreadLocal<Pair<DoubleArray, DoubleArray>>()
+
     private fun bluesteinForward(re: DoubleArray, im: DoubleArray, plan: BluesteinPlan) {
         val n = plan.n
         val l = plan.convSize
-        val aRe = DoubleArray(l)
-        val aIm = DoubleArray(l)
+        var pair = scratch.get()
+        if (pair == null || pair.first.size < l) {
+            pair = DoubleArray(l) to DoubleArray(l)
+            scratch.set(pair)
+        }
+        val aRe = pair.first
+        val aIm = pair.second
         for (i in 0 until n) {
             val cr = plan.chirpRe[i]
             val ci = plan.chirpIm[i]
             aRe[i] = re[i] * cr - im[i] * ci
             aIm[i] = re[i] * ci + im[i] * cr
+        }
+        // The convolution tail must start at zero (the arrays are reused).
+        for (i in n until l) {
+            aRe[i] = 0.0
+            aIm[i] = 0.0
         }
         fftPowerOfTwo(aRe, aIm, inverse = false)
         for (i in 0 until l) {

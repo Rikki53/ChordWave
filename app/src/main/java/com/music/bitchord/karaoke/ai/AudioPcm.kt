@@ -8,12 +8,76 @@ import android.media.MediaFormat
 import android.net.Uri
 import java.io.File
 import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
 import kotlin.math.roundToInt
+
+/**
+ * Streaming WAV PCM16 writer: writes the canonical 44-byte header up
+ * front (the total frame count is known before separation starts) and
+ * then accepts float blocks until [close]. The float->s16 conversion is
+ * the one [AudioPcm.writeWav16] has always used: clamp to [-1, 1],
+ * scale by 32767, round to nearest.
+ *
+ * A top-level class with no Android references on purpose: the JVM load
+ * tests drive it directly.
+ */
+class Wav16FileWriter(file: File, frames: Long) : AutoCloseable {
+
+    private val out = FileOutputStream(file).buffered()
+    private val shorts = ShortArray(BLOCK)
+    private val bytes = ByteArray(BLOCK * 2)
+
+    init {
+        val dataBytes = frames * 4
+        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+        header.put("RIFF".toByteArray(Charsets.US_ASCII))
+        header.putInt((36 + dataBytes).toInt())
+        header.put("WAVE".toByteArray(Charsets.US_ASCII))
+        header.put("fmt ".toByteArray(Charsets.US_ASCII))
+        header.putInt(16)
+        header.putShort(1) // PCM
+        header.putShort(2) // stereo
+        header.putInt(MdxConstants.SAMPLE_RATE)
+        header.putInt(MdxConstants.SAMPLE_RATE * 4)
+        header.putShort(4)
+        header.putShort(16)
+        header.put("data".toByteArray(Charsets.US_ASCII))
+        header.putInt(dataBytes.toInt())
+        out.write(header.array())
+    }
+
+    /** Appends [count] interleaved float samples (count = frames * 2). */
+    fun write(samples: FloatArray, count: Int) {
+        var i = 0
+        while (i < count) {
+            val n = minOf(shorts.size, count - i)
+            for (j in 0 until n) {
+                val v = samples[i + j].coerceIn(-1f, 1f)
+                shorts[j] = (v * 32767f).roundToInt().toShort()
+            }
+            for (j in 0 until n) {
+                val s = shorts[j].toInt()
+                bytes[j * 2] = (s and 0xFF).toByte()
+                bytes[j * 2 + 1] = ((s shr 8) and 0xFF).toByte()
+            }
+            out.write(bytes, 0, n * 2)
+            i += n
+        }
+    }
+
+    override fun close() {
+        out.close()
+    }
+
+    private companion object {
+        const val BLOCK = 8192
+    }
+}
 
 /**
  * PCM plumbing for AI karaoke creation: decode any audio the platform can
@@ -119,6 +183,201 @@ object AudioPcm {
         } finally {
             extractor.release()
         }
+    }
+
+    /**
+     * File form of [decodeStereo44100] (dev4): the decoded song lands in
+     * [dest] as raw float32 little-endian interleaved stereo at
+     * [KaraokeAi.SAMPLE_RATE], written codec-chunk by codec-chunk, and the
+     * frame count is returned. No song-length array ever exists — the
+     * in-memory form needed ~106 MB per 5 minutes of audio (plus the
+     * chunk list) before separation even started.
+     *
+     * A source not at 44.1 kHz is decoded at its own rate first and then
+     * resampled by [resamplePcmFile], whose per-sample math is identical
+     * to [resampleLinear].
+     */
+    fun decodeStereo44100ToFile(context: Context, uri: Uri, dest: File): Long {
+        val (frames, rate) = decodeToPcmFile(context, uri, dest)
+        if (rate == KaraokeAi.SAMPLE_RATE) return frames
+        if (frames == 0L) return 0L
+        val raw = File(dest.parentFile, dest.name + ".raw")
+        raw.delete()
+        check(dest.renameTo(raw)) { "Tidak bisa menyiapkan PCM untuk resample" }
+        try {
+            return resamplePcmFile(raw, frames, rate, KaraokeAi.SAMPLE_RATE, dest)
+        } finally {
+            raw.delete()
+        }
+    }
+
+    /**
+     * The [decodeStereo44100] codec loop, writing each decoded chunk to
+     * [outFile] (raw float32 LE interleaved stereo, source sample rate).
+     * Returns (frames written, source sample rate).
+     */
+    private fun decodeToPcmFile(context: Context, uri: Uri, outFile: File): Pair<Long, Int> {
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(context, uri, null)
+            var track = -1
+            var format: MediaFormat? = null
+            for (i in 0 until extractor.trackCount) {
+                val f = extractor.getTrackFormat(i)
+                if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                    track = i; format = f; break
+                }
+            }
+            require(track >= 0 && format != null) { "No audio track in source" }
+            extractor.selectTrack(track)
+            val mime = format.getString(MediaFormat.KEY_MIME)!!
+            val srcRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            val srcChannels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                .coerceAtLeast(1)
+            var totalFrames = 0L
+            val codec = MediaCodec.createDecoderByType(mime)
+            try {
+                codec.configure(format, null, null, 0)
+                codec.start()
+                FileOutputStream(outFile).buffered().use { out ->
+                    var sawInputEos = false
+                    val info = MediaCodec.BufferInfo()
+                    while (true) {
+                        if (!sawInputEos) {
+                            val inIdx = codec.dequeueInputBuffer(10_000)
+                            if (inIdx >= 0) {
+                                val buf = codec.getInputBuffer(inIdx)!!
+                                val n = extractor.readSampleData(buf, 0)
+                                if (n < 0) {
+                                    codec.queueInputBuffer(
+                                        inIdx, 0, 0, 0,
+                                        MediaCodec.BUFFER_FLAG_END_OF_STREAM,
+                                    )
+                                    sawInputEos = true
+                                } else {
+                                    codec.queueInputBuffer(inIdx, 0, n, extractor.sampleTime, 0)
+                                    extractor.advance()
+                                }
+                            }
+                        }
+                        val outIdx = codec.dequeueOutputBuffer(info, 10_000)
+                        when {
+                            outIdx >= 0 -> {
+                                val outFmt = codec.outputFormat
+                                val encoding = if (outFmt.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+                                    outFmt.getInteger(MediaFormat.KEY_PCM_ENCODING)
+                                } else {
+                                    AudioFormat.ENCODING_PCM_16BIT
+                                }
+                                val channels = if (outFmt.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
+                                    outFmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                                        .coerceAtLeast(1)
+                                } else {
+                                    srcChannels
+                                }
+                                val buf = codec.getOutputBuffer(outIdx)!!
+                                buf.position(info.offset)
+                                buf.limit(info.offset + info.size)
+                                val bytes = ByteArray(info.size)
+                                buf.get(bytes)
+                                val stereo = toStereoFloat(bytes, channels, encoding)
+                                out.write(floatsToLeBytes(stereo))
+                                totalFrames += stereo.size / 2
+                                codec.releaseOutputBuffer(outIdx, false)
+                                if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+                            }
+                            outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> Unit
+                        }
+                    }
+                }
+            } finally {
+                runCatching { codec.stop() }
+                codec.release()
+            }
+            return totalFrames to srcRate
+        } finally {
+            extractor.release()
+        }
+    }
+
+    /** The first [count] of [samples] as little-endian float32 bytes. */
+    private fun floatsToLeBytes(samples: FloatArray, count: Int = samples.size): ByteArray {
+        val bb = ByteBuffer.allocate(count * 4).order(ByteOrder.LITTLE_ENDIAN)
+        bb.asFloatBuffer().put(samples, 0, count)
+        return bb.array()
+    }
+
+    /**
+     * Streaming form of [resampleLinear] over raw float32-LE interleaved
+     * stereo files: reads [inFile] in blocks and writes the resampled
+     * stream to [outFile], returning the output frame count. The
+     * per-output-sample formula — position, clamped indices, fraction
+     * from the clamped index, float lerp — is the in-memory version's,
+     * so both produce the same samples.
+     */
+    fun resamplePcmFile(
+        inFile: File,
+        inFrames: Long,
+        fromRate: Int,
+        toRate: Int,
+        outFile: File,
+    ): Long {
+        require(inFrames >= 0 && inFrames <= Int.MAX_VALUE) { "PCM file too long to resample" }
+        if (fromRate == toRate) {
+            inFile.copyTo(outFile, overwrite = true)
+            return inFrames
+        }
+        val nIn = inFrames.toInt()
+        val nOut = (inFrames.toDouble() * toRate / fromRate).roundToInt()
+        val step = fromRate.toDouble() / toRate
+        val blockFrames = 65536
+        val inBlock = FloatArray(blockFrames * 2)
+        val ioBytes = ByteArray(blockFrames * 2 * 4)
+        val ioBuf = ByteBuffer.wrap(ioBytes).order(ByteOrder.LITTLE_ENDIAN)
+        val outBlock = FloatArray(16384 * 2)
+        var outCount = 0
+        RandomAccessFile(inFile, "r").use { raf ->
+            FileOutputStream(outFile).buffered().use { out ->
+                var blockStart = 0
+                var blockCount = 0
+                fun loadBlock(start: Int) {
+                    val cnt = minOf(blockFrames, nIn - start)
+                    raf.seek(start.toLong() * 8)
+                    val total = cnt * 8
+                    var done = 0
+                    while (done < total) {
+                        val r = raf.read(ioBytes, done, total - done)
+                        check(r >= 0) { "unexpected end of PCM file" }
+                        done += r
+                    }
+                    for (k in 0 until cnt * 2) inBlock[k] = ioBuf.getFloat(k * 4)
+                    blockStart = start
+                    blockCount = cnt
+                }
+                fun flushOut() {
+                    if (outCount > 0) {
+                        out.write(floatsToLeBytes(outBlock, outCount * 2))
+                        outCount = 0
+                    }
+                }
+                if (nIn > 0) loadBlock(0)
+                for (i in 0 until nOut) {
+                    val pos = i * step
+                    val i0 = pos.toInt().coerceAtMost(nIn - 1)
+                    val i1 = minOf(i0 + 1, nIn - 1)
+                    if (i1 >= blockStart + blockCount) loadBlock(i0)
+                    val frac = (pos - i0).toFloat()
+                    val a = (i0 - blockStart) * 2
+                    val b = (i1 - blockStart) * 2
+                    outBlock[outCount * 2] = inBlock[a] + (inBlock[b] - inBlock[a]) * frac
+                    outBlock[outCount * 2 + 1] = inBlock[a + 1] + (inBlock[b + 1] - inBlock[a + 1]) * frac
+                    outCount++
+                    if (outCount == outBlock.size / 2) flushOut()
+                }
+                flushOut()
+            }
+        }
+        return nOut.toLong()
     }
 
     /** One decoded buffer, any supported PCM encoding, as stereo float pairs. */

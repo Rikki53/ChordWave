@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -35,10 +36,16 @@ import java.io.File
  *
  * Pipeline: ensure the model (download + SHA-256 verify if missing) ->
  * obtain the song's audio file through the app's own download engine
- * (an already-downloaded or local file is used as-is) -> decode to
- * stereo float 44.1 kHz -> [MdxSeparator.separateFull] -> write both
- * stems via `.part` files renamed into place only when complete, so a
- * cancellation or a crash never leaves a half stem behind.
+ * (an already-downloaded or local file is used as-is) -> decode, streamed
+ * to a temp raw-PCM file -> [MdxSeparator.separateToFiles] streams the
+ * separation from that file and writes both stems block by block. The
+ * stems land via `.part` files renamed into place only when complete, so
+ * a cancellation or a crash never leaves a half stem behind.
+ *
+ * Dev4 note: nothing in this pipeline holds a song-length array any
+ * more. The previous form decoded the whole song into a FloatArray and
+ * separated in memory (~370 MB of live arrays for a 5-minute song),
+ * which ran real phones out of their per-app heap mid-separation.
  */
 class KaraokeAiService : Service() {
 
@@ -83,6 +90,14 @@ class KaraokeAiService : Service() {
         val safe = KaraokeAi.safeId(song.videoId)
         val instPart = File(KaraokeAi.stemsDir(ctx), "${safe}_inst.wav.part")
         val vocalPart = File(KaraokeAi.stemsDir(ctx), "${safe}_vocal.wav.part")
+        val mixPcm = File(KaraokeAi.stemsDir(ctx), "${safe}.mix.pcm.part")
+        // One line of memory context per job: when a phone still fails,
+        // this is what tells us the heap it actually had.
+        Log.i(
+            TAG,
+            "job start: heapMaxMB=${Runtime.getRuntime().maxMemory() / 1048576} " +
+                "heapTotalMB=${Runtime.getRuntime().totalMemory() / 1048576}",
+        )
         fun state(phase: String, fraction: Float, error: String? = null, done: Boolean = false, cancelled: Boolean = false) {
             KaraokeAi.job.value = KaraokeAi.JobState(
                 songId = song.videoId, title = song.title, phase = phase,
@@ -91,6 +106,14 @@ class KaraokeAiService : Service() {
             postNotification()
         }
         try {
+            // Scratch left behind by a crashed earlier job is useless now.
+            KaraokeAi.stemsDir(ctx).listFiles()?.forEach { f ->
+                if (f.name.endsWith(".acc") || f.name.endsWith(".wgt") ||
+                    f.name.contains(".mix.pcm")
+                ) {
+                    f.delete()
+                }
+            }
             // 1) Model.
             if (!KaraokeAi.modelReady(ctx)) {
                 state("Mengunduh model AI…", 0f)
@@ -111,30 +134,33 @@ class KaraokeAiService : Service() {
                 ?: throw IllegalStateException(
                     "Lagu ini tidak bisa diunduh untuk diproses. Putar/unduh dulu dari aplikasi, lalu coba lagi.",
                 )
-            // 3) Decode.
+            // 3) Decode, streamed to a temp PCM file.
             state("Membaca audio…", -1f)
-            val mix = withContext(Dispatchers.IO) {
-                AudioPcm.decodeStereo44100(ctx, sourceUri)
+            val frames = withContext(Dispatchers.IO) {
+                AudioPcm.decodeStereo44100ToFile(ctx, sourceUri, mixPcm)
             }
             if (work?.isActive != true || KaraokeAi.cancelRequested) {
                 throw CancellationException("cancelled")
             }
-            // 4) Separate + write.
+            // 4) Separate + write, streamed from the PCM file.
             state("Memisahkan vokal (AI)…", 0f)
             val jobRef = work
             withContext(Dispatchers.Default) {
                 val separator = MdxSeparator(KaraokeAi.modelFile(ctx))
                 try {
-                    val (vocal, instrumental) = separator.separateFull(
-                        mix,
+                    val completed = separator.separateToFiles(
+                        mixPcm = mixPcm,
+                        frames = frames,
+                        vocalWav = vocalPart,
+                        instWav = instPart,
+                        scratchDir = KaraokeAi.stemsDir(ctx),
                         progress = { f -> state("Memisahkan vokal (AI)…", f) },
                         cancelled = { KaraokeAi.cancelRequested || jobRef?.isActive != true },
                     )
                     if (KaraokeAi.cancelRequested || jobRef?.isActive != true) {
                         throw CancellationException("cancelled")
                     }
-                    AudioPcm.writeWav16(vocalPart, vocal)
-                    AudioPcm.writeWav16(instPart, instrumental)
+                    check(completed) { "Separasi berhenti sebelum selesai" }
                 } finally {
                     separator.close()
                 }
@@ -154,6 +180,7 @@ class KaraokeAiService : Service() {
             instPart.delete(); vocalPart.delete()
             state("Gagal", 0f, error = t.message ?: t.javaClass.simpleName)
         } finally {
+            mixPcm.delete()
             shutdown()
         }
     }
@@ -243,6 +270,7 @@ class KaraokeAiService : Service() {
     }
 
     companion object {
+        private const val TAG = "KaraokeAi"
         private const val CHANNEL_ID = "karaoke_ai"
         private const val NOTIFICATION_ID = 0x8176
         const val ACTION_START = "com.music.bitchord.karaokeai.START"
