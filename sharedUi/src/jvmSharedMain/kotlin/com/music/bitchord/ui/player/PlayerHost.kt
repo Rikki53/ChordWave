@@ -285,9 +285,20 @@ interface PlayerSettingsSource {
     val syncedLyrics: StateFlow<Boolean>
     val translationLanguage: StateFlow<String>
     val versionAlignmentInProgress: StateFlow<Boolean>
+    /**
+     * Karaoke's three pieces, the same AppSettings flows the Equalizer's
+     * karaoke block drives — the lyrics' mic rail reads and writes these and
+     * nothing else, so the two surfaces can never disagree.
+     */
+    val karaokeEnabled: StateFlow<Boolean>
+    val karaokeVocalLevel: StateFlow<Float>
+    /** True in Karaoke YT mode: the track itself is the karaoke take, so there is no vocal stem for the level to fade. The mode enum lives in the app module; the player only needs this. */
+    val karaokeYtMode: StateFlow<Boolean>
 
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
+    fun setKaraokeEnabled(value: Boolean)
+    fun setKaraokeVocalLevel(value: Float)
     /** Whether the mix popup is up, so the host lays out [smartMixPreview] for it. */
     fun setMixViewOpen(open: Boolean)
 }

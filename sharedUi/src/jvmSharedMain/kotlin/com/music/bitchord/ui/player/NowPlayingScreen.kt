@@ -67,6 +67,7 @@ import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -913,6 +914,7 @@ fun NowPlayingScreen(
     val openListenTogetherMembers: () -> Unit = { showListenTogetherMembers = true }
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val karaokeEnabled by PlayerSettings.karaokeEnabled.collectAsStateWithLifecycle()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
     // A lambda, not a value: read by the lyric strip and panel in scopes of
     // their own, so a tick recomposes them and not the player around them.
@@ -3879,6 +3881,22 @@ fun NowPlayingScreen(
                                     )
                                 }
 
+                            // Karaoke's quick door, floated on the right edge
+                            // of the lyrics in the Sing shape: a mic that
+                            // opens into the vocal level. It drives the same
+                            // AppSettings state as the Equalizer's karaoke
+                            // block, so the two stay in step either way it is
+                            // moved. Parked centre-right where a thumb
+                            // already rests, clear of the translate discs in
+                            // the foot corners.
+                            if (lyricsPanelVisible && !lyricPicker.picking) {
+                                KaraokeMicRail(
+                                    lyricsScrolling = lyricsScrolling,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .padding(end = 10.dp),
+                                )
+                            }
                             // Floated over the foot of the lyrics rather than placed in
                             // the controls below them. In the controls it was a row of
                             // layout like any other, and the bottom block is measured at
@@ -4095,6 +4113,35 @@ fun NowPlayingScreen(
                                 .offset(y = 6.dp)
                                 .padding(vertical = 4.dp),
                         )
+                    }
+                    // Sing's name tag, worn over the scrubber slot while
+                    // karaoke is on: the status line keeps the left of the
+                    // slot, this takes the right, and the slot's fixed
+                    // height means the deck never grows for it.
+                    if (lyricsOpen && karaokeEnabled) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                )
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Mic,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(13.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(Res.string.karaoke_sing),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                     }
                     val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()

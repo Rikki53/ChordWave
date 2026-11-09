@@ -22,6 +22,7 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsTranslation
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.KaraokeMode
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.playback.AudioOutputStatus
@@ -59,6 +60,16 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val main = Handler(Looper.getMainLooper())
 
+    /** Karaoke YT-ness of the persisted karaoke mode, for the player: the enum is the app's, the player reads this. */
+    private val karaokeYtModeFlow: StateFlow<Boolean> =
+        AppSettings.karaokeMode
+            .map { it == KaraokeMode.YT }
+            .stateIn(
+                scope,
+                SharingStarted.Eagerly,
+                AppSettings.karaokeMode.value == KaraokeMode.YT,
+            )
+
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas
         override val audioQualityCellular get() = AppSettings.audioQualityCellular
@@ -94,11 +105,16 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val smartTransitionWindow get() = AppSettings.smartTransitionWindow
         override val spotifyCanvasAutoHide get() = AppSettings.spotifyCanvasAutoHide
         override val syncedLyrics get() = AppSettings.syncedLyrics
+        override val karaokeEnabled get() = AppSettings.karaokeEnabled
+        override val karaokeVocalLevel get() = AppSettings.karaokeVocalLevel
+        override val karaokeYtMode get() = this@AndroidPlayerHost.karaokeYtModeFlow
         override val translationLanguage get() = AppSettings.translationLanguage
         override val versionAlignmentInProgress get() = AppSettings.versionAlignmentInProgress
 
         override fun setLastPlayerScreen(value: LastPlayerScreen) = AppSettings.setLastPlayerScreen(value)
         override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)
+        override fun setKaraokeEnabled(value: Boolean) = AppSettings.setKaraokeEnabled(value)
+        override fun setKaraokeVocalLevel(value: Float) = AppSettings.setKaraokeVocalLevel(value)
         override fun setMixViewOpen(open: Boolean) {
             AppSettings.mixViewOpen.value = open
         }
