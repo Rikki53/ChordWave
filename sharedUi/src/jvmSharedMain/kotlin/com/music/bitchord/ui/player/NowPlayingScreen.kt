@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.Constraints
 import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
 import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.playback.PlaybackPosition
+import com.music.bitchord.karaoke.KaraokeFeature
 import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.ui.graphics.ImageBitmap
@@ -3877,7 +3878,7 @@ fun NowPlayingScreen(
                                         // there: its column (44.dp at a 10.dp
                                         // inset) plus air, so no line of the
                                         // song ever runs underneath it.
-                                        endReserve = 60.dp,
+                                        endReserve = if (KaraokeFeature.ENABLED) 60.dp else 0.dp,
                                         canPick = lyricsShareEnabled,
                                         picking = lyricPicker.picking,
                                         picked = lyricPicker.picks,
@@ -3895,7 +3896,7 @@ fun NowPlayingScreen(
                             // moved. Parked centre-right where a thumb
                             // already rests, clear of the translate discs in
                             // the foot corners.
-                            if (lyricsPanelVisible && !lyricPicker.picking) {
+                            if (KaraokeFeature.ENABLED && lyricsPanelVisible && !lyricPicker.picking) {
                                 KaraokeMicRail(
                                     lyricsScrolling = lyricsScrolling,
                                     modifier = Modifier
@@ -4124,7 +4125,7 @@ fun NowPlayingScreen(
                     // karaoke is on: the status line keeps the left of the
                     // slot, this takes the right, and the slot's fixed
                     // height means the deck never grows for it.
-                    if (lyricsOpen && karaokeEnabled) {
+                    if (KaraokeFeature.ENABLED && lyricsOpen && karaokeEnabled) {
                         Row(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)

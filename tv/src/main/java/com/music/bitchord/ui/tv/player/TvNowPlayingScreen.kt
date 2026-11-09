@@ -42,6 +42,7 @@ import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.playback.toggleAutoplay
 import com.music.bitchord.playback.toggleShuffle
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.karaoke.KaraokeFeature
 import com.music.bitchord.ui.tv.dialogs.TvKaraokeRemoteDialog
 import com.music.bitchord.ui.tv.dialogs.TvSongActionMenuDialog
 import kotlinx.coroutines.Job
@@ -328,16 +329,20 @@ fun TvNowPlayingScreen(
             viewModel = viewModel,
             mediaController = mediaController,
             onToggleLike = { viewModel.toggleLike(song.videoId) },
-            onOpenKaraokeRemote = {
-                sheet = null
-                karaokeRemoteOpen = true
+            onOpenKaraokeRemote = if (KaraokeFeature.ENABLED) {
+                {
+                    sheet = null
+                    karaokeRemoteOpen = true
+                }
+            } else {
+                null
             },
             onDismiss = { sheet = null },
         )
         null -> Unit
     }
 
-    if (karaokeRemoteOpen) {
+    if (karaokeRemoteOpen && KaraokeFeature.ENABLED) {
         TvKaraokeRemoteDialog(
             playerState = playerState,
             mediaController = mediaController,

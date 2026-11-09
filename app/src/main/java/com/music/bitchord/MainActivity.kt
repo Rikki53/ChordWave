@@ -164,6 +164,7 @@ import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.components.DacVolumeHud
 import com.music.bitchord.ui.components.DacVolumeKeys
+import com.music.bitchord.karaoke.KaraokeFeature
 import com.music.bitchord.ui.components.KaraokeSettingsGroup
 import com.music.bitchord.ui.components.LocalPlayingBarsMotion
 import com.music.bitchord.ui.components.handleDacVolumeKey
@@ -4580,7 +4581,7 @@ private fun BitChordApp(
                 // looked up as the menu opens — see `needsLinks` above.
                 resolvingLinks = if (fromPlayer) linksLoading else needsLinks && menuLinksLoading,
                 showSleepTimer = fromPlayer,
-                onOpenKaraoke = if (fromPlayer) {
+                onOpenKaraoke = if (fromPlayer && KaraokeFeature.ENABLED) {
                     {
                         songActions = null
                         karaokeSheetOpen = true
@@ -4902,7 +4903,7 @@ private fun BitChordApp(
         // Opened from the player's ⋯. The Equalizer page's block and this
         // sheet are the one [KaraokeSettingsGroup], so the two doors can
         // never disagree about karaoke's state.
-        if (karaokeSheetOpen) {
+        if (karaokeSheetOpen && KaraokeFeature.ENABLED) {
             ModalBottomSheet(
                 onDismissRequest = { karaokeSheetOpen = false },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

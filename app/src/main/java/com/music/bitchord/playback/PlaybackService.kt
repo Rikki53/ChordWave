@@ -83,6 +83,7 @@ import com.music.bitchord.playback.cast.Speakers
 import com.music.bitchord.playback.cast.CastStream
 import com.music.bitchord.playback.audio.KaraokeProcessor
 import com.music.bitchord.data.settings.KaraokeMode
+import com.music.bitchord.karaoke.KaraokeFeature
 import com.music.bitchord.karaoke.ai.KaraokeAi
 import com.music.bitchord.karaoke.yt.KaraokeYt
 import com.music.bitchord.karaoke.ai.StemMixProcessor
@@ -7432,7 +7433,11 @@ class PlaybackService : MediaLibraryService() {
 
     /** Hands the karaoke switch, mode and vocal slider to both players. */
     private fun applyKaraoke() {
-        val enabled = AppSettings.karaokeEnabled.value
+        // Parked with the feature: while KaraokeFeature is off the
+        // processors stay bypassed and both source swaps below stand
+        // down (restoring any swapped original), whatever the saved
+        // preferences say.
+        val enabled = KaraokeFeature.ENABLED && AppSettings.karaokeEnabled.value
         val level = AppSettings.karaokeVocalLevel.value
         val mode = AppSettings.karaokeMode.value
         val ai = enabled && mode == KaraokeMode.AI
@@ -7470,7 +7475,8 @@ class PlaybackService : MediaLibraryService() {
             aiSwappedMediaId = null
             aiOriginalItem = null
         }
-        val want = AppSettings.karaokeEnabled.value &&
+        val want = KaraokeFeature.ENABLED &&
+            AppSettings.karaokeEnabled.value &&
             AppSettings.karaokeMode.value == KaraokeMode.AI &&
             KaraokeAi.hasStem(this, mid)
         val instUri = android.net.Uri.fromFile(KaraokeAi.instFile(this, mid)).toString()
@@ -7532,7 +7538,8 @@ class PlaybackService : MediaLibraryService() {
             ytOriginalItem = null
         }
         val curUri = item.localConfiguration?.uri
-        val active = AppSettings.karaokeEnabled.value &&
+        val active = KaraokeFeature.ENABLED &&
+            AppSettings.karaokeEnabled.value &&
             AppSettings.karaokeMode.value == KaraokeMode.YT
         val previous = KaraokeYt.state.value?.takeIf { it.songId == mid }
         val pairing = if (active && !KaraokeYt.isOriginalOverride(mid)) {

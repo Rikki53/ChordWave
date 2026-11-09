@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.KaraokeMode
+import com.music.bitchord.karaoke.KaraokeFeature
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import com.music.bitchord.ui.tv.components.TvButton
@@ -131,36 +132,40 @@ fun TvEqualizerDialog(
             modifier = Modifier.tvInitialFocus(),
             onClick = { AppSettings.setEqualizerEnabled(!enabled) },
         )
-        Spacer(modifier = Modifier.height(5.dp))
-        TvListRow(
-            title = "Karaoke",
-            value = if (karaokeOn) "On" else "Off",
-            onClick = { AppSettings.setKaraokeEnabled(!karaokeOn) },
-        )
-        // No vocal row in Karaoke YT mode, as on the phone: the track
-        // itself is the karaoke take, so there is no level to set.
-        if (karaokeOn && karaokeMode != KaraokeMode.YT) {
+        // Karaoke is parked behind its feature flag: no rows at all
+        // while it is off, on TV as on the phone. See KaraokeFeature.
+        if (KaraokeFeature.ENABLED) {
             Spacer(modifier = Modifier.height(5.dp))
             TvListRow(
-                title = "Vocal Volume",
-                value = "${(karaokeLevel * 100).roundToInt()}%",
-                subtitle = "Left and right set how much of the singer stays.",
-                modifier = Modifier.onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    when (event.nativeKeyEvent.keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            AppSettings.setKaraokeVocalLevel((karaokeLevel - 0.05f).coerceIn(0f, 1f))
-                            true
-                        }
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            AppSettings.setKaraokeVocalLevel((karaokeLevel + 0.05f).coerceIn(0f, 1f))
-                            true
-                        }
-                        else -> false
-                    }
-                },
-                onClick = {},
+                title = "Karaoke",
+                value = if (karaokeOn) "On" else "Off",
+                onClick = { AppSettings.setKaraokeEnabled(!karaokeOn) },
             )
+            // No vocal row in Karaoke YT mode, as on the phone: the track
+            // itself is the karaoke take, so there is no level to set.
+            if (karaokeOn && karaokeMode != KaraokeMode.YT) {
+                Spacer(modifier = Modifier.height(5.dp))
+                TvListRow(
+                    title = "Vocal Volume",
+                    value = "${(karaokeLevel * 100).roundToInt()}%",
+                    subtitle = "Left and right set how much of the singer stays.",
+                    modifier = Modifier.onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (event.nativeKeyEvent.keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                AppSettings.setKaraokeVocalLevel((karaokeLevel - 0.05f).coerceIn(0f, 1f))
+                                true
+                            }
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                AppSettings.setKaraokeVocalLevel((karaokeLevel + 0.05f).coerceIn(0f, 1f))
+                                true
+                            }
+                            else -> false
+                        }
+                    },
+                    onClick = {},
+                )
+            }
         }
         Spacer(modifier = Modifier.height(14.dp))
         TvSegmented(
