@@ -182,6 +182,7 @@ object Downloads {
         _collections.value = runCatching {
             json.decodeFromString(collectionSerializer, prefs.getString(KEY_SAVED_COLLECTIONS, null) ?: "{}")
         }.getOrDefault(emptyMap())
+        maybeMigrateLegacyDownloads(context.applicationContext)
         watchForRelease(context.applicationContext)
     }
 
@@ -227,6 +228,140 @@ object Downloads {
             if (claimed) enqueue(context, song)
         }
     }
+
+    // ---- Moving the pre-export downloads -----------------------------------
+
+    private var legacyMigration: Job? = null
+
+    /**
+     * Start the one-time move of pre-export downloads, unless it has already
+     * settled — see [migrateLegacyDownloads]. Background and fire-and-forget:
+     * startup never waits on it, and nothing inside it can fail [init],
+     * because the work itself catches per file and this catches the rest.
+     */
+    private fun maybeMigrateLegacyDownloads(app: Context) {
+        if (AppSettings.legacyDownloadsMigrated.value) return
+        if (legacyMigration?.isActive == true) return
+        legacyMigration = CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            runCatching { migrateLegacyDownloads(app) }
+                .onFailure { Log.w(TAG, "legacy download migration failed: ${it.message}", it) }
+                .onSuccess { outcome ->
+                    // Only a run that moved everything it planned closes the
+                    // gate. A file left behind by a transient failure is
+                    // retried on the next launch — the plan excludes the
+                    // permanent refusals (WebM, packages) by construction,
+                    // so what remains is worth retrying — and the plan's own
+                    // checks keep that retry from publishing anything twice.
+                    if (outcome.settled) runCatching { AppSettings.setLegacyDownloadsMigrated() }
+                }
+        }
+    }
+
+    /**
+     * Move every completed download that still sits in app-private storage
+     * into Music/ChordWave, and point its record at the new location.
+     *
+     * What qualifies, and what is refused, is [LegacyDownloadMigration]'s
+     * plan, made from the record alone: private-folder files Android can
+     * file, never an offline HLS/DASH package, never a WebM the media store
+     * would refuse. Each file goes through
+     * [DownloadStore.publishPrivateFile] — the same store path an exported
+     * download takes, bytes copied as they are — and the record is then
+     * repointed the way [remember] would have written it had the file been
+     * exported in the first place, so playback and the Downloads page read
+     * the new location exactly like any other exported download. Only the
+     * uri changes: title, dates and format are the file's own history and
+     * survive the move.
+     *
+     * The export switch is neither read nor written here. It governs where
+     * *new* downloads land; these are old ones, saved while it was off, and
+     * moving them is not a reason to move the listener's setting with them.
+     *
+     * Idempotent by construction rather than by the settings flag that gates
+     * the call from [init]: a published file's record no longer points into
+     * the private folder, so it is never planned again, and a file published
+     * but not yet recorded — a crash in between — is adopted from the store
+     * instead of duplicated. A failure on one file is logged and counted,
+     * never thrown: the rest still move, and that file stays private and
+     * playable where it is.
+     */
+    suspend fun migrateLegacyDownloads(context: Context): LegacyDownloadMigration.Outcome =
+        withContext(Dispatchers.IO) {
+            val app = context.applicationContext
+            val privateDir = DownloadStore.privateDownloadsDir(app)
+            val ids = _saved.value.keys + _savedMetadata.value.keys
+            val entries = ids.mapNotNull { id ->
+                val uriString = _saved.value[id] ?: _savedMetadata.value[id]?.uri
+                    ?: return@mapNotNull null
+                LegacyDownloadMigration.Entry(
+                    videoId = id,
+                    uriString = uriString,
+                    filePath = runCatching { Uri.parse(uriString) }
+                        .getOrNull()
+                        ?.takeIf { it.scheme == "file" }
+                        ?.path,
+                )
+            }
+            val planned = LegacyDownloadMigration.plan(entries, privateDir.absolutePath) { name ->
+                DownloadStore.existingExported(app, name) != null
+            }
+            var moved = 0
+            var failed = 0
+            for (item in planned) {
+                val source = File(item.filePath)
+                if (!source.exists()) {
+                    // The record outlived the file. Pruning a stale record is
+                    // savedUri's job when it is read, not this move's.
+                    continue
+                }
+                val published = runCatching {
+                    when (item.action) {
+                        LegacyDownloadMigration.Action.ADOPT_EXISTING ->
+                            DownloadStore.existingExported(app, item.fileName)
+                                ?: DownloadStore.publishPrivateFile(
+                                    app, source, item.fileName, item.mimeType,
+                                )
+                        LegacyDownloadMigration.Action.PUBLISH ->
+                            DownloadStore.publishPrivateFile(
+                                app, source, item.fileName, item.mimeType,
+                            )
+                    }
+                }.onFailure {
+                    Log.w(TAG, "could not publish ${item.fileName} to Music: ${it.message}")
+                }.getOrNull()
+                if (published == null) {
+                    failed++
+                    continue
+                }
+                val newUri = published.toString()
+                // Matched by uri rather than by id so every alias of the one
+                // file moves with it, in both halves of the record at once.
+                record(
+                    saved = { map ->
+                        map.mapValues { if (it.value == item.uriString) newUri else it.value }
+                    },
+                    meta = { map ->
+                        map.mapValues { (_, meta) ->
+                            if (meta.uri == item.uriString) meta.copy(uri = newUri) else meta
+                        }
+                    },
+                )
+                // The record points at Music now, so the private bytes are a
+                // second copy of a file the listener can already reach. A
+                // failed delete is an orphan, not an error: nothing points
+                // at it, and no re-run will plan it again.
+                runCatching { source.delete() }
+                    .onFailure {
+                        Log.w(TAG, "could not remove migrated private file ${item.fileName}: ${it.message}")
+                    }
+                moved++
+                Log.d(TAG, "migrated ${item.fileName} to Music/${DownloadStore.FOLDER}")
+            }
+            if (planned.isNotEmpty()) {
+                Log.d(TAG, "legacy download migration: $moved moved, $failed left private")
+            }
+            LegacyDownloadMigration.Outcome(moved = moved, failed = failed)
+        }
 
     // ---- Asking -------------------------------------------------------------
 

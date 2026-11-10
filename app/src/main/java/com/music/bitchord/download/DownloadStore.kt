@@ -167,6 +167,26 @@ object DownloadStore {
                 ?.let(Uri::fromFile)
         }
 
+    /**
+     * The uri of a file already saved in Music under this name, asked without
+     * the export switch — where [existing] answers for wherever downloads
+     * currently go, this one always answers for Music/ChordWave.
+     *
+     * Asked by the legacy-download migration: the files it moves were saved
+     * while exports were off, and whether one of them is already filed does
+     * not depend on where the next download will go. It is also what keeps a
+     * re-run of that migration from minting a `… (1)` duplicate of a file it
+     * published just before a crash.
+     */
+    fun existingExported(context: Context, name: String): Uri? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            mediaStoreEntry(context, name)
+        } else {
+            (legacyFile(name).takeIf { it.exists() }
+                ?: legacyFileIn(LEGACY_FOLDER, name).takeIf { it.exists() })
+                ?.let(Uri::fromFile)
+        }
+
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun mediaStoreEntry(context: Context, name: String): Uri? = runCatching {
         context.contentResolver.query(
@@ -274,8 +294,13 @@ object DownloadStore {
      *   made — a failure worth surfacing, since every one of them means the
      *   download cannot start rather than that it might not finish.
      */
-    fun begin(context: Context, name: String, mimeType: String): Pending {
-        if (!AppSettings.exportDownloads.value) {
+    fun begin(
+        context: Context,
+        name: String,
+        mimeType: String,
+        forceExport: Boolean = false,
+    ): Pending {
+        if (!forceExport && !AppSettings.exportDownloads.value) {
             val target = privateFile(context, name)
             val folder = target.parentFile ?: error("No download folder")
             if (!folder.exists() && !folder.mkdirs()) error("Could not create ${folder.path}")
@@ -314,6 +339,38 @@ object DownloadStore {
         return Pending(context, Uri.fromFile(target), name, part = part, target = target)
     }
 
+    /**
+     * Publish [source], a file in app-private storage, into Music/ChordWave:
+     * the same destination, pending row and commit an exported download goes
+     * through in [begin], with the bytes copied exactly as they are. No
+     * tagging — a downloaded file already carries its lyrics and cover, and
+     * rewriting its tags is not this move's business.
+     *
+     * The export switch is neither consulted nor changed. This is the
+     * one-time move of a file that was saved while exports were off; the
+     * switch governs new downloads, and it stays wherever the listener left
+     * it. A name already in Music is adopted rather than published again,
+     * which is the second half of the migration's idempotence: publish,
+     * crash before the record is updated, and the next run lands here and
+     * adopts the copy it made rather than minting a duplicate.
+     *
+     * @throws IllegalStateException when the store refuses [mimeType], as
+     *   [begin] raises it — the caller leaves the private file where it is.
+     */
+    fun publishPrivateFile(context: Context, source: File, name: String, mimeType: String): Uri {
+        existingExported(context, name)?.let { return it }
+        val pending = begin(context, name, mimeType, forceExport = true)
+        try {
+            source.inputStream().use { input ->
+                pending.openStream().use { sink -> input.copyTo(sink) }
+            }
+            return pending.commit()
+        } catch (t: Throwable) {
+            runCatching { pending.abort() }
+            throw t
+        }
+    }
+
     @Suppress("DEPRECATION")
     private fun legacyFile(name: String) = legacyFileIn(FOLDER, name)
 
@@ -322,6 +379,9 @@ object DownloadStore {
         name,
     )
 
+    /** The app-private folder downloads lived in while exports were off. */
+    fun privateDownloadsDir(context: Context): File = File(context.filesDir, "downloads")
+
     private fun privateFile(context: Context, name: String) =
-        File(File(context.filesDir, "downloads"), name)
+        File(privateDownloadsDir(context), name)
 }

@@ -267,6 +267,19 @@ object AppSettings {
     val exportDownloads = MutableStateFlow(true)
 
     /**
+     * Whether the one-time move of pre-export downloads into Music/ChordWave
+     * has settled — see
+     * [Downloads.migrateLegacyDownloads][com.music.bitchord.download.Downloads.migrateLegacyDownloads].
+     *
+     * A fast gate only, never the source of truth: the move decides from
+     * where each recorded file actually sits, so this flag being wrong — a
+     * restore that resets it, say — costs a re-scan that finds nothing to
+     * do, never a second copy in Music. Device-local like the download
+     * record it belongs to, for the same reason that record is.
+     */
+    val legacyDownloadsMigrated = MutableStateFlow(false)
+
+    /**
      * Check the playlists downloaded whole for newly added songs and download
      * them, in the background. Off by default: it spends data and storage
      * without being asked each time. See [com.music.bitchord.download.PlaylistSync].
@@ -1043,6 +1056,7 @@ object AppSettings {
         downloadQuality.value = readDownloadQuality()
         readCellularDownloadPolicy()
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, true)
+        legacyDownloadsMigrated.value = prefs.getBoolean(KEY_LEGACY_DOWNLOADS_MIGRATED, false)
         syncDownloadedPlaylists.value = prefs.getBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
@@ -1995,6 +2009,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_EXPORT_DOWNLOADS, value).apply()
     }
 
+    fun setLegacyDownloadsMigrated() {
+        legacyDownloadsMigrated.value = true
+        prefs.edit().putBoolean(KEY_LEGACY_DOWNLOADS_MIGRATED, true).apply()
+    }
+
     fun setSyncDownloadedPlaylists(value: Boolean) {
         syncDownloadedPlaylists.value = value
         prefs.edit().putBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, value).apply()
@@ -2387,6 +2406,7 @@ object AppSettings {
         KEY_LOCAL_MUSIC_FOLDER_URI,
         KEY_LAST_VERSION_CODE,
         KEY_ONBOARDING_COMPLETE,
+        KEY_LEGACY_DOWNLOADS_MIGRATED,
     )
 
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
@@ -2418,6 +2438,7 @@ object AppSettings {
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_CELLULAR_DOWNLOAD_POLICY = "cellular_download_policy"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
+    private const val KEY_LEGACY_DOWNLOADS_MIGRATED = "legacy_downloads_migrated"
     private const val KEY_SYNC_DOWNLOADED_PLAYLISTS = "sync_downloaded_playlists"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
