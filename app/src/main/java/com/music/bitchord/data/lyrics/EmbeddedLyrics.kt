@@ -29,7 +29,7 @@ import java.io.InputStream
  * so it is the fallback rather than the exception. Preferring the first is what
  * keeps a downloaded song lighting up word by word instead of a line at a time.
  *
- * Never throws. A file that isn't one of the three containers, or is one and
+ * Never throws. A file that isn't one of the four containers, or is one and
  * has no lyrics in it, is a null — the caller falls back to the network, which
  * is exactly what it did before this existed.
  *
@@ -109,7 +109,7 @@ object EmbeddedLyrics {
     }
 
     /**
-     * The raw LRC text in [head], whichever of the three containers it is.
+     * The raw LRC text in [head], whichever of the four containers it is.
      *
      * Split from [read] so the parsing can be tested against bytes a tagger
      * just produced, without a device or a `Context` in the way — the round
@@ -117,6 +117,7 @@ object EmbeddedLyrics {
      */
     internal fun fromBytes(head: ByteArray): String? {
         val found = when {
+            head.startsWith(ID3_MAGIC) -> id3(head)
             head.startsWith(FLAC_MAGIC) -> flac(head)
             head.startsWith(MATROSKA_MAGIC) -> matroska(head)
             head.isMp4() -> mp4(head)
@@ -131,6 +132,125 @@ object EmbeddedLyrics {
         } else {
             context.contentResolver.openInputStream(uri)
         }
+
+    // ---- ID3v2 / MP3 -------------------------------------------------------
+
+    /**
+     * The `USLT` frame's text, or this app's `TXXX` one where it is present.
+     *
+     * The two fields [com.music.bitchord.download.Mp3Tagger] writes, taken
+     * in the same order of preference as everywhere else in this file: the
+     * word-timed form this app alone reads first, the standard one -- the
+     * only one an MP3 from anywhere else will carry -- as the fallback.
+     * Frame sizes are the v2.4 synchsafe kind or the v2.3 plain kind
+     * depending on the tag's own version byte, and a frame claiming to run
+     * past the tag's stated end stops the walk rather than being believed:
+     * a tag this reader did not write can claim anything at all.
+     */
+    private fun id3(bytes: ByteArray): String? {
+        if (bytes.size < 10) return null
+        val major = bytes[3].toInt()
+        if (major != 3 && major != 4) return null
+        val tagSize = synchsafeInt(bytes, 6) ?: return null
+        val end = minOf(10 + tagSize, bytes.size)
+        var pos = 10
+        // An extended header, when the flag says there is one, states its
+        // own size and is stepped over whole. v2.3 counts it without the
+        // four size bytes and in plain form; v2.4 counts it with them and
+        // synchsafe.
+        if (bytes[5].toInt() and 0x40 != 0) {
+            if (pos + 4 > end) return null
+            pos += if (major == 3) {
+                4 + readU32(bytes, pos).toInt()
+            } else {
+                synchsafeInt(bytes, pos) ?: return null
+            }
+            if (pos > end) return null
+        }
+        var plain: String? = null
+        while (pos + 10 <= end) {
+            val id = String(bytes, pos, 4, Charsets.ISO_8859_1)
+            if (id.all { it.code == 0 }) break // padding: the tag is done
+            val size = if (major == 4) {
+                synchsafeInt(bytes, pos + 4) ?: return plain
+            } else {
+                readU32(bytes, pos + 4).toInt()
+            }
+            val body = pos + 10
+            if (size < 0 || body + size > end) break
+            when (id) {
+                "TXXX" -> id3DescribedText(bytes, body, body + size)
+                    ?.takeIf { (description, _) -> description == WORD_LYRICS_FIELD }
+                    ?.let { (_, value) -> if (value.isNotBlank()) return value }
+                "USLT" -> if (plain == null) plain = id3LyricsText(bytes, body, body + size)
+            }
+            pos = body + size
+        }
+        return plain
+    }
+
+    /** A `TXXX` frame as its (description, value) pair. */
+    private fun id3DescribedText(bytes: ByteArray, start: Int, end: Int): Pair<String, String>? {
+        if (start >= end) return null
+        val encoding = bytes[start].toInt() and 0xFF
+        val split = id3Terminator(bytes, start + 1, end, encoding) ?: return null
+        return id3String(bytes, start + 1, split.first, encoding) to
+            id3String(bytes, split.second, end, encoding)
+    }
+
+    /** A `USLT` frame's lyric text: encoding, language, a descriptor, then the words. */
+    private fun id3LyricsText(bytes: ByteArray, start: Int, end: Int): String? {
+        if (start + 4 > end) return null
+        val encoding = bytes[start].toInt() and 0xFF
+        val split = id3Terminator(bytes, start + 4, end, encoding) ?: return null
+        return id3String(bytes, split.second, end, encoding)
+    }
+
+    /**
+     * Where a terminated string inside an ID3 frame ends, as (end of the
+     * string, start of what follows it). UTF-16 strings end on a two-byte
+     * zero aligned to the string's own start; the single-byte encodings on
+     * one zero byte.
+     */
+    private fun id3Terminator(bytes: ByteArray, from: Int, end: Int, encoding: Int): Pair<Int, Int>? {
+        if (encoding == 1 || encoding == 2) {
+            var i = from
+            while (i + 1 < end) {
+                if (bytes[i].toInt() == 0 && bytes[i + 1].toInt() == 0) return i to i + 2
+                i += 2
+            }
+            return null
+        }
+        var i = from
+        while (i < end) {
+            if (bytes[i].toInt() == 0) return i to i + 1
+            i++
+        }
+        return null
+    }
+
+    private fun id3String(bytes: ByteArray, start: Int, end: Int, encoding: Int): String =
+        if (end <= start) "" else String(
+            bytes, start, end - start,
+            when (encoding) {
+                1 -> Charsets.UTF_16
+                2 -> Charsets.UTF_16BE
+                3 -> Charsets.UTF_8
+                else -> Charsets.ISO_8859_1
+            },
+        )
+
+    /** A synchsafe integer -- seven bits a byte -- or null on a byte with the eighth set. */
+    private fun synchsafeInt(bytes: ByteArray, at: Int): Int? {
+        if (at + 4 > bytes.size) return null
+        var value = 0
+        for (i in 0 until 4) {
+            val b = bytes[at + i].toInt()
+            if (b and 0x80 != 0) return null
+            value = (value shl 7) or (b and 0x7F)
+        }
+        return value
+    }
 
     // ---- MP4 / M4A ----------------------------------------------------------
 
@@ -386,6 +506,7 @@ object EmbeddedLyrics {
 
     private const val FLAC_VORBIS_COMMENT = 4
     private val FLAC_MAGIC = "fLaC".toByteArray(Charsets.US_ASCII)
+    private val ID3_MAGIC = "ID3".toByteArray(Charsets.US_ASCII)
     private val MATROSKA_MAGIC = byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())
     private val DATA_ATOM = "data".toByteArray(Charsets.ISO_8859_1)
     private val LYR_ATOM = byteArrayOf(0xA9.toByte()) + "lyr".toByteArray(Charsets.ISO_8859_1)

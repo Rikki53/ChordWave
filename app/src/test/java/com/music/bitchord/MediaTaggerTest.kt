@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import com.music.bitchord.download.FlacTagger
+import com.music.bitchord.download.Mp3Tagger
 import com.music.bitchord.download.Mp4Tagger
 import com.music.bitchord.download.WebmTagger
 import org.junit.Assert.assertArrayEquals
@@ -307,7 +308,7 @@ class MediaTaggerTest {
         // bit isn't, and both are silent when written the other way.
         val comment = blocks[2].second
         val vendorLength = readU32Le(comment, 0)
-        assertEquals("BitChord", String(comment, 4, vendorLength, Charsets.UTF_8))
+        assertEquals("ChordWave", String(comment, 4, vendorLength, Charsets.UTF_8))
         var at = 4 + vendorLength
         val count = readU32Le(comment, at)
         at += 4
@@ -447,6 +448,53 @@ class MediaTaggerTest {
         assertEquals(listOf(TYPE_STREAMINFO, TYPE_VORBIS_COMMENT), blocks.map { it.first })
         assertArrayEquals(frames, tagged.copyOfRange(framesAt, tagged.size))
         assertTrue(tagged.indexOfBytes("LYRICS=$LRC".toByteArray(Charsets.UTF_8)) >= 0)
+    }
+
+
+    // ---- MP3 / ID3v2 ----
+
+    /** A frame sync (0xFF 0xFB: MPEG-1 Layer III) then bytes standing in for the frames. */
+    private fun fakeMp3(): ByteArray {
+        val bytes = ByteArray(256) { (it * 7 % 251).toByte() }
+        bytes[0] = 0xFF.toByte()
+        bytes[1] = 0xFB.toByte()
+        return bytes
+    }
+
+    @Test
+    fun `mp3 tagging prepends an ID3 tag and keeps every audio byte`() {
+        val original = fakeMp3()
+        val tagged = Mp3Tagger.tag(original, "My Title", "My Artist", "My Album", LRC, null, "image/jpeg")
+
+        assertNotSame(original, tagged)
+        assertEquals("ID3", String(tagged, 0, 3, Charsets.US_ASCII))
+        // The audio survives whole, immediately behind the new tag.
+        assertArrayEquals(original, tagged.copyOfRange(tagged.size - original.size, tagged.size))
+        assertTrue(tagged.indexOfBytes("My Title".toByteArray(Charsets.UTF_8)) >= 0)
+        assertTrue(tagged.indexOfBytes("USLT".toByteArray(Charsets.US_ASCII)) >= 0)
+        assertTrue(tagged.indexOfBytes("SYLT".toByteArray(Charsets.US_ASCII)) >= 0)
+    }
+
+    @Test
+    fun `mp3 tagging replaces an existing ID3 tag instead of stacking a second`() {
+        val once = Mp3Tagger.tag(fakeMp3(), "One", "A", null, null, null, "image/jpeg")
+        val twice = Mp3Tagger.tag(once, "Two", "A", null, null, null, "image/jpeg")
+
+        assertEquals(0, twice.indexOfBytes("ID3".toByteArray(Charsets.US_ASCII)))
+        assertEquals(-1, twice.indexOfBytes("ID3".toByteArray(Charsets.US_ASCII), 3))
+        assertTrue(twice.indexOfBytes("Two".toByteArray(Charsets.UTF_8)) >= 0)
+    }
+
+    @Test
+    fun `mp3 tagging is a no-op without a frame sync or an existing tag`() {
+        val notMp3 = "RIFF".toByteArray(Charsets.US_ASCII) + ByteArray(64) { it.toByte() }
+        assertSame(notMp3, Mp3Tagger.tag(notMp3, "t", "a", null, null, null, "image/jpeg"))
+    }
+
+    @Test
+    fun `mp3 tagging is a no-op with nothing worth writing`() {
+        val original = fakeMp3()
+        assertSame(original, Mp3Tagger.tag(original, "", "", null, null, null, "image/jpeg"))
     }
 
     private companion object {

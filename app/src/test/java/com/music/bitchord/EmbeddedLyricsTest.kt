@@ -7,6 +7,7 @@ import com.music.bitchord.data.lyrics.LyricWord
 import com.music.bitchord.data.lyrics.toEnhancedLrc
 import com.music.bitchord.data.lyrics.toLrc
 import com.music.bitchord.download.FlacTagger
+import com.music.bitchord.download.Mp3Tagger
 import com.music.bitchord.download.Mp4Tagger
 import com.music.bitchord.download.WebmTagger
 import org.junit.Assert.assertEquals
@@ -70,6 +71,47 @@ class EmbeddedLyricsTest {
             coverMime = "image/jpeg",
         )
         assertEquals(lrc, EmbeddedLyrics.fromBytes(tagged))
+    }
+
+
+    @Test
+    fun `an mp3 written by the tagger reads back`() {
+        val tagged = Mp3Tagger.tag(
+            bytes = minimalMp3(),
+            title = "t",
+            artist = "a",
+            album = null,
+            lyrics = lrc,
+            cover = null,
+            coverMime = "image/jpeg",
+        )
+        assertEquals(lrc, EmbeddedLyrics.fromBytes(tagged))
+    }
+
+    /** The A2 form rides in a `TXXX` frame, and the reader prefers it on the way back. */
+    @Test
+    fun `an mp3's word-timed lyrics are preferred over its plain ones`() {
+        val words = listOf(
+            LyricLine(
+                timeMs = 1_000L,
+                text = "two words",
+                words = listOf(
+                    LyricWord(1_000L, 1_400L, "two"),
+                    LyricWord(1_400L, 2_000L, "words"),
+                ),
+            ),
+        )
+        val tagged = Mp3Tagger.tag(
+            bytes = minimalMp3(),
+            title = "t",
+            artist = "a",
+            album = null,
+            lyrics = lrc,
+            cover = null,
+            coverMime = "image/jpeg",
+            wordLyrics = words.toEnhancedLrc(),
+        )
+        assertEquals(words.toEnhancedLrc(), EmbeddedLyrics.fromBytes(tagged))
     }
 
     /**
@@ -251,4 +293,8 @@ class EmbeddedLyricsTest {
             byteArrayOf(0x01, 0, 0, 0, 0, 0, 0, body.size.toByte()) + body
         return header + segment
     }
+
+    /** A frame sync then bytes standing in for the frames behind it. */
+    private fun minimalMp3(): ByteArray =
+        byteArrayOf(0xFF.toByte(), 0xFB.toByte(), 0x90.toByte(), 0x00) + ByteArray(32) { it.toByte() }
 }

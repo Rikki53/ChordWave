@@ -20,7 +20,9 @@ import kotlin.math.max
  * Embeds title, artist, album, lyrics and cover art into a track [Downloads]
  * just finished saving, so it reads correctly in a file manager or another
  * player rather than only inside this app, where the filename is otherwise
- * the only thing carrying that.
+ * the only thing carrying that. MP3 joined the set in 1.4.1: an addon
+ * serving one used to land untagged precisely because it was the format
+ * most likely to be copied somewhere else.
  *
  * Best-effort throughout, deliberately: the cover fetch is a network call
  * that can fail for reasons that have nothing to do with the download that
@@ -66,7 +68,7 @@ object MediaTagger {
      * a half-written one: a WAV's metadata lives in RIFF chunks that a good
      * number of players ignore outright.
      */
-    private val TAGGABLE = setOf("m4a", "webm", "flac")
+    private val TAGGABLE = setOf("m4a", "webm", "flac", "mp3")
 
     /**
      * Whether a file of [extension] gets tags at all.
@@ -237,6 +239,16 @@ object MediaTagger {
                     wordLyrics = words,
                 )
                 "flac" -> FlacTagger.tag(
+                    original,
+                    track.title,
+                    track.artist,
+                    track.albumName,
+                    plain,
+                    artwork?.bytes,
+                    artwork?.mime ?: "image/jpeg",
+                    wordLyrics = words,
+                )
+                "mp3" -> Mp3Tagger.tag(
                     original,
                     track.title,
                     track.artist,
