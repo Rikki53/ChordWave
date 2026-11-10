@@ -6759,11 +6759,74 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             SleepTimer.deadline.collectLatest { deadline ->
                 if (deadline == null) return@collectLatest
-                val remaining = deadline - SystemClock.elapsedRealtime()
-                if (remaining > 0) delay(remaining)
-                player?.pause()
-                SleepTimer.cancel()
+                runTimedSleepFade(deadline)
             }
+        }
+    }
+
+    /**
+     * Runs one timed sleep timer out: wait for the fade window, ramp the
+     * session player's own volume down over it (see [SleepFade]), pause at
+     * the deadline, then hand the volume back.
+     *
+     * Only the player's internal volume is touched — never the system
+     * volume — and only while no crossfade is running: a transition owns
+     * both players' volumes for its span, so a tick that finds one in
+     * flight leaves the gain alone and the next tick after it picks the
+     * fade up on the new active player. The base volume is re-read
+     * whenever the session swaps players, so what gets restored is the
+     * level that player was actually at.
+     *
+     * Cancellation is the restore path for every way out that is not the
+     * deadline itself — the timer re-set or switched off mid-fade, the
+     * service going away: [collectLatest] cancels this block and the
+     * `finally` hands the volume back, so no path leaves the player
+     * faded. The deadline path restores before it returns, for the same
+     * reason: the next play must start at the level the listener left.
+     */
+    private suspend fun runTimedSleepFade(deadline: Long) {
+        var fadedPlayer: ExoPlayer? = null
+        var baseVolume = 1f
+        var windowMs = 0L
+        var fired = false
+        try {
+            while (true) {
+                val remaining = deadline - SystemClock.elapsedRealtime()
+                if (remaining <= 0) break
+                if (windowMs == 0L && remaining <= SleepFade.MAX_FADE_MS) {
+                    // The fade begins: for a timer shorter than the window
+                    // this is its whole remainder, so the ramp is
+                    // proportional to the time actually left.
+                    windowMs = SleepFade.fadeWindowMs(remaining)
+                    TrackLog.d(TAG_SLEEP_FADE, "sleep timer: fading out over ${windowMs}ms")
+                }
+                if (windowMs == 0L) {
+                    delay(minOf(remaining - SleepFade.MAX_FADE_MS, 1_000L).coerceAtLeast(50L))
+                    continue
+                }
+                val current = player
+                if (current != null && crossfade?.isTransitioning() != true) {
+                    if (fadedPlayer !== current) {
+                        fadedPlayer = current
+                        baseVolume = current.volume
+                    }
+                    val gain = SleepFade.gain(remaining, windowMs)
+                    current.volume = baseVolume * gain
+                    if (remaining % 1_000L < SleepFade.TICK_MS) {
+                        TrackLog.d(TAG_SLEEP_FADE, "sleep fade: remaining=${remaining}ms gain=$gain volume=${current.volume}")
+                    }
+                }
+                delay(SleepFade.TICK_MS)
+            }
+            fired = true
+            player?.pause()
+            // Restore on the player that was faded, which a last-moment
+            // handoff may no longer be the session's.
+            fadedPlayer?.let { it.volume = baseVolume }
+            SleepTimer.cancel()
+            TrackLog.d(TAG_SLEEP_FADE, "sleep timer: paused, volume restored to $baseVolume")
+        } finally {
+            if (!fired) fadedPlayer?.let { it.volume = baseVolume }
         }
     }
 
@@ -9795,6 +9858,8 @@ class PlaybackService : MediaLibraryService() {
             .build()
 
     private companion object {
+        /** TrackLog tag for the timed sleep fade, so Copy Log shows the ramp. */
+        const val TAG_SLEEP_FADE = "SleepFade"
         const val MEDIA_ROOT_ID = "root"
         const val MEDIA_RECENTS_ID = "recents"
         const val MEDIA_QUICK_PICKS_ID = "quick_picks"
