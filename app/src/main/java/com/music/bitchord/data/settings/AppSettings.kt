@@ -13,6 +13,10 @@ import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.download.CellularDownloadPolicy
+import com.music.bitchord.download.DownloadDecision
+import com.music.bitchord.download.DownloadGate
+import com.music.bitchord.download.DownloadOrigin
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -222,21 +226,35 @@ object AppSettings {
     val downloadQuality = MutableStateFlow(DownloadQuality.LOSSLESS)
 
     /**
-     * Refuse to start a download while the connection charges for data.
+     * Where the listener stands on downloads spending mobile data — the
+     * three-position policy [DownloadGate] decides from.
      *
      * Metered rather than literally-Wi-Fi, the same test [effectiveAudioQuality]
      * makes, because the thing worth protecting is the bill and not the radio: a
      * tethered hotspot is Wi-Fi that costs money, and an unmetered home
      * connection is worth using whether or not it arrives over Wi-Fi.
      *
-     * On by default, and that is a deliberate change of behaviour for anyone
-     * updating. [downloadQuality] defaulting to Lossless means a tap that used
-     * to spend four megabytes of mobile data can now spend thirty-five, and of
-     * the two ways to get that wrong — silently overspending a data plan, or
-     * refusing with a sentence naming the switch that would allow it — only the
-     * second is recoverable by the person it happens to.
+     * [CellularDownloadPolicy.ASK_FIRST] by default, and that is a deliberate
+     * change of behaviour for anyone updating. The switch this replaces
+     * defaulted to a hard block, and its failure mode was silence: a tap on
+     * mobile data was refused by a settings row most people never read, with
+     * no moment at which the app asked the question it was answering on their
+     * behalf. Asking at the tap costs one dialog, once, and both settled
+     * positions — always allow, and the hard block — are then ones the
+     * listener arrived at deliberately rather than ones that arrived at them.
      */
-    val wifiOnlyDownloads = MutableStateFlow(true)
+    val cellularDownloadPolicy = MutableStateFlow(CellularDownloadPolicy.ASK_FIRST)
+
+    /**
+     * The Settings switch's own position: on exactly when
+     * [cellularDownloadPolicy] is [CellularDownloadPolicy.WIFI_ONLY].
+     *
+     * A mirror, kept because the switch is how the hard block is said and
+     * several readers ask after it by that name. Never written except
+     * through [setCellularDownloadPolicy] and [setWifiOnlyDownloads],
+     * which keep the two in step.
+     */
+    val wifiOnlyDownloads = MutableStateFlow(false)
 
     /**
      * Keep ordinary downloads in Music/ChordWave where other music apps can see
@@ -937,15 +955,26 @@ object AppSettings {
     }
 
     /**
-     * Whether a download may start on the connection in hand.
+     * Whether a download may start on the connection in hand *without
+     * asking anyone first*.
+     *
+     * [DownloadGate]'s answer for a tap, read as a boolean by callers that
+     * have no window to ask from: under
+     * [CellularDownloadPolicy.ASK_FIRST] a metered connection is a no here,
+     * because the asking happens at the tap in the activity and a caller
+     * holding only this boolean would otherwise spend the data unasked.
      *
      * A null [meteredConnection] means there is no active network, and that is
      * deliberately allowed through: a download with nothing to download over
      * fails on the network and says so, which is true, where refusing it here
-     * would blame a Wi-Fi setting for an outage.
+     * would blame a data setting for an outage.
      */
     val downloadsAllowedNow: Boolean
-        get() = !wifiOnlyDownloads.value || meteredConnection.value != true
+        get() = DownloadGate.decide(
+            policy = cellularDownloadPolicy.value,
+            metered = meteredConnection.value,
+            origin = DownloadOrigin.MANUAL,
+        ) == DownloadDecision.PROCEED
 
     /**
      * [authStore] is the application's own, passed in rather than opened again:
@@ -980,6 +1009,28 @@ object AppSettings {
         readAll()
     }
 
+    /**
+     * The download policy, with the switch it replaced folded in.
+     *
+     * Before the policy existed the position was a boolean that defaulted
+     * on, so the boolean merely being in the file says nothing — most
+     * files holding it never had it touched. Only an explicitly stored
+     * `true` is a choice someone made, and it is carried over as the hard
+     * block it meant. Everything else starts at
+     * [CellularDownloadPolicy.ASK_FIRST], the new default.
+     */
+    private fun readCellularDownloadPolicy() {
+        val stored = prefs.getString(KEY_CELLULAR_DOWNLOAD_POLICY, null)
+        val policy = when {
+            stored != null -> runCatching { CellularDownloadPolicy.valueOf(stored) }.getOrNull()
+            prefs.contains(KEY_WIFI_ONLY_DOWNLOADS) &&
+                prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, false) -> CellularDownloadPolicy.WIFI_ONLY
+            else -> null
+        } ?: CellularDownloadPolicy.ASK_FIRST
+        cellularDownloadPolicy.value = policy
+        wifiOnlyDownloads.value = policy == CellularDownloadPolicy.WIFI_ONLY
+    }
+
     private fun readAll() {
         migrateSingleQuality()
         audioQualityWifi.value = readQuality(KEY_QUALITY_WIFI)
@@ -990,7 +1041,7 @@ object AppSettings {
         ).coerceIn(MIN_UPGRADE_LENGTH_SLACK_SECONDS, MAX_UPGRADE_LENGTH_SLACK_SECONDS)
         migrateDownloadQuality()
         downloadQuality.value = readDownloadQuality()
-        wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
+        readCellularDownloadPolicy()
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, true)
         syncDownloadedPlaylists.value = prefs.getBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
@@ -1308,9 +1359,36 @@ object AppSettings {
         prefs.edit().putString(KEY_QUALITY_DOWNLOAD, value.name).apply()
     }
 
+    /**
+     * The one writer of the policy and its mirror, so the two cannot drift:
+     * the stored boolean follows the policy, and a file read back by an
+     * older build still finds the answer it expects under its own key.
+     */
+    fun setCellularDownloadPolicy(value: CellularDownloadPolicy) {
+        cellularDownloadPolicy.value = value
+        wifiOnlyDownloads.value = value == CellularDownloadPolicy.WIFI_ONLY
+        prefs.edit()
+            .putString(KEY_CELLULAR_DOWNLOAD_POLICY, value.name)
+            .putBoolean(KEY_WIFI_ONLY_DOWNLOADS, value == CellularDownloadPolicy.WIFI_ONLY)
+            .apply()
+    }
+
+    /**
+     * The Settings switch, said in its own terms. On is the hard block;
+     * off from the hard block returns to asking, not to always allowing —
+     * a switch turned off in passing is not the deliberate "don't ask
+     * again" the dialog's checkbox is. Off from any other position
+     * changes nothing, and the switch is already showing off there.
+     */
     fun setWifiOnlyDownloads(value: Boolean) {
-        wifiOnlyDownloads.value = value
-        prefs.edit().putBoolean(KEY_WIFI_ONLY_DOWNLOADS, value).apply()
+        setCellularDownloadPolicy(
+            when {
+                value -> CellularDownloadPolicy.WIFI_ONLY
+                cellularDownloadPolicy.value == CellularDownloadPolicy.WIFI_ONLY ->
+                    CellularDownloadPolicy.ASK_FIRST
+                else -> cellularDownloadPolicy.value
+            },
+        )
     }
 
     fun setCrossfadeSeconds(value: Int) {
@@ -2338,6 +2416,7 @@ object AppSettings {
     private const val KEY_UPGRADE_LENGTH_SLACK_SECONDS = "upgrade_length_slack_seconds"
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
+    private const val KEY_CELLULAR_DOWNLOAD_POLICY = "cellular_download_policy"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_SYNC_DOWNLOADED_PLAYLISTS = "sync_downloaded_playlists"
     private const val KEY_CROSSFADE = "crossfade_seconds"

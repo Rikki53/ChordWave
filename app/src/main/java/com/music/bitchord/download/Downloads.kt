@@ -18,14 +18,18 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.AudioCache
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
@@ -45,6 +49,17 @@ sealed interface DownloadState {
 
     /** Accepted, waiting for the one in front of it. */
     data object Queued : DownloadState
+
+    /**
+     * Accepted, and held for an unmetered connection: the connection in
+     * hand charges for data and the download policy does not allow
+     * spending it — the hard block is on, or the listener has yet to be
+     * asked. Not a failure and not a refusal: the track is in the queue
+     * in every way that matters, starts on its own when the connection
+     * or the policy lets it, and is named separately so its row can say
+     * "waiting for Wi-Fi" instead of wearing an error it did not earn.
+     */
+    data object WaitingForWifi : DownloadState
 
     /** [fraction] is 0f until the length is known, which is the first thing asked for. */
     data class Running(val fraction: Float) : DownloadState
@@ -132,6 +147,15 @@ object Downloads {
     /** Waiting, in the order asked for. Guarded by [lock]. */
     private val pending = LinkedHashMap<String, Song>()
 
+    /**
+     * Accepted on a connection that charges for data and held for one
+     * that doesn't — [DownloadState.WaitingForWifi]. Guarded by [lock].
+     * Nothing drains this but [releaseWaiting], which the connection and
+     * the policy are watched for; the service's workers never see these,
+     * so a held track costs no spinning while it waits.
+     */
+    private val waiting = LinkedHashMap<String, Song>()
+
     private val lock = Any()
 
     /**
@@ -158,6 +182,50 @@ object Downloads {
         _collections.value = runCatching {
             json.decodeFromString(collectionSerializer, prefs.getString(KEY_SAVED_COLLECTIONS, null) ?: "{}")
         }.getOrDefault(emptyMap())
+        watchForRelease(context.applicationContext)
+    }
+
+    private var releaseWatch: Job? = null
+
+    /**
+     * Held tracks are released the moment the facts change under them: an
+     * unmetered connection arriving, or the policy moving off the hard
+     * block (or to always-allow) while one is in hand. Watched here, once,
+     * rather than polled by the service, whose business is the queue that
+     * can move now.
+     */
+    private fun watchForRelease(app: Context) {
+        if (releaseWatch != null) return
+        releaseWatch = CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            combine(
+                AppSettings.meteredConnection,
+                AppSettings.cellularDownloadPolicy,
+            ) { metered, policy -> metered to policy }
+                .distinctUntilChanged()
+                .collect { releaseWaiting(app) }
+        }
+    }
+
+    /**
+     * Move every held track the connection now allows into the queue
+     * proper, through [enqueue] rather than by hand: the queue, the state
+     * and the service start are its business, its gate is re-asked against
+     * the facts as they stand now, and a track cancelled while it waited
+     * is no longer in [waiting] to be claimed here.
+     */
+    private fun releaseWaiting(context: Context) {
+        val held = synchronized(lock) { waiting.values.toList() }
+        held.filter { song ->
+            DownloadGate.decide(
+                policy = AppSettings.cellularDownloadPolicy.value,
+                metered = AppSettings.meteredConnection.value,
+                origin = DownloadOrigin.MANUAL,
+                servableFromCache = servableFromCache(song.videoId),
+            ) == DownloadDecision.PROCEED
+        }.forEach { song ->
+            val claimed = synchronized(lock) { waiting.remove(song.videoId) != null }
+            if (claimed) enqueue(context, song)
+        }
     }
 
     // ---- Asking -------------------------------------------------------------
@@ -169,35 +237,56 @@ object Downloads {
      * doubled — the menu row shows which of those it is, but a second tap
      * before the sheet updates should still be a no-op.
      *
-     * The Wi-Fi-only check is here rather than only at the tap because this is
+     * The mobile-data check is here rather than only at the tap because this is
      * the one door into the queue, and a setting that can be bypassed by a
-     * caller that forgot about it is not a setting. Callers that can say
-     * something better than a failed row — a single toast for a whole album, say
-     * — check [AppSettings.downloadsAllowedNow] themselves first; this is what
-     * catches the rest.
+     * caller that forgot about it is not a setting. What the check does with a
+     * track it will not fetch yet has changed, though: the track is *held*,
+     * not refused. It joins the session as [DownloadState.WaitingForWifi] and
+     * starts on its own when the connection or the policy lets it — see
+     * [releaseWaiting]. A caller with a window checks [DownloadGate] itself
+     * first and asks the question there; this is what catches the rest, and
+     * a question that reaches this door unasked is answered by holding,
+     * because holding spends nothing and a refusal nobody is told about
+     * reads as a dead button.
      *
      * @param from what release this track was asked for as part of, when it was
      *   one of many. Carried no further than [DownloadSession], which is the
      *   only thing that has to say *why* forty tracks are in the queue.
+     * @param cellularApproved the listener has answered the mobile-data
+     *   question for this request — at the tap, in the dialog. Only ever
+     *   true from that dialog's confirm; it approves this request and
+     *   changes no setting.
      */
-    fun enqueue(context: Context, song: Song, from: String? = null) {
+    fun enqueue(context: Context, song: Song, from: String? = null, cellularApproved: Boolean = false) {
         val id = song.videoId
-        // A copy straight out of the song cache spends no data, so the Wi-Fi
-        // rule has nothing to say about it.
-        if (!AppSettings.downloadsAllowedNow && !servableFromCache(id)) {
-            // Distinct from the duplicate-tap no-op below: nothing is in flight
-            // here to leave alone, and a refusal nobody is told about reads as a
-            // dead button. A download already queued or running started on a
-            // connection that allowed it and is none of this check's business.
+        // A copy straight out of the song cache spends no data, so the
+        // policy has nothing to say about it — [DownloadGate] knows.
+        val decision = DownloadGate.decide(
+            policy = AppSettings.cellularDownloadPolicy.value,
+            metered = AppSettings.meteredConnection.value,
+            origin = DownloadOrigin.MANUAL,
+            servableFromCache = servableFromCache(id),
+            userApproved = cellularApproved,
+        )
+        if (decision != DownloadDecision.PROCEED) {
+            // Distinct from the duplicate-tap no-op below: nothing is in
+            // flight here to leave alone. A download already queued or
+            // running started on a connection that allowed it and is none
+            // of this check's business.
             val inFlight = _active.value[id]
-            if (inFlight !is DownloadState.Queued && inFlight !is DownloadState.Running) {
-                DownloadSession.queued(song, from)
-                fail(id, WIFI_ONLY_REFUSAL)
+            if (inFlight is DownloadState.Queued || inFlight is DownloadState.Running) return
+            synchronized(lock) {
+                if (id in pending || id in running) return
+                waiting[id] = song
             }
+            _active.update { it + (id to DownloadState.WaitingForWifi) }
+            DownloadSession.queued(song, from)
+            DownloadSession.waitingForWifi(id)
             return
         }
         synchronized(lock) {
             if (id in pending || id in running) return
+            waiting.remove(id)
             pending[id] = song
         }
         _active.update { it + (id to DownloadState.Queued) }
@@ -254,6 +343,7 @@ object Downloads {
     fun cancel(videoId: String) {
         val job = synchronized(lock) {
             pending.remove(videoId)
+            waiting.remove(videoId)
             if (videoId !in running) return@synchronized null
             running.remove(videoId)
         }
@@ -277,11 +367,20 @@ object Downloads {
      * Holds its caller until every track has settled, and cancelling the caller
      * abandons what is unfinished without trace.
      *
+     * @param origin who is asking, for [DownloadGate]: a background caller
+     *   is never handed a track on a metered connection whatever the policy
+     *   says — its tracks are skipped below and left unhandled, for the
+     *   caller's next run on a connection that allows them.
      * @return the ids nobody needs to come back to: saved, called off by the
      *   listener, or already in flight from a tap. A track that failed, or was
      *   never reached, is not among them.
      */
-    internal suspend fun downloadNow(context: Context, songs: List<Song>, from: String?): Set<String> {
+    internal suspend fun downloadNow(
+        context: Context,
+        songs: List<Song>,
+        from: String?,
+        origin: DownloadOrigin,
+    ): Set<String> {
         val handled = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
         val claimed = synchronized(lock) {
             songs.filter { song ->
@@ -310,7 +409,13 @@ object Downloads {
                                 handled += id
                                 return@withPermit
                             }
-                            if (!AppSettings.downloadsAllowedNow) return@withPermit
+                            if (
+                                DownloadGate.decide(
+                                    policy = AppSettings.cellularDownloadPolicy.value,
+                                    metered = AppSettings.meteredConnection.value,
+                                    origin = origin,
+                                ) != DownloadDecision.PROCEED
+                            ) return@withPermit
                             val job = launch { run(context, song) }
                             onRunning(id, job)
                             job.join()
@@ -1593,16 +1698,6 @@ object Downloads {
      * with a transcode and never fetch the real thing.
      */
     private val LOSSLESS_EXTENSIONS = listOf("flac", "wav")
-
-    /**
-     * Why a download didn't start, when the reason is a setting rather than a
-     * fault.
-     *
-     * Names the switch, because a refusal that only says no leaves the user
-     * looking for a network problem that isn't there. Shared with the callers
-     * that show it as a toast so the two cannot drift apart.
-     */
-    internal const val WIFI_ONLY_REFUSAL = "Downloads are set to Wi-Fi only"
 
     /** As `DownloadService.WORKERS`, whose reasoning is the same here. */
     private const val BATCH_WORKERS = 4

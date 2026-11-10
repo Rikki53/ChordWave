@@ -12,6 +12,14 @@ sealed interface DownloadProgress {
 
     data object Queued : DownloadProgress
 
+    /**
+     * Accepted and held for an unmetered connection — the mobile-data
+     * policy will not spend the connection in hand. Not settled: the
+     * track is still coming, just not on this connection, so the row
+     * keeps its cancel control and the batch is not signed off yet.
+     */
+    data object WaitingForWifi : DownloadProgress
+
     /** [fraction] is 0f until the length is known, which is one request in. */
     data class Running(val fraction: Float) : DownloadProgress
 
@@ -161,6 +169,8 @@ object DownloadSession {
             state.copy(items = items)
         }
     }
+
+    fun waitingForWifi(videoId: String) = set(videoId, DownloadProgress.WaitingForWifi)
 
     fun running(videoId: String, fraction: Float) =
         set(videoId, DownloadProgress.Running(fraction))

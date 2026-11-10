@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.download.DownloadOrigin
 import com.music.bitchord.download.Downloads
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -202,7 +203,7 @@ class KaraokeAiService : Service() {
             return song.videoId.toUri()
         }
         // Catalogue song not on disk yet: use the existing download engine.
-        runCatching { Downloads.downloadNow(ctx, listOf(song), null) }
+        runCatching { Downloads.downloadNow(ctx, listOf(song), null, DownloadOrigin.MANUAL) }
         return Downloads.savedUri(ctx, song.videoId)
     }
 

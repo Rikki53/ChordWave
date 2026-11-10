@@ -393,6 +393,8 @@ private fun DownloadManagerRow(
                         },
                     )
                 }
+                is DownloadProgress.WaitingForWifi ->
+                    RowStatus(stringResource(R.string.download_waiting_for_wifi))
                 is DownloadProgress.Done -> RowStatus(stringResource(R.string.saved_to_bitchord_folder))
                 is DownloadProgress.Failed ->
                     RowStatus(progress.reason, MaterialTheme.colorScheme.error)

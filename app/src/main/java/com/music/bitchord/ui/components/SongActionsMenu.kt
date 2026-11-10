@@ -551,6 +551,13 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
             accent = palette.accent,
         ) { Downloads.cancel(song.videoId) }
 
+        is DownloadState.WaitingForWifi -> ActionRow(
+            icon = SfIcons.Download,
+            label = stringResource(R.string.download_waiting_for_wifi),
+            value = stringResource(R.string.cancel),
+            accent = palette.accent,
+        ) { Downloads.cancel(song.videoId) }
+
         is DownloadState.Failed -> ActionRow(
             icon = SfIcons.ErrorOutline,
             label = state.reason,

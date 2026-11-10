@@ -34,8 +34,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.TimeUnit
@@ -79,7 +77,9 @@ object PlaylistSync {
     private val running = Mutex()
 
     /**
-     * Follows the setting and the Wi-Fi rule its schedule depends on.
+     * Follows the setting. Its schedule no longer follows the download
+     * policy: background work is unmetered-only in every state — see
+     * [constraints] — so the policy changing is not a reason to reschedule.
      *
      * Off, this never touches WorkManager, which is initialised on demand for
      * that reason: a switch that defaults to off should cost a launch nothing.
@@ -88,12 +88,10 @@ object PlaylistSync {
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             var wasOn: Boolean? = null
             AppSettings.syncDownloadedPlaylists
-                .combine(AppSettings.wifiOnlyDownloads) { on, wifiOnly -> on to wifiOnly }
-                .distinctUntilChanged()
-                .collect { (on, wifiOnly) ->
+                .collect { on ->
                     val firstLook = wasOn == null
                     if (on) {
-                        schedule(app, wifiOnly, replace = !firstLook)
+                        schedule(app, replace = !firstLook)
                         if (wasOn == false) checkNow(app)
                     } else if (!firstLook) {
                         cancel(app)
@@ -116,7 +114,7 @@ object PlaylistSync {
      */
     fun checkNow(context: Context, approved: Boolean = false) {
         val request = OneTimeWorkRequestBuilder<PlaylistSyncWorker>()
-            .setConstraints(constraints(AppSettings.wifiOnlyDownloads.value))
+            .setConstraints(constraints())
             .setInputData(workDataOf(KEY_APPROVED to approved))
             .build()
         val policy = if (approved) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
@@ -129,13 +127,13 @@ object PlaylistSync {
         work.cancelUniqueWork(ONE_OFF_WORK)
     }
 
-    private fun schedule(context: Context, wifiOnly: Boolean, replace: Boolean) {
+    private fun schedule(context: Context, replace: Boolean) {
         val request = PeriodicWorkRequestBuilder<PlaylistSyncWorker>(
             PERIOD_HOURS,
             TimeUnit.HOURS,
             FLEX_HOURS,
             TimeUnit.HOURS,
-        ).setConstraints(constraints(wifiOnly)).build()
+        ).setConstraints(constraints()).build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             PERIODIC_WORK,
             if (replace) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP,
@@ -143,8 +141,18 @@ object PlaylistSync {
         )
     }
 
-    private fun constraints(wifiOnly: Boolean): Constraints = Constraints.Builder()
-        .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+    /**
+     * Unmetered, always — not only when the download policy blocks mobile
+     * data. This work is background work: nobody tapped anything, nobody
+     * can be asked, and the listener's "always allow" was said about taps
+     * they make, not about data spent while the phone is in a pocket. So
+     * a check waits for an unmetered connection in every policy state,
+     * which is also what makes the wait survivable: WorkManager holds
+     * the request until the constraint is met rather than the check
+     * running somewhere it would only be refused.
+     */
+    private fun constraints(): Constraints = Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.UNMETERED)
         .setRequiresBatteryNotLow(true)
         .setRequiresStorageNotLow(true)
         .build()
@@ -170,7 +178,18 @@ object PlaylistSync {
             if (!storageWritable(context)) return
             var whole = true
             Downloads.collections.value.keys.forEach { id ->
-                if (!AppSettings.syncDownloadedPlaylists.value || !AppSettings.downloadsAllowedNow) return
+                // The background answer, not the tap's: on a metered
+                // connection this check has nothing to do here, whatever
+                // the policy — its work is already queued with WorkManager
+                // behind an unmetered constraint, and a check that cannot
+                // fetch is not stamped done for having looked.
+                if (!AppSettings.syncDownloadedPlaylists.value ||
+                    DownloadGate.decide(
+                        policy = AppSettings.cellularDownloadPolicy.value,
+                        metered = AppSettings.meteredConnection.value,
+                        origin = DownloadOrigin.BACKGROUND,
+                    ) != DownloadDecision.PROCEED
+                ) return
                 val record = Downloads.collections.value[id] ?: return@forEach
                 val browseId = syncableBrowseId(record) ?: return@forEach
                 val listing = readWholePlaylist(
@@ -206,7 +225,8 @@ object PlaylistSync {
         val fetch = missing.map { song ->
             if (song.thumbnailUrl.isNullOrBlank() && cover != null) song.copy(thumbnailUrl = cover) else song
         }
-        val handled = onDevice.mapTo(HashSet()) { it.videoId } + Downloads.downloadNow(context, fetch, record.title)
+        val handled = onDevice.mapTo(HashSet()) { it.videoId } +
+            Downloads.downloadNow(context, fetch, record.title, DownloadOrigin.BACKGROUND)
 
         // Read again: the listener may have deleted this download meanwhile, and
         // writing the record back would bring it back from the dead.

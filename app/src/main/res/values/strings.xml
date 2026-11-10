@@ -549,6 +549,12 @@
     <string name="mobile_data">Mobile data</string>
     <string name="couldnt_load_tracks">Could not load these tracks</string>
     <string name="wifi_only_download_refusal">Downloads are limited to Wi-Fi. Turn that off in Settings to use mobile data.</string>
+    <string name="download_mobile_data_title">Download over mobile data?</string>
+    <string name="download_mobile_data_message">You\'re on mobile data, not Wi-Fi. This download will use your mobile data connection.</string>
+    <string name="download_mobile_data_continue">Continue</string>
+    <string name="download_dont_ask_again">Don\'t ask again</string>
+    <string name="download_waiting_for_wifi">Waiting for Wi-Fi</string>
+    <string name="download_waiting_for_wifi_toast">Waiting for Wi-Fi — downloads are set to Wi-Fi only</string>
     <string name="pinned_playlist_limit">Only %1$d playlists can be pinned</string>
     <string name="downloaded_playlist">Downloaded playlist</string>
     <string name="library_sign_in_description">Sign in to your Google account to see your liked songs, playlists, and YouTube Music history.</string>

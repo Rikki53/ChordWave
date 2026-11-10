@@ -6,6 +6,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.StreamRequest
+import com.music.bitchord.download.CellularDownloadPolicy
 import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.download.Downloader
 import com.music.bitchord.download.Downloads
@@ -184,16 +185,26 @@ class DownloadStoreTest {
     // ---- When a download may start -----------------------------------------
 
     /**
-     * The Wi-Fi-only gate, including the case that is easiest to get backwards:
-     * offline. A null [AppSettings.meteredConnection] means there is no active
-     * network at all, and refusing there would blame a Wi-Fi setting for an
-     * outage — the download is let through to fail on the network and say so.
+     * The mobile-data gate as [AppSettings.downloadsAllowedNow] reads it —
+     * "may this start without asking anyone" — including the case that is
+     * easiest to get backwards: offline. A null
+     * [AppSettings.meteredConnection] means there is no active network at
+     * all, and refusing there would blame a data setting for an outage —
+     * the download is let through to fail on the network and say so.
+     *
+     * The matrix itself is [DownloadGateTest]'s; this is the wiring
+     * between the stored policy and the boolean, and the mirror the
+     * Settings switch reads.
      */
     @Test
-    fun `wifi-only refuses metered connections and nothing else`() {
+    fun `the policy gates metered connections and nothing else`() {
+        val policy = AppSettings.cellularDownloadPolicy.value
         val wifiOnly = AppSettings.wifiOnlyDownloads.value
         val metered = AppSettings.meteredConnection.value
         try {
+            // The hard block: the switch's mirror is on, and a metered
+            // connection is refused.
+            AppSettings.cellularDownloadPolicy.value = CellularDownloadPolicy.WIFI_ONLY
             AppSettings.wifiOnlyDownloads.value = true
             AppSettings.meteredConnection.value = true
             assertFalse(AppSettings.downloadsAllowedNow)
@@ -205,11 +216,19 @@ class DownloadStoreTest {
             AppSettings.meteredConnection.value = null
             assertTrue(AppSettings.downloadsAllowedNow)
 
-            // Off, and mobile data is fair game again.
+            // Ask-first still refuses a caller that cannot ask: the data
+            // is not spent unasked just because the asking happens
+            // somewhere else.
+            AppSettings.cellularDownloadPolicy.value = CellularDownloadPolicy.ASK_FIRST
             AppSettings.wifiOnlyDownloads.value = false
             AppSettings.meteredConnection.value = true
+            assertFalse(AppSettings.downloadsAllowedNow)
+
+            // Always allow, and mobile data is fair game again.
+            AppSettings.cellularDownloadPolicy.value = CellularDownloadPolicy.ALWAYS_ALLOW
             assertTrue(AppSettings.downloadsAllowedNow)
         } finally {
+            AppSettings.cellularDownloadPolicy.value = policy
             AppSettings.wifiOnlyDownloads.value = wifiOnly
             AppSettings.meteredConnection.value = metered
         }

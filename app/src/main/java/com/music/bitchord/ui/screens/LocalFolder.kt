@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
@@ -902,7 +903,8 @@ private fun RowDownloadButton(song: Song, palette: ArtworkPalette, onDownload: (
             .clip(CircleShape)
             .clickable(enabled = !done) {
                 when (state) {
-                    is DownloadState.Queued, is DownloadState.Running -> Downloads.cancel(song.videoId)
+                    is DownloadState.Queued, is DownloadState.Running,
+                    is DownloadState.WaitingForWifi -> Downloads.cancel(song.videoId)
                     else -> onDownload()
                 }
             },
@@ -928,6 +930,12 @@ private fun RowDownloadButton(song: Song, palette: ArtworkPalette, onDownload: (
                     color = palette.accent,
                 )
             }
+            is DownloadState.WaitingForWifi -> Icon(
+                Icons.Rounded.WifiOff,
+                contentDescription = stringResource(R.string.download_waiting_for_wifi),
+                tint = palette.onBackgroundVariant,
+                modifier = Modifier.size(20.dp),
+            )
             is DownloadState.Failed -> Icon(
                 Icons.Rounded.ErrorOutline,
                 contentDescription = stringResource(R.string.retry),

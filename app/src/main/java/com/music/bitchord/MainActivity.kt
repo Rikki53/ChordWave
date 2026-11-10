@@ -228,6 +228,10 @@ import com.music.bitchord.playback.upgradeQuality
 import com.music.bitchord.playback.revertToOriginal
 import com.music.bitchord.playback.swapToVersion
 import com.music.bitchord.playback.smart.VersionAudioAligner
+import com.music.bitchord.download.CellularDownloadPolicy
+import com.music.bitchord.download.DownloadDecision
+import com.music.bitchord.download.DownloadGate
+import com.music.bitchord.download.DownloadOrigin
 import com.music.bitchord.download.DownloadSession
 import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.download.MediaTagger
@@ -237,6 +241,7 @@ import com.music.bitchord.ui.components.BrowseActionsMenu
 import com.music.bitchord.ui.components.BrowseTarget
 import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.InfoAlert
+import com.music.bitchord.ui.components.MobileDataDownloadAlert
 import com.music.bitchord.ui.components.DownloadManagerPage
 import com.music.bitchord.ui.components.PlaylistPickerSheet
 import com.music.bitchord.ui.components.ReorderPlaylistPage
@@ -2220,6 +2225,21 @@ private fun BitChordApp(
      * permission arrives as forty loose tracks.
      */
     var downloadPendingFrom by remember { mutableStateOf<DownloadTarget?>(null) }
+    /**
+     * Whether the batch in [downloadPending] was approved at the
+     * mobile-data dialog before it went into the storage round trip —
+     * carried for the same reason [downloadPendingFrom] is: the answer
+     * has to survive the trip, or a batch approved on mobile data would
+     * be asked about a second time (or worse, held) on the way back.
+     */
+    var downloadPendingCellularConsent by remember { mutableStateOf(false) }
+    /**
+     * A batch held at the mobile-data question, with what it was asked
+     * for as. Non-null is what shows the dialog; the confirm and the
+     * cancel both clear it, and only the confirm takes the batch any
+     * further — a cancelled question leaves no trace at all.
+     */
+    var cellularDownloadPrompt by remember { mutableStateOf<Pair<List<Song>, DownloadTarget?>?>(null) }
     val notifyPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* Refusing costs the progress notification, not the download. */ }
@@ -2228,12 +2248,14 @@ private fun BitChordApp(
     ) { granted ->
         val songs = downloadPending
         val from = downloadPendingFrom
+        val cellularConsent = downloadPendingCellularConsent
         downloadPending = emptyList()
         downloadPendingFrom = null
+        downloadPendingCellularConsent = false
         when {
             songs.isEmpty() -> Unit
             granted -> {
-                songs.forEach { Downloads.enqueue(context, it, from?.title) }
+                songs.forEach { Downloads.enqueue(context, it, from?.title, cellularConsent) }
                 if (from != null) Downloads.markRequested(from.id, songs.map { it.videoId })
             }
             // The one case where refusing is fatal: below API 29 there is no
@@ -2300,7 +2322,12 @@ private fun BitChordApp(
     // it decomposed into — see [Downloads.rememberCollection]. Null for a single
     // track, which is not a release however many of them are asked for one at a
     // time.
-    val startDownload: (List<Song>, DownloadTarget?) -> Unit = { requested, from ->
+    // [startDownload] with the mobile-data question already settled: the
+    // batch either never needed asking, was approved at the dialog, or is
+    // being handed over to be held for Wi-Fi. Everything past the question
+    // — permissions, the queue, the record — is the same for all three.
+    val proceedDownload: (List<Song>, DownloadTarget?, Boolean, Boolean) -> Unit =
+        { requested, from, cellularConsent, waitingForWifi ->
         val saved = Downloads.saved.value
         // Already on disk, and already queued or running: neither needs asking
         // again. What's left is what a tap on "Download" actually means.
@@ -2329,18 +2356,16 @@ private fun BitChordApp(
                     song
                 }
             }
-        // Asked here as well as inside [Downloads.enqueue] — not instead of it.
-        // Enqueue is the invariant and has to refuse whoever calls it, including
-        // the storage-permission continuation below, which resumes long enough
-        // after this check for the connection to have changed under it. This is
-        // the one place that knows the tap was for forty tracks and can say so
-        // once, rather than leaving forty identical failed rows to be read.
-        // A copy out of the song cache spends no data, so Wi-Fi only does not
-        // refuse a batch that has one — [Downloads.enqueue] still refuses the
-        // tracks in it that would need the network.
-        val blocked = songs.isNotEmpty() && !AppSettings.downloadsAllowedNow &&
-            songs.none { Downloads.servableFromCache(it.videoId) }
-        if (songs.isNotEmpty() && !blocked) {
+        // The gate inside [Downloads.enqueue] is the invariant and holds
+        // whoever calls it, including the storage-permission continuation
+        // below, which resumes long enough after the tap for the connection
+        // to have changed under it. What the question's settlement changes
+        // here is only what is carried through it: [cellularConsent], so an
+        // approved batch is not asked about a second time on its way into
+        // the queue, and [waitingForWifi], which is not a refusal — the
+        // tracks are enqueued and held, and said so once below rather than
+        // in forty identical rows.
+        if (songs.isNotEmpty()) {
             val needsStorage = AppSettings.exportDownloads.value && DownloadStore.needsLegacyPermission() &&
                 ContextCompat.checkSelfPermission(
                     context,
@@ -2362,9 +2387,10 @@ private fun BitChordApp(
             if (needsStorage) {
                 downloadPending = songs
                 downloadPendingFrom = from
+                downloadPendingCellularConsent = cellularConsent
                 storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             } else {
-                songs.forEach { Downloads.enqueue(context, it, from?.title) }
+                songs.forEach { Downloads.enqueue(context, it, from?.title, cellularConsent) }
                 if (from != null) Downloads.markRequested(from.id, songs.map { it.videoId })
             }
             // Said once per addon and reason per session, and only for a batch
@@ -2379,10 +2405,11 @@ private fun BitChordApp(
         }
         // Recorded for everything that was asked for, not just what still has to
         // be fetched: a release whose tracks are already on the device is still
-        // that release, and the point of the record is to group them. Skipped
-        // only when the whole batch was refused, since then there will be
-        // nothing on disk for it to group.
-        if (from != null && !blocked) {
+        // that release, and the point of the record is to group them. A batch
+        // held for Wi-Fi is recorded too — its tracks are accepted and on
+        // their way, which is what the record groups. Only a batch cancelled
+        // at the mobile-data question never gets here at all.
+        if (from != null) {
             Downloads.rememberCollection(from, requested)
             // A collection cover is not part of any audio file. Cache the
             // header image separately so its Downloads card still has artwork
@@ -2397,12 +2424,12 @@ private fun BitChordApp(
         }
         when {
             // The row's own icon reports a queued download, so a single tap
-            // normally needs no toast — but a refused one leaves the row exactly
-            // as it was, and a button that visibly does nothing is worse than a
-            // long message. So this one is said whatever the count.
-            blocked -> Toast.makeText(
+            // normally needs no toast — but a held one leaves the row looking
+            // much as it was, and a button that visibly does nothing is worse
+            // than a long message. So this one is said whatever the count.
+            waitingForWifi -> Toast.makeText(
                 context,
-                context.getString(R.string.wifi_only_download_refusal),
+                context.getString(R.string.download_waiting_for_wifi_toast),
                 Toast.LENGTH_LONG,
             ).show()
             requested.size > 1 -> {
@@ -2417,6 +2444,36 @@ private fun BitChordApp(
                 }
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+    // The tap itself, and the one question it may have to ask before
+    // anything is queued: on a connection that charges for data, under a
+    // policy that has not settled the matter, the batch is held here —
+    // not in the queue — until the listener answers. Cancelling the
+    // dialog is the whole answer then: nothing is queued, nothing is
+    // recorded, no state changes. On Wi-Fi the question never arises, in
+    // any policy state; under the hard block there is nothing to ask, and
+    // the batch goes to be held for Wi-Fi with its toast.
+    //
+    // The decision is [DownloadGate]'s, asked about the batch as a whole:
+    // a batch entirely served from the song cache spends no data and is
+    // never asked about, and one track in it that needs the network is
+    // enough for the batch to be a mobile-data download.
+    val startDownload: (List<Song>, DownloadTarget?) -> Unit = { requested, from ->
+        val saved = Downloads.saved.value
+        val fresh = requested.filter { it.videoId !in saved }
+        val decision = DownloadGate.decide(
+            policy = AppSettings.cellularDownloadPolicy.value,
+            metered = AppSettings.meteredConnection.value,
+            origin = DownloadOrigin.MANUAL,
+            servableFromCache = fresh.isNotEmpty() && fresh.all { Downloads.servableFromCache(it.videoId) },
+        )
+        when (decision) {
+            DownloadDecision.ASK_USER -> cellularDownloadPrompt = requested to from
+            DownloadDecision.WAIT_FOR_WIFI ->
+                proceedDownload(requested, from, false, true)
+            DownloadDecision.PROCEED ->
+                proceedDownload(requested, from, false, false)
         }
     }
     // The Cached songs folder's download buttons. The song cache already holds
@@ -6020,6 +6077,27 @@ private fun BitChordApp(
                 // A download can be asked for from the player or from either
                 // menu, and each is a window of its own over this one. Drawn
                 // here, the alert opened behind whichever it was.
+                inOwnWindow = playerRaised || songActions != null || browseActions != null,
+            )
+        }
+
+        // The mobile-data question, over the same windows for the same
+        // reason. Confirming with the box ticked settles the policy, not
+        // just this batch; confirming without it approves this batch
+        // alone, carried into the queue as consent so the tracks are not
+        // asked about a second time on their way in. Dismissing is a
+        // cancel: the batch goes no further and nothing is recorded.
+        cellularDownloadPrompt?.let { (songs, from) ->
+            MobileDataDownloadAlert(
+                hazeState = hazeState,
+                onConfirm = { dontAskAgain ->
+                    if (dontAskAgain) {
+                        AppSettings.setCellularDownloadPolicy(CellularDownloadPolicy.ALWAYS_ALLOW)
+                    }
+                    cellularDownloadPrompt = null
+                    proceedDownload(songs, from, true, false)
+                },
+                onDismiss = { cellularDownloadPrompt = null },
                 inOwnWindow = playerRaised || songActions != null || browseActions != null,
             )
         }

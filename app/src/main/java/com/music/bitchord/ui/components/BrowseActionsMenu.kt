@@ -200,7 +200,8 @@ fun BrowseActionsMenu(
                 // in [Downloads.active] until dismissed, and a failure is not a wait.
                 val waiting = target.browseId?.let { requested[it] }.orEmpty().any { id ->
                     when (active[id]) {
-                        is DownloadState.Queued, is DownloadState.Running -> true
+                        is DownloadState.Queued, is DownloadState.Running,
+                        is DownloadState.WaitingForWifi -> true
                         else -> false
                     }
                 }
