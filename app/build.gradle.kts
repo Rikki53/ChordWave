@@ -372,6 +372,13 @@ dependencies {
     implementation("com.valentinilk.shimmer:compose-shimmer:1.3.3")
     // Squircle/smooth-corner shapes (JitPack).
     implementation("com.github.racra:smooth-corner-rect-android-compose:v1.0.0")
+    // Dynamic-color scoring for the ported Mochy theme (Theme.kt uses
+    // Score.score; mirrored in tv/build.gradle.kts — the TV module compiles
+    // all app sources, so it needs every ported-UI dep on its classpath).
+    implementation("com.materialkolor:material-kolor:4.1.1")
+    // Preferences DataStore for the ported Mochy settings layer
+    // (ui/mochy/utils/DataStore.kt); mirrored in tv/build.gradle.kts.
+    implementation("androidx.datastore:datastore-preferences:1.2.0")
 
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
     implementation("dev.chrisbanes.haze:haze:1.3.1")

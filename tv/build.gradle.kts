@@ -355,10 +355,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0")
 
     // ---- Images: Coil 3 + Palette (dominant colors for the mesh gradient) ----
-    implementation("io.coil-kt.coil3:coil-compose:3.0.4")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
+    // Coil 3.3.0, matching app: the ported Mochy UI (shared app sources)
+    // is written against 3.3.0 APIs.
+    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     // The shared app sources register SvgDecoder (artist signatures).
-    implementation("io.coil-kt.coil3:coil-svg:3.0.4")
+    implementation("io.coil-kt.coil3:coil-svg:3.3.0")
     // SF Symbols as Compose vectors: the shared app sources draw their menus and
     // settings with them. Without its own dependencies, for the reason given in
     // app/build.gradle.kts.
@@ -370,6 +372,27 @@ dependencies {
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
     implementation("dev.chrisbanes.haze:haze:1.3.1")
     implementation("dev.chrisbanes.haze:haze-materials:1.3.1")
+
+    // ---- Mochy UI clone: mirror of the app module's ported-UI deps ----
+    // This module compiles ALL app sources (see sourceSets above), so every
+    // library the ported ui/mochy code imports must be on this classpath too
+    // — otherwise :tv:compileDevDebugKotlin fails on unresolved references
+    // (first hit 14 Nov: @HiltAndroidApp on the shared BitChordApplication).
+    // NO Hilt/KSP plugins here: the TV build never runs Hilt codegen — the
+    // annotations in the shared sources are inert metadata on TV, and the
+    // TV UI never calls hiltViewModel(). The artifacts are needed only so
+    // the shared sources resolve and compile.
+    implementation("com.google.dagger:hilt-android:2.58")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation("com.airbnb.android:lottie-compose:6.6.2")
+    implementation("com.jakewharton.timber:timber:5.0.1")
+    implementation("sh.calvin.reorderable:reorderable:3.0.0")
+    implementation("com.valentinilk.shimmer:compose-shimmer:1.3.3")
+    implementation("com.github.racra:smooth-corner-rect-android-compose:v1.0.0")
+    // Dynamic-color scoring for the ported Mochy theme (Theme.kt).
+    implementation("com.materialkolor:material-kolor:4.1.1")
+    // Preferences DataStore for the ported Mochy settings layer.
+    implementation("androidx.datastore:datastore-preferences:1.2.0")
 
     // ---- QR encoding, for the party invite ----
     // `core` only: the `android-core`/`zxing-android-embedded` artifacts bring
