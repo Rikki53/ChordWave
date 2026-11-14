@@ -30,7 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.datastore.preferences.core.toMutablePreferences
+import androidx.datastore.preferences.core.edit
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.SettingsGroup
@@ -349,10 +349,8 @@ fun ExperimentalSettingsScreen(navigator: MochyNavigator) {
                             iconShape = CircleShape,
                             onClick = {
                                 coroutineScope.launch {
-                                    context.dataStore.updateData { prefs ->
-                                        prefs.toMutablePreferences().apply {
-                                            set(SetupCompletedKey, false)
-                                        }
+                                    context.dataStore.edit { prefs ->
+                                        prefs[SetupCompletedKey] = false
                                     }
                                     // The key alone cannot re-show the
                                     // wizard for an onboarded user (the

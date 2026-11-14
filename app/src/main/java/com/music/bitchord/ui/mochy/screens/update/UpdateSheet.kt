@@ -109,8 +109,11 @@ fun rememberUpdateState(): State<UpdateState> {
     }
     // a check elsewhere (launch-time, another sheet) finding an update while this one is open
     LaunchedEffect(available) {
-        if (available != null && state.value !is UpdateState.Available) {
-            state.value = UpdateState.Available(available)
+        // Local copy: `available` is a delegated property, which the
+        // compiler cannot smart-cast after the null check.
+        val info = available
+        if (info != null && state.value !is UpdateState.Available) {
+            state.value = UpdateState.Available(info)
         }
     }
     return state

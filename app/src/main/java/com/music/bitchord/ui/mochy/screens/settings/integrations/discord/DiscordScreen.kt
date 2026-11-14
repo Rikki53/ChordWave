@@ -51,6 +51,7 @@ import com.music.bitchord.data.discord.discordAudioQualityLine
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.SubSettingsScaffold
+import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.screens.settings.integrations.IntegrationPageSubtitle
@@ -204,7 +205,9 @@ private fun liveNowPlaying(qualityLine: String?): CwNowPlaying? {
     val playing by connection.isPlaying.collectAsState()
     val currentSong = song ?: return null
     return CwNowPlaying(
-        song = currentSong,
+        // The connection's song is a Mochy-model Song; the preview
+        // renders a CW Song (title/artist/artwork only).
+        song = currentSong.toCwSong(),
         positionMs = progress.position,
         durationMs = progress.duration,
         isPlaying = playing,
