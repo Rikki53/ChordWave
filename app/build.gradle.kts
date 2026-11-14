@@ -354,9 +354,12 @@ dependencies {
     // ---- Dependency injection: Hilt (Mochy UI clone) ----
     // The ported Mochy screens use @HiltViewModel ViewModels and
     // hiltViewModel(); the codegen runs through KSP (see plugins above).
-    implementation("com.google.dagger:hilt-android:2.60.1")
-    ksp("com.google.dagger:hilt-android-compiler:2.60.1")
-    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
+    // Hilt 2.58 is the last release compatible with AGP 8.10.1 (2.59+
+    // requires AGP 9); hilt-navigation-compose 1.2.0 is the matching era
+    // so the runtime never outruns the compiler that generated it.
+    implementation("com.google.dagger:hilt-android:2.58")
+    ksp("com.google.dagger:hilt-android-compiler:2.58")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // ---- Mochy UI clone: libraries the ported UI depends on ----
     // Lottie nav icons (R.raw) and animations.

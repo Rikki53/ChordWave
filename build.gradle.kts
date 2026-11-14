@@ -75,6 +75,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "2.3.20" apply false
     id("org.jetbrains.compose") version "1.10.3" apply false
     // Mochy UI clone: Hilt (KSP) for the ported ViewModels, KSP for its codegen.
-    id("com.google.dagger.hilt.android") version "2.60.1" apply false
+    // Hilt is PINNED at 2.58: 2.59+ requires AGP 9.0.0+ (verified: 2.60.1
+    // fails configuration on this project's AGP 8.10.1), and AGP 9 is a
+    // separate major migration (Gradle 9, built-in Kotlin) out of scope here.
+    id("com.google.dagger.hilt.android") version "2.58" apply false
     id("com.google.devtools.ksp") version "2.3.14" apply false
 }
