@@ -108,6 +108,7 @@ private val RouteOwners: List<Pair<String, String>> = listOf(
     "developer_space" to "settings",
     "developer_playground" to "settings",
     "storage_settings" to "settings",
+    "integrations_settings" to "settings",
     "import_sync" to "settings",
     "import_providers" to "settings",
     "import_tunemymusic" to "settings",

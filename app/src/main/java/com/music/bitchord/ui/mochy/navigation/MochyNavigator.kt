@@ -67,6 +67,14 @@ class MochyNavigator {
         _currentTab.value = index
     }
 
+    /** Opens a settings page. On a wide screen Mochy keeps the settings
+     *  list beside the page; the Modern host is phone-layout only, so a
+     *  settings page is just a pushed detail like any other. Kept as its
+     *  own call so a future two-pane host only changes this one place. */
+    fun openSettingsPage(route: String) {
+        navigate(route)
+    }
+
     /** One step back: the detail page on top is closed. False when the tab
      *  itself is on screen (the host then handles back — e.g. exits). */
     fun popBackStack(): Boolean {

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): values/mochy_strings.xml lines 1161-1167.
+     The undo RESULT strings for YouTubeSyncManager (Phase 4G). The undo
+     dialog/title strings live in 4E's mochy_importsync_strings.xml — do not
+     duplicate them here. Only yt_sync_undo_nothing is reachable today
+     (no sync snapshot store exists yet, so undo always reports "nothing");
+     the other three stay staged so the undo implementation can use them
+     verbatim when the store lands. -->
+<resources>
+    <string name="yt_sync_undo_done_phone">Undone on this phone. YouTube won\'t be pulled again until you sync now.</string>
+    <string name="yt_sync_undo_done_both">Undone on this phone and on YouTube. YouTube won\'t be pulled again until you sync now.</string>
+    <string name="yt_sync_undo_nothing">Nothing to undo yet. Run a sync first.</string>
+    <plurals name="yt_sync_undo_failed">
+        <item quantity="one">Undone, but 1 like couldn\'t come off YouTube. Try again later.</item>
+        <item quantity="other">Undone, but %1$d likes couldn\'t come off YouTube. Try again later.</item>
+    </plurals>
+</resources>

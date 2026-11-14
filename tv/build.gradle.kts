@@ -318,6 +318,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     // Mochy UI clone (Phase 2): HomeScreen uses LifecycleEventEffect
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    // Mochy UI clone (Phase 4): CaptureWebView (import/sync login) needs WebViewClient.
+    implementation("androidx.webkit:webkit:1.12.1")
     // ProcessLifecycleOwner: whether the app is on screen, for the open-app count.
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     // The scheduled check behind "Keep playlists updated"; see PlaylistSync.

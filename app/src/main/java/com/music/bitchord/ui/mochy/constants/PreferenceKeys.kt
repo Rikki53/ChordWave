@@ -494,3 +494,82 @@ val ShowFormatBadgeKey = booleanPreferencesKey("showFormatBadge")
 val ShowFormatSampleRateKey = booleanPreferencesKey("showFormatSampleRate")
 
 val ForceYtBackdropBlur1500Key = booleanPreferencesKey("forceYtBackdropBlur1500")
+
+// ---- Phase 4 (settings + secondary screens, 15 Nov 2026) ----
+// One merge edit: 4A settings-main + 4B settings-advanced + 4C onboarding
+// + 4E importsync. Dedups applied: ProxyEnabledKey/ProxyUrlKey (4A+4B),
+// YtReportPlaysKey (4A+4E), SetupCompletedKey (4B+4C), YtPullHistoryKey
+// (4E+4C) — each added once. Mochy's CrossfadeEnabledKey/
+// CrossfadeDurationKey are deliberately NOT here: ChordWave owns
+// crossfade in classic AppSettings (4B wires Crossmix to it instead).
+
+// 4A — AppBehaviour settings
+val AlbumsFromLikedSongsKey = booleanPreferencesKey("albumsFromLikedSongs")
+val DontSkipOnFailureKey = booleanPreferencesKey("dontSkipOnFailure")
+val HideUpdateNoticeKey = booleanPreferencesKey("hideUpdateNotice")
+val LocalSongAutoMetadataKey = booleanPreferencesKey("local_song_auto_metadata")
+val MixWithOtherAppsKey = booleanPreferencesKey("mixWithOtherApps")
+val PauseOnMute = booleanPreferencesKey("pauseOnMute")
+val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
+val PersistentShuffleAcrossQueuesKey = booleanPreferencesKey("persistentShuffleAcrossQueues")
+val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
+val ProxyUrlKey = stringPreferencesKey("proxyUrl")
+val ResumeOnBluetoothConnectKey = booleanPreferencesKey("resumeOnBluetoothConnect")
+val StopPlaybackOnTaskRemovedKey = booleanPreferencesKey("stopPlaybackOnTaskRemoved")
+val SyncLyricsToVideoKey = booleanPreferencesKey("syncLyricsToVideo")
+val YtReportPlaysKey = booleanPreferencesKey("ytReportPlays")
+val StudioForVideosKey = booleanPreferencesKey("studioForVideos")
+val TransportFadeEnabledKey = booleanPreferencesKey("transportFadeEnabled")
+val TransportFadeSecondsKey = floatPreferencesKey("transportFadeSeconds")
+val TransportEffectKey = stringPreferencesKey("transportEffect")
+val SkipBlendKey = booleanPreferencesKey("skipBlend")
+val SkipBlendAheadKey = intPreferencesKey("skipBlendAhead")
+val StreamFailureTimeoutKey = intPreferencesKey("streamFailureTimeout")
+val AppLanguageKey = stringPreferencesKey("appLanguage")
+const val SYSTEM_DEFAULT = "SYSTEM_DEFAULT"
+const val SkipBlendAheadMax = 4
+const val TransportFadeDefaultSeconds = 2f
+const val TransportFadeMinSeconds = 0.5f
+const val TransportFadeMaxSeconds = 10f
+enum class TransportEffect(val label: String) { OFF("None"), ECHO("Echo"), REWIND("Rewind"), TAPE_STOP("Tape stop"), FAR_AWAY("Fade to far"), REVERB("Reverb wash"), FILTER("Filter sweep") }
+
+// 4B — Crossmix
+val CrossfadeGaplessKey = booleanPreferencesKey("crossfadeGapless")
+val CrossmixTestToolsKey = booleanPreferencesKey("crossmixTestTools")
+val CrossmixLengthKey = stringPreferencesKey("crossmixLength")
+val CrossmixTempoMatchKey = stringPreferencesKey("crossmixTempoMatch")
+val CrossmixStyleKey = stringPreferencesKey("crossmixStyle")
+const val CrossmixStyleAuto = "AUTO"
+val CrossmixStuntsKey = booleanPreferencesKey("crossmixStunts")
+val CrossmixAlwaysMixKey = booleanPreferencesKey("crossmixAlwaysMix")
+enum class CrossmixLength(val scale: Float) { SHORT(0.6f), MEDIUM(1f), LONG(1.5f) }
+enum class CrossmixTempoMatch(val maxSpeedUp: Float) { OFF(0.006f), GENTLE(0.04f), FULL(0.10f) }
+
+// 4B — Experimental
+val ForceMonthlyRecapKey = booleanPreferencesKey("forceMonthlyRecap")
+val ForcePlaybackKey = booleanPreferencesKey("forcePlayback")
+val ShowStreamSourceToastKey = booleanPreferencesKey("show_stream_source_toast")
+val StreamBackendKey = stringPreferencesKey("streamBackend")
+enum class StreamBackend { INNERTUBEX, CLASSIC }
+val MusicHapticsSensitivityKey = stringPreferencesKey("musicHapticsSensitivity")
+val HapticFocusKey = stringPreferencesKey("hapticFocus")
+enum class HapticSensitivity { LOW, MEDIUM, HIGH }
+enum class HapticFocus { BALANCE, VOCAL, VIBE, BASS }
+val SetupCompletedKey = booleanPreferencesKey("setupCompleted")
+
+// 4B — Proxy (read-only until an engine lands; ProxyPasswordKey declared but unread)
+val ProxyTypeKey = stringPreferencesKey("proxyType")
+val ProxyUsernameKey = stringPreferencesKey("proxyUsername")
+val ProxyPasswordKey = stringPreferencesKey("proxyPassword")
+
+// 4E — importsync (YtReportPlaysKey above, shared with 4A)
+val YtPullHistoryKey = booleanPreferencesKey("ytPullHistory")
+val YtExcludeImportsKey = booleanPreferencesKey("ytExcludeImports")
+
+// 4C — onboarding (SetupCompletedKey above, shared with 4B;
+// YtReportPlaysKey/YtPullHistoryKey above, shared with 4E)
+val UsernameKey = stringPreferencesKey("username")
+val ProfileCardNumberKey = stringPreferencesKey("profileCardNumber")
+val ProfileJoinedEpochDayKey = longPreferencesKey("profileJoinedEpochDay")
+val SelectedYtmPlaylistsKey = stringPreferencesKey("selectedYtmPlaylists")
+val YtSyncLikedSongsKey = booleanPreferencesKey("ytSyncLikedSongs")

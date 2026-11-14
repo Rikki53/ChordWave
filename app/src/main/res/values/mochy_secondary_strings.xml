@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for the Phase 4D secondary screens (update / storage / integrations).
+     Values are Mochy Music's (GPL-3.0) with the brand rebadged Mochy → ChordWave, except where
+     ChordWave's engine honestly differs — those are marked REWRITTEN below. Strings that already
+     exist in the worktree (storage, username, password, discord_show_audio_quality(+_subtitle),
+     discord_presence_footer, discord_token_warning) are reused, not duplicated here. -->
+<resources>
+
+    <!-- Update: the channel-change sheet (PathChangeSheet). ChordWave has one release channel,
+         so these only appear if a channel switch is ever offered; the switch rows themselves
+         were dropped from UpdateSheet. -->
+    <string name="channel_nightly_question">Are you sure?</string>
+    <string name="channel_nightly_tagline">oh no, look at these new eyecandy features! i hope it goes… well.. i hope.</string>
+    <string name="channel_nightly_title">Path\nChange</string>
+    <string name="channel_nightly_warning">Nightly builds can be unstable, and you may get up to 5 updates a day, though the chance is kinda low. But it is what it is. Going back to an older release build can also break your data.</string>
+    <string name="channel_no">No</string>
+    <string name="channel_release_tagline">a release newer than your nightly is out, so you can hop back on.</string>
+    <string name="channel_release_title">Back to\nrelease</string>
+    <string name="channel_release_warning">You\'ll get the next release as an update, and nightlies stop showing up.</string>
+    <string name="channel_yes">Yes</string>
+
+    <!-- Integrations hub -->
+    <string name="integration_discord_desc">Rich Presence</string>
+    <string name="integration_scrobbling_desc">%1$s scrobbling</string>
+    <string name="module_youtube_name">YouTube Music</string>
+    <string name="module_youtube_desc">Sync likes, library, playlists and history</string>
+
+    <!-- Scrobbling (Last.fm / Libre.fm). ChordWave keeps ONE scrobble account, so the
+         "signed in to the other service" strings are new. -->
+    <string name="scrobble_account">Account</string>
+    <string name="scrobble_not_set_up">Not set up in this build of ChordWave</string>
+    <string name="scrobble_now_playing">Now Playing</string>
+    <string name="scrobble_now_playing_desc">Show the song you\'re on right now on your profile</string>
+    <string name="scrobble_open_profile">Open your profile</string>
+    <string name="scrobble_open_profile_desc">Your scrobbles and stats on %1$s</string>
+    <string name="scrobble_page_subtitle">Scrobbling</string>
+    <string name="scrobble_password_hint">Your %1$s password</string>
+    <string name="scrobble_paused_signed_in_as">Paused. Signed in as %1$s</string>
+    <string name="scrobble_send_likes">Send likes</string>
+    <!-- REWRITTEN: no CW engine sends likes to a scrobble service. -->
+    <string name="scrobble_send_likes_na">ChordWave can\'t send likes yet</string>
+    <string name="scrobble_sign_in_body">Use your %1$s username and password. ChordWave only keeps the sign-in key %1$s sends back, never your password.</string>
+    <string name="scrobble_sign_in_busy">%1$s couldn\'t sign you in right now. Try again in a moment.</string>
+    <string name="scrobble_sign_in_button">Sign in</string>
+    <string name="scrobble_sign_in_desc">Keep your listening history, stats and recommendations there</string>
+    <string name="scrobble_sign_in_offline">Couldn\'t reach %1$s. Check your connection and try again.</string>
+    <!-- NEW: signing in here replaces the other service's account. -->
+    <string name="scrobble_sign_in_replaces">Signing in to %1$s here replaces your %2$s account — ChordWave keeps one scrobble account at a time.</string>
+    <string name="scrobble_sign_in_title">Sign in to %1$s</string>
+    <string name="scrobble_sign_in_wrong">That username or password didn\'t work. Check them and try again.</string>
+    <string name="scrobble_sign_out">Sign out</string>
+    <string name="scrobble_sign_out_desc">ChordWave stops scrobbling to %1$s</string>
+    <string name="scrobble_sign_up">No account yet? Make one on %1$s</string>
+    <string name="scrobble_signed_in">Signed in to %1$s as %2$s. Songs you play are scrobbled from now on.</string>
+    <string name="scrobble_signed_in_as">Signed in as %1$s</string>
+    <!-- NEW: the account currently signed in belongs to the other service. -->
+    <string name="scrobble_signed_in_to_other">Signed in to %1$s</string>
+    <string name="scrobble_signing_in">Signing in…</string>
+    <string name="scrobble_to">Scrobble to %1$s</string>
+    <string name="scrobble_username_hint">Your %1$s username</string>
+    <string name="scrobble_while_listening">While you listen</string>
+
+    <!-- Discord -->
+    <string name="discord_behaviour">Behaviour</string>
+    <!-- NEW: ChordWave's button targets are fixed. -->
+    <string name="discord_button1_target">The song on YouTube Music</string>
+    <string name="discord_button2_target">ChordWave on GitHub</string>
+    <string name="discord_clear_on_pause">Clear status when paused</string>
+    <string name="discord_clear_on_pause_desc">Takes the song off your profile as soon as you pause, and puts it back when you play again.</string>
+    <!-- NEW: the switch is disabled — CW already clears on stop. -->
+    <string name="discord_clear_on_pause_na">ChordWave already takes your status down when playback stops.</string>
+    <!-- NEW: replaces the image-source cards CW has no engine for. -->
+    <string name="discord_images_note">ChordWave shows the track artwork, or its own mark when a track has none.</string>
+    <!-- REWRITTEN: CW logs in through an in-app WebView, not the browser. -->
+    <string name="discord_login_note">Opens Discord\'s login page inside ChordWave. Your password stays with Discord — nothing is typed into ChordWave.</string>
+    <!-- REWRITTEN: CW signs in with the account token, adapted from CW's own discord_token_warning. -->
+    <string name="discord_permissions_note">ChordWave signs in with your account token, which stays encrypted on this device and is sent only to Discord. It grants access to your full account, and account automation violates Discord\'s terms — use it only if you accept that risk. ChordWave only reads your name and picture, and shows what you\'re playing.</string>
+    <!-- NEW: replaces "Empty a box to hide that line" — the text lines are filled in by CW. -->
+    <string name="discord_strings_note">ChordWave fills these lines in for you.</string>
+    <string name="discord_use_details">Use details instead of state</string>
+    <!-- NEW -->
+    <string name="discord_use_details_desc">Shows the song title as the main line of the status instead of the activity name.</string>
+
+    <!-- Storage -->
+    <string name="storage_breakdown_title">ChordWave app data usage</string>
+    <string name="storage_cache_gb">%1$d GB</string>
+    <string name="storage_cache_limit">Set music cache limit</string>
+    <string name="storage_cache_mb">%1$d MB</string>
+    <string name="storage_cache_off">Off</string>
+    <string name="storage_cache_place">Choose where the cache is saved</string>
+    <string name="storage_cache_unlimited">Unlimited</string>
+    <string name="storage_clear_cache">Remove all music &amp; cover cache</string>
+    <string name="storage_clear_cache_action">Clear cache</string>
+    <string name="storage_clear_cache_message">Songs kept from streaming and saved cover pictures are deleted. They come back as you play and browse. Your library and your downloads stay as they are.</string>
+    <string name="storage_clear_cache_title">Clear the cache?</string>
+    <string name="storage_downloads_place">Choose where downloads are saved</string>
+    <string name="storage_export_covers">Cover pictures</string>
+    <string name="storage_export_downloads">Export downloaded songs as a folder</string>
+    <string name="storage_export_layout_albums">Albums</string>
+    <string name="storage_export_layout_albums_detail">A folder for each album, songs from no album go in Music</string>
+    <string name="storage_export_layout_playlists">Music and playlists</string>
+    <string name="storage_export_layout_playlists_detail">A folder for each playlist and your liked songs, the rest go in Music</string>
+    <string name="storage_export_lyrics">Lyrics</string>
+    <!-- Folder name rebadged: the StorageViewModel adapter must export into chordwave-preserve. -->
+    <string name="storage_export_note">They\'re copied into a chordwave-preserve folder wherever you pick. Your downloads stay where they are.</string>
+    <string name="storage_export_pick">Pick a folder</string>
+    <string name="storage_export_progress">Exporting… %1$d of %2$d</string>
+    <string name="storage_export_sheet_title">Export downloaded songs</string>
+    <string name="storage_export_starting">Getting the songs ready…</string>
+    <string name="storage_export_user_data">Export user data</string>
+    <string name="storage_free">%1$s free</string>
+    <string name="storage_hint_cache">The cache is the easy one. Clearing it frees %1$s and songs simply stream again.</string>
+    <string name="storage_hint_downloads">Downloads take the most room. Manage downloads shows the biggest ones and the ones you barely play.</string>
+    <string name="storage_hint_full">Your phone is nearly full.</string>
+    <!-- REWRITTEN: CW imports a JSON backup, not a .zip, and it replaces settings + listening
+         history only — library, downloads and logins are untouched, and there is no restart. -->
+    <string name="storage_import_action">Pick the file</string>
+    <string name="storage_import_message">Your settings and listening history are replaced by what\'s in the file. Your library, downloads and logins stay as they are.</string>
+    <string name="storage_import_title">Replace your settings and history?</string>
+    <string name="storage_import_user_data">Import user data</string>
+    <string name="storage_junk_title">So, here\'s a list of things you can do to cut the junk</string>
+    <string name="storage_legend_app_data">App data</string>
+    <string name="storage_legend_cache">Cache</string>
+    <string name="storage_legend_chordwave">ChordWave</string>
+    <string name="storage_legend_database">Database</string>
+    <string name="storage_legend_downloads">Downloaded music &amp; local</string>
+    <string name="storage_legend_yours">Your storage</string>
+    <string name="storage_manage_downloads">Manage downloads</string>
+    <string name="storage_measuring">Working out how much room ChordWave takes…</string>
+    <string name="storage_move_failed">Couldn\'t move everything, so nothing was changed. Try again.</string>
+    <string name="storage_moving">Moving… %1$d%%</string>
+    <string name="storage_or">Or</string>
+    <string name="storage_overall">Overall</string>
+    <string name="storage_place_access_needed">To save in %1$s, ChordWave needs All files access. Android asks for it in Settings.</string>
+    <string name="storage_place_allow_access">Allow access</string>
+    <string name="storage_place_card_note">On a memory card, ChordWave saves into its own folder, which Android clears if ChordWave is uninstalled.</string>
+    <string name="storage_place_choose_folder">Choose a folder</string>
+    <string name="storage_place_folder_note">ChordWave saves into a ChordWave folder inside the one you pick, so nothing else in there is touched.</string>
+    <string name="storage_place_folder_unsupported">That folder can\'t be used. Pick one on this phone or a memory card.</string>
+    <string name="storage_place_free">%1$s free of %2$s</string>
+    <string name="storage_place_here_now">Saved here now</string>
+    <string name="storage_place_move">Move here</string>
+    <string name="storage_place_move_action">Move and restart</string>
+    <string name="storage_place_move_cache_message">The cache you have now is cleared and ChordWave restarts, then songs you play are kept in the new place.</string>
+    <string name="storage_place_move_cache_title">Move the cache to %1$s?</string>
+    <string name="storage_place_move_downloads_message">Downloads pause while %1$s is copied over. ChordWave restarts once it\'s done, and the old copy is cleared.</string>
+    <string name="storage_place_move_downloads_title">Move downloads to %1$s?</string>
+    <string name="storage_place_no_access">ChordWave didn\'t get access, so it can\'t save there. Allow it, or pick another folder.</string>
+    <string name="storage_place_no_room">Not enough room</string>
+    <string name="storage_place_note_cache">The cache starts fresh in the new place. ChordWave restarts once to finish.</string>
+    <string name="storage_place_note_downloads">Every downloaded song moves over, and its lyrics stay with it. ChordWave restarts once to finish.</string>
+    <string name="storage_place_sheet_cache">Where the cache is saved</string>
+    <string name="storage_place_sheet_downloads">Where downloads are saved</string>
+    <string name="storage_remove_downloads">Remove all downloads</string>
+    <string name="storage_remove_downloads_message">Every downloaded song is deleted from this phone. They stay in your library and stream again when you play them, so they\'ll need a connection.</string>
+    <string name="storage_remove_downloads_title">Remove all downloads?</string>
+    <!-- REWRITTEN: CW's Backup exports settings + listening months as JSON, not a full .zip.
+         %1$d is the number of listening months exported. -->
+    <string name="storage_transfer_exported">Exported %1$d months of listening history and your settings. Import the file in ChordWave on the other phone.</string>
+    <string name="storage_transfer_exporting">Exporting…</string>
+    <!-- NEW -->
+    <string name="storage_transfer_failed">That didn\'t work. Check the file and try again.</string>
+    <!-- NEW: %1$d listening months, %2$d settings imported. -->
+    <string name="storage_transfer_imported">Imported %1$d months of listening history and %2$d settings.</string>
+    <string name="storage_transfer_importing">Importing…</string>
+    <!-- REWRITTEN: only settings + listening history travel, not everything. -->
+    <string name="storage_transfer_title">Moving to a new phone? Take your settings and listening history with you</string>
+    <string name="storage_uses">ChordWave uses %1$s of your storage (%2$s), which is split into</string>
+    <string name="storage_uses_drives">ChordWave uses %1$s across %2$d drives, which is split into</string>
+
+    <plurals name="storage_export_done">
+        <item quantity="one">Exported %d song</item>
+        <item quantity="other">Exported %d songs</item>
+    </plurals>
+    <plurals name="storage_export_skipped">
+        <item quantity="one">%d song wasn\'t fully downloaded, so it was skipped</item>
+        <item quantity="other">%d songs weren\'t fully downloaded, so they were skipped</item>
+    </plurals>
+
+</resources>

@@ -112,11 +112,10 @@ fun LibraryHomeScreen(
     val collapse = rememberCollapseProgress(listState)
     val bottomInset = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
 
-    // Import sheet deferred to Phase 4: showLibraryImportSheet() opens the
-    // onboarding import pages (ProviderListPage etc.) + the importsync WebView
-    // login flow, which are not ported yet. LibraryImportFlow.kt is excluded
-    // from this push; the banner tap is a no-op until then.
-    val openImportSheet = {}
+    // The import sheet (Phase 4): showLibraryImportSheet() opens the
+    // onboarding import pages (ProviderListPage etc.) + the importsync
+    // WebView login flow.
+    val openImportSheet = menuState::showLibraryImportSheet
     val openImportProgress = { navigator.navigate("import_progress") }
     val resyncAll = rememberResyncAll(navigator)
     val openTransfer = { kind: TransferKind -> menuState.showTransferSheet(kind, importViewModel) }

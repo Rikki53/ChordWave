@@ -162,6 +162,7 @@ import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.data.settings.UiMode
 import com.music.bitchord.ui.UiModePicker
 import com.music.bitchord.ui.mochy.MochyApp
+import com.music.bitchord.ui.mochy.screens.update.UpdateDeepLink
 import com.music.bitchord.ui.AddonBlockedAlert
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
@@ -418,11 +419,16 @@ class MainActivity : AppCompatActivity() {
         JamInviteLink.consume(intent)
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
+        // An update notification tap opens the version sheet — Modern only.
+        // Classic has its own update dialog; an unconsumed-in-Classic
+        // request would pop the sheet unexpectedly on a later switch.
+        if (AppSettings.uiMode.value == UiMode.MODERN) UpdateDeepLink.consume(intent)
         setContent {
             // Dual UI mode: fresh installs pick Classic or Modern before
             // anything else; upgrades never see the picker (their mode is
-            // Classic until they switch in Settings). Onboarding always
-            // runs in the classic host — the mode applies once it is done.
+            // Classic until they switch in Settings). A fresh install that
+            // picks Modern onboards inside the Modern host (the setup
+            // wizard); a Classic user switching to Modern skips it.
             // Switching modes only recomposes the host; playback runs in
             // a service and is untouched by the switch.
             val uiMode by AppSettings.uiMode.collectAsStateWithLifecycle()
@@ -432,6 +438,13 @@ class MainActivity : AppCompatActivity() {
                 BitChordTheme(darkTheme = true, font = AppFont.DEFAULT) {
                     UiModePicker(onChoose = { AppSettings.setUiMode(it) })
                 }
+                return@setContent
+            }
+            if (uiModeChosen && uiMode == UiMode.MODERN && !onboardingComplete) {
+                // Fresh Modern install: the setup wizard runs inside
+                // MochyApp (SetupWizardContainer) and marks onboarding
+                // done when it finishes.
+                MochyApp()
                 return@setContent
             }
             if (onboardingComplete && uiMode == UiMode.MODERN) {
@@ -544,6 +557,7 @@ class MainActivity : AppCompatActivity() {
         PlayerDeepLink.consume(intent)
         JamInviteLink.consume(intent)
         MusicLink.consume(intent)
+        if (AppSettings.uiMode.value == UiMode.MODERN) UpdateDeepLink.consume(intent)
     }
 }
 

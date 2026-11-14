@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): res/values/mochy_strings.xml
+     (yt_sync_* only, verbatim English). Only the strings the import/sync
+     screens use are here; the sync engine's own messages
+     (yt_sync_undo_done_phone, yt_sync_undo_done_both, yt_sync_undo_nothing,
+     yt_sync_undo_failed plurals) belong to the ImportSyncViewModel adapter —
+     see NEEDS.md. -->
+<resources>
+    <string name="yt_sync_exclude_title">Don\'t send imported music to YouTube</string>
+    <string name="yt_sync_exclude_desc">Songs and playlists from Spotify and other apps stay on this phone</string>
+    <string name="yt_sync_undo_title">Undo last sync</string>
+    <string name="yt_sync_undo_desc">Puts back likes, library and playlists from before the last sync</string>
+    <string name="yt_sync_undo_dialog_title">Undo the last sync?</string>
+    <string name="yt_sync_undo_dialog_body">Pick where to undo. Automatic sync pauses after an undo, so the changes stay put until you press Sync now.</string>
+    <string name="yt_sync_undo_phone">This phone</string>
+    <string name="yt_sync_undo_both">This phone and YouTube</string>
+    <string name="yt_sync_undo_both_hint">Also removes the likes the sync sent to YouTube</string>
+</resources>

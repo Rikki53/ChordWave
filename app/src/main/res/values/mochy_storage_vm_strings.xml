@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings the StorageViewModel itself reads (labels + export failure).
+     Mochy's storage_strings.xml values, rebadged where they named Mochy.
+     Verified: none of these three names exist in the worktree or in the
+     staged mochy_secondary_strings.xml. -->
+<resources>
+    <string name="storage_place_phone">This phone</string>
+    <string name="storage_place_card">Memory card</string>
+    <string name="storage_export_failed">The export stopped partway. Check the folder you picked and try again.</string>
+</resources>

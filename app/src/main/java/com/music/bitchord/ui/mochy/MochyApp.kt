@@ -52,7 +52,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.settings.UiMode
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.mochy.component.AppNavigationBar
@@ -117,6 +116,45 @@ import com.music.bitchord.ui.mochy.utils.isLandscapeLayout
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.viewmodels.HomeViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LibraryShelfKind
+import androidx.datastore.preferences.core.edit
+import com.music.bitchord.auth.DiscordLoginScreen
+import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
+import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.constants.SetupCompletedKey
+import com.music.bitchord.ui.mochy.constants.UsernameKey
+import com.music.bitchord.ui.mochy.importer.YouTubeSignOut
+import com.music.bitchord.ui.mochy.importer.account.AccountService
+import com.music.bitchord.ui.mochy.launch.LaunchGate
+import com.music.bitchord.ui.mochy.screens.settings.AppBehaviourSettingsScreen
+import com.music.bitchord.ui.mochy.screens.settings.CipherSettingsScreen
+import com.music.bitchord.ui.mochy.screens.settings.CrossmixSettingsScreen
+import com.music.bitchord.ui.mochy.screens.settings.ExperimentalSettingsScreen
+import com.music.bitchord.ui.mochy.screens.settings.MochySettingsScreen
+import com.music.bitchord.ui.mochy.screens.settings.PlaybackDiagnosticsScreen
+import com.music.bitchord.ui.mochy.screens.settings.ProxySettingsScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.AccountImportScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.ImportProgressScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.ImportProvidersScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.ImportSyncScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.TuneMyMusicImportScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.YouTubeLoginScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.YouTubeSyncScreen
+import com.music.bitchord.ui.mochy.screens.settings.integrations.IntegrationsScreen
+import com.music.bitchord.ui.mochy.screens.settings.integrations.ScrobbleServiceScreen
+import com.music.bitchord.ui.mochy.screens.settings.integrations.ScrobbleSite
+import com.music.bitchord.ui.mochy.screens.settings.integrations.discord.DiscordScreen
+import com.music.bitchord.ui.mochy.screens.settings.storage.StorageScreen
+import com.music.bitchord.ui.mochy.screens.setup.ProfilePhotoStore
+import com.music.bitchord.ui.mochy.screens.setup.SetupRerun
+import com.music.bitchord.ui.mochy.screens.setup.SetupWizardContainer
+import com.music.bitchord.ui.mochy.screens.update.UpdateDeepLink
+import com.music.bitchord.ui.mochy.screens.update.UpdateNotificationOpener
+import com.music.bitchord.ui.mochy.screens.update.UpdateState
+import com.music.bitchord.ui.mochy.screens.update.rememberUpdateState
+import com.music.bitchord.ui.mochy.screens.update.showUpdateSheet
+import com.music.bitchord.ui.mochy.utils.dataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * The Modern UI host: the Mochy-style interface, branched to from
@@ -148,7 +186,11 @@ fun MochyApp(modifier: Modifier = Modifier) {
 
     // Mochy-mode prefs (DataStore "settings") + data saver, once per host
     // lifetime. CW's own settings stay in AppSettings (SharedPreferences).
+    // The launch intro never plays in Modern mode, so the gate is skipped
+    // at once — otherwise the setup wizard would wait out the full 8 s
+    // awaitIntro timeout on first launch (nothing called skip() before).
     LaunchedEffect(Unit) {
+        LaunchGate.skip()
         PreferencesCache.start(context, scope)
         DataSaver.attach(context)
     }
@@ -183,6 +225,15 @@ fun MochyApp(modifier: Modifier = Modifier) {
                 )
             },
         )
+        // The import/sync engine signs out through the activity-scoped
+        // MainViewModel, which Hilt cannot inject — installed once here,
+        // like SpotifyLibrary.auth. Until wired, YouTubeSignOut falls
+        // back to clearing the same session state directly.
+        YouTubeSignOut.delegate = mainViewModel::signOut
+        YouTubeSignOut.refreshLibrary = {
+            mainViewModel.loadLibrary()
+            mainViewModel.loadPlaylists()
+        }
     }
 
     val navigator = remember { MochyNavigator() }
@@ -191,6 +242,22 @@ fun MochyApp(modifier: Modifier = Modifier) {
     val snackbarHostState = remember { SnackbarHostState() }
     val detailAccentColor = remember { mutableStateOf<androidx.compose.ui.graphics.Color?>(null) }
     val appContentObscured = remember { mutableStateOf(false) }
+
+    // Update notification taps (UpdateDeepLink relay): the opener below
+    // shows the version sheet each time the count goes up.
+    val updateRequests by UpdateDeepLink.requests.collectAsState()
+
+    // The setup wizard: a fresh Modern install sees it (both flags false);
+    // a Classic user switching to Modern does not (onboardingComplete is
+    // already true). "Repeat initial setup" in Experimental settings asks
+    // for it again through SetupRerun.
+    val setupCompleted by rememberPreference(SetupCompletedKey, defaultValue = false)
+    val onboardingComplete by AppSettings.onboardingComplete.collectAsState()
+    var forceShowSetup by remember { mutableStateOf(false) }
+    val setupRerunRequests by SetupRerun.requests.collectAsState()
+    LaunchedEffect(setupRerunRequests) {
+        if (setupRerunRequests > 0) forceShowSetup = true
+    }
 
     // The iPod player's library: downloads + device files + offline
     // playlists + listening history, warmed lazily on first use (see
@@ -253,18 +320,44 @@ fun MochyApp(modifier: Modifier = Modifier) {
                     LocalDetailAccentColor provides detailAccentColor,
                     LocalGlassState provides glassState,
                     LocalMenuState provides menuState,
+                    // The overlay sheets (language, video quality, Larp
+                    // mode, scrobble sign-in, update) share the hosted
+                    // menu state: PopupSheetHost only renders the states
+                    // it is given, and the local's default is detached.
+                    LocalZoomOutOverlayState provides menuState,
                     LocalPlayerAwareWindowInsets provides playerAwareInsets,
                 ) {
                     // Menus (and later info pages) render through this host; the
                     // app zooms out and dims behind the active sheet.
                     PopupSheetHost(states = listOf(menuState)) {
-                        MochyContent(
-                            navigator = navigator,
-                            snackbarHostState = snackbarHostState,
-                            connection = connection,
-                            playerSheetState = playerSheetState,
-                            modifier = modifier,
-                        )
+                        UpdateNotificationOpener(requests = updateRequests)
+                        SetupWizardContainer(
+                            isVisible = (!setupCompleted && !onboardingComplete) || forceShowSetup,
+                            onSetupCompleted = { username, uri ->
+                                scope.launch(Dispatchers.IO) {
+                                    val savedUriStr = uri?.let { ProfilePhotoStore.copyPhoto(context, it) }.orEmpty()
+                                    context.dataStore.edit { prefs ->
+                                        prefs[SetupCompletedKey] = true
+                                        prefs[UsernameKey] = username
+                                        if (savedUriStr.isNotEmpty()) prefs[ProfilePicUriKey] = savedUriStr
+                                    }
+                                }
+                                // Both flags: the wizard's own marker, and
+                                // the first-run gate — without the second,
+                                // a Modern user switching to Classic would
+                                // be thrown into classic onboarding.
+                                AppSettings.setOnboardingComplete()
+                                forceShowSetup = false
+                            },
+                        ) {
+                            MochyContent(
+                                navigator = navigator,
+                                snackbarHostState = snackbarHostState,
+                                connection = connection,
+                                playerSheetState = playerSheetState,
+                                modifier = modifier,
+                            )
+                        }
                     }
                 }
             }
@@ -389,9 +482,7 @@ private fun MochyContent(
                         navigator = navigator,
                         pureBlack = pureBlack,
                     )
-                    else -> SettingsPlaceholder(
-                        onBackToClassic = { AppSettings.setUiMode(UiMode.CLASSIC) },
-                    )
+                    else -> MochySettingsScreen(navigator = navigator)
                 }
             }
         }
@@ -445,19 +536,10 @@ private fun MochyContent(
     }
 }
 
-/** The Settings tab until the Settings screen lands — keeps the escape
- *  hatch to Classic reachable from Modern mode. */
-@Composable
-private fun SettingsPlaceholder(onBackToClassic: () -> Unit) {
-    PlaceholderColumn(
-        title = stringResource(R.string.settings),
-        onBackToClassic = onBackToClassic,
-    )
-}
-
 /** A pushed detail route: the ported detail screens, falling back to the
- *  placeholder for routes whose screen hasn't landed yet (import_progress
- *  until the settings port; unknown routes stay diagnosable on-device). */
+ *  placeholder for routes whose screen hasn't landed yet (customisation
+ *  and audio_pass until their Phase 5 ports; unknown routes stay
+ *  diagnosable on-device). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DetailContent(
@@ -665,10 +747,75 @@ private fun DetailContent(
                 params = params,
             )
         }
-        // import_progress leads to the settings import-sync screen (not
-        // ported yet); the Library banner navigates here. Placeholder
-        // until the settings port lands.
-        route == "import_progress" -> DetailPlaceholder(route = route, onBack = onBack)
+        // ---- Settings (Phase 4; verbatim Mochy route strings) ----
+        route == "mochy_settings" -> MochySettingsScreen(navigator = navigator)
+        route == "general_settings" -> AppBehaviourSettingsScreen(navigator = navigator)
+        route == "cipher_settings" -> CipherSettingsScreen(navigator = navigator)
+        route == "crossmix_settings" -> CrossmixSettingsScreen(navigator = navigator)
+        route == "experimental_settings" -> ExperimentalSettingsScreen(navigator = navigator)
+        route == "playback_diagnostics" -> PlaybackDiagnosticsScreen(navigator = navigator)
+        route == "proxy_settings" -> ProxySettingsScreen(navigator = navigator)
+        route == "storage_settings" -> StorageScreen(navigator = navigator)
+        route == "integrations_settings" -> IntegrationsScreen(navigator = navigator)
+        route == "integrations_settings/discord" -> DiscordScreen(navigator = navigator)
+        route == "integrations_settings/discord/login" -> DiscordLoginScreen(
+            onTokenCaptured = {
+                AppSettings.setDiscordToken(it)
+                navigator.popBackStack()
+            },
+        )
+        route.startsWith("integrations_settings/scrobble/") -> {
+            val site = ScrobbleSite.entries.firstOrNull {
+                it.name == route.removePrefix("integrations_settings/scrobble/")
+                    .substringBefore("?").uppercase()
+            } ?: ScrobbleSite.LASTFM
+            ScrobbleServiceScreen(navigator = navigator, site = site)
+        }
+        route == "import_sync" -> ImportSyncScreen(navigator = navigator)
+        route == "import_providers" -> ImportProvidersScreen(navigator = navigator)
+        route == "import_tunemymusic" -> TuneMyMusicImportScreen(navigator = navigator)
+        route == "import_progress" -> ImportProgressScreen(navigator = navigator)
+        route == "youtube_sync" -> YouTubeSyncScreen(navigator = navigator)
+        route == "youtube_login" -> YouTubeLoginScreen(navigator = navigator)
+        route.startsWith("account_import/") -> {
+            // account_import/{service}?resync={id|all}&then={svc,svc}
+            val rest = route.removePrefix("account_import/")
+            val service = AccountService.fromRoute(rest.substringBefore("?"))
+                ?: AccountService.SPOTIFY
+            val query = rest.substringAfter("?", "")
+            val resync = query.substringAfter("resync=", "")
+                .substringBefore("&")
+                .takeIf { it.isNotEmpty() }?.let { Uri.decode(it) }
+            val then = query.substringAfter("then=", "")
+                .substringBefore("&")
+                .takeIf { it.isNotEmpty() }
+                ?.split(",")
+                ?.mapNotNull { AccountService.fromRoute(Uri.decode(it)) }
+                .orEmpty()
+            AccountImportScreen(
+                navigator = navigator,
+                service = service,
+                resync = resync,
+                then = then,
+            )
+        }
+        // The update sheet is a PopupSheet, not a page: the route opens it
+        // once the launch-time check settles, then pops itself so back
+        // never lands on an empty route. (The notification path uses
+        // UpdateNotificationOpener instead; this covers deep links.)
+        route == "settings/update" -> {
+            val menuState = LocalMenuState.current
+            val updateState by rememberUpdateState()
+            var opened by remember { mutableStateOf(false) }
+            LaunchedEffect(updateState) {
+                if (!opened && updateState !is UpdateState.Checking) {
+                    opened = true
+                    menuState.showUpdateSheet(updateState)
+                    navigator.popBackStack()
+                }
+            }
+            MochySettingsScreen(navigator = navigator)
+        }
         else -> DetailPlaceholder(route = route, onBack = onBack)
     }
 }

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): values/mochy_strings.xml +
+     values/settings_language.xml — only the strings the Phase 4B advanced
+     settings screens read. "Mochy" rebranded to "ChordWave" in user-visible
+     values. transition_selected / transition_transport_heading /
+     transition_fade_* belong to the sibling TransitionModeCards /
+     TransportFadeSection ports, NOT this file. -->
+<resources>
+    <!-- Crossmix / transition -->
+    <string name="transition_title">Transition</string>
+    <string name="transition_music_heading">Music transitions</string>
+    <string name="transition_off">Off (I hate having fun)</string>
+    <string name="transition_off_desc">Each song ends before the next one starts</string>
+    <string name="transition_auto">Auto Crossfade</string>
+    <string name="transition_auto_desc">A smooth %1$d-second blend from every song into the next</string>
+    <string name="transition_manual">Manual Crossfade</string>
+    <string name="transition_manual_desc">Pick how long each song blends into the next</string>
+    <string name="transition_manual_length">Length</string>
+    <string name="transition_seconds">%1$ds</string>
+    <string name="transition_crossmix">CrossMix</string>
+    <string name="crossmix_desc">DJ-style: reads each song\'s tempo, beats, key, energy and where its voice is, then picks the transition that fits and locks the two on the beat, so two voices never sing over each other</string>
+    <string name="crossmix_style_title">Transition</string>
+    <string name="crossmix_style_desc">Let ChordWave pick the one that fits each pair, or hear the same one every time</string>
+    <string name="crossmix_style_auto">Let ChordWave choose</string>
+    <string name="crossmix_style_choose">Choose a transition</string>
+    <string name="crossmix_length_title">Length</string>
+    <string name="crossmix_length_desc">How long the two songs play together. Long blends need two songs that lock on the beat.</string>
+    <string name="crossmix_length_short">Short</string>
+    <string name="crossmix_length_medium">Medium</string>
+    <string name="crossmix_length_long">Long</string>
+    <string name="crossmix_tempo_title">Tempo match</string>
+    <string name="crossmix_tempo_desc">How far the slower song may be sped up so its beat lands on the other\'s. Off only locks songs already at one tempo.</string>
+    <string name="crossmix_tempo_off">Off</string>
+    <string name="crossmix_tempo_gentle">Gentle</string>
+    <string name="crossmix_tempo_full">Full</string>
+    <string name="crossmix_stunts_title">Stunts</string>
+    <string name="crossmix_stunts_desc">Backspins, tape stops, risers and drops when the energy jumps between songs</string>
+    <string name="crossmix_always_mix_title">Always mix</string>
+    <string name="crossmix_always_mix_desc">Both songs play together on every change, even when their beats don\'t line up. Off lets Crossmix drop the next song in at the very end, or just fade.</string>
+    <!-- Experimental -->
+    <string name="experimental_unlock_landscape">Unlock landscape</string>
+    <string name="experimental_unlock_landscape_desc">Let the app turn sideways into its wide layout</string>
+    <string name="experimental_unlock_landscape_detail">Off, the whole app stays upright however you hold your phone. On, it turns with your phone and lays pages out side by side. Still being worked on, so some screens may look off</string>
+    <string name="experimental_stream_backend">Stream backend</string>
+    <string name="experimental_stream_backend_innertubex">InnerTubeX, then classic</string>
+    <string name="experimental_stream_backend_classic">Classic only</string>
+    <string name="experimental_stream_backend_detail">How YouTube songs find their stream. InnerTubeX tries first, and anything it can\'t play goes to the classic finder, so songs keep playing either way. Classic only skips InnerTubeX. Tap to switch</string>
+    <!-- Proxy -->
+    <string name="proxy_intro">Send ChordWave\'s YouTube traffic through another server. It helps when YouTube blocks your network, or when YouTube Music isn\'t available where you live.</string>
+    <string name="proxy_use">Use a proxy</string>
+    <string name="proxy_use_desc">Songs, videos, downloads and YouTube requests go through it</string>
+    <string name="proxy_use_needs_address">Add the proxy\'s address first</string>
+    <string name="proxy_address">Address</string>
+    <string name="proxy_address_not_set">Not set yet</string>
+    <string name="proxy_address_hint">host:port, like 203.0.113.5:8080</string>
+    <string name="proxy_type">Proxy type</string>
+    <string name="proxy_type_http">HTTP</string>
+    <string name="proxy_type_socks">SOCKS5</string>
+    <string name="proxy_login">Sign-in</string>
+    <string name="proxy_login_none">Only if your proxy asks for one</string>
+    <string name="proxy_login_set">As %1$s</string>
+    <string name="proxy_login_clear">Clear</string>
+    <string name="proxy_check">Check connection</string>
+    <string name="proxy_check_desc">Try reaching YouTube through this proxy</string>
+    <string name="proxy_checking">Checking…</string>
+    <string name="proxy_check_ok">YouTube answered through the proxy in %1$d ms.</string>
+    <string name="proxy_check_not_found">Couldn\'t find that proxy. Check the address.</string>
+    <string name="proxy_check_no_answer">The proxy didn\'t answer. Check the address and the type.</string>
+    <string name="proxy_check_login">The proxy turned down the sign-in. Check the username and password.</string>
+    <string name="proxy_check_failed">Couldn\'t reach YouTube through this proxy. Check the address, type and sign-in.</string>
+    <string name="proxy_username">Proxy username</string>
+    <string name="proxy_password">Proxy password</string>
+</resources>

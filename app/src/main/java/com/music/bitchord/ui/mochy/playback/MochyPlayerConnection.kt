@@ -301,11 +301,13 @@ class MochyPlayerConnection(context: Context) {
     val lyricsOffsetMs: StateFlow<Int> = AppSettings.lyricsOffsetMs
 
     /**
-     * STUB — always false. ChordWave has no crossmix/crossfade engine,
-     * so nothing is ever mixing (core B12). MixingNote reads this to
-     * decide whether to show the "mixing" note; it never shows.
-     * TODO(phase3-adapter): wire to a real crossfade signal if CW
-     * ever gains one.
+     * STUB — always false. ChordWave DOES have a crossfade engine
+     * (CrossfadeController) plus Automix, and the Phase 4 crossmix
+     * settings drive them — but no signal yet reports "a mix is in
+     * progress right now", so nothing is wired here. MixingNote reads
+     * this to decide whether to show the "mixing" note; it never shows.
+     * TODO: wire to a real crossfade-in-progress signal from the
+     * crossfade controller (engine work, not a UI port).
      */
     val isCrossmixing = MutableStateFlow(false)
 
