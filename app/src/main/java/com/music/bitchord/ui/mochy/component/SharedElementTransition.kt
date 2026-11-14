@@ -10,6 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
+import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
+import com.music.bitchord.ui.mochy.models.innertube.YTItem
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 val LocalSharedTransitionScope = compositionLocalOf<SharedTransitionScope?> { null }
@@ -50,3 +53,11 @@ fun Modifier.homeSharedElement(
 // Innertube model types (it uses innertubex plus its own parser), so callers
 // pass the kind ("album" or "playlist") and the id directly.
 fun coverTransitionKey(kind: String, id: String): String = "$kind-$id"
+
+// YTItem overload (phase2-search NEEDS.md §(a) A8): Mochy's verbatim
+// overload — now possible because the YTItem family is staged.
+fun coverTransitionKey(item: YTItem): String? = when (item) {
+    is AlbumItem -> "album-${item.id}"
+    is PlaylistItem -> "playlist-${item.id}"
+    else -> null
+}

@@ -44,14 +44,17 @@ import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.owningTab
 import com.music.bitchord.ui.mochy.component.onTabTapped
 import com.music.bitchord.ui.mochy.constants.GridItemSize
+import com.music.bitchord.ui.mochy.constants.PureBlackKey
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
 import com.music.bitchord.ui.mochy.screens.HomeScreen
 import com.music.bitchord.ui.mochy.screens.Screens
+import com.music.bitchord.ui.mochy.screens.search.SearchScreen
 import com.music.bitchord.ui.mochy.theme.MochyTheme
 import com.music.bitchord.ui.mochy.utils.DataSaver
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
+import com.music.bitchord.ui.mochy.utils.rememberPreference
 
 /**
  * The Modern UI host: the Mochy-style interface, branched to from
@@ -134,6 +137,9 @@ private fun MochyContent(
     val currentTab by navigator.currentTab.collectAsState()
     val detailStack by navigator.detailStack.collectAsState()
     val currentDetail = detailStack.lastOrNull()
+    // Search's page background (pure black vs dark grey) — Mochy's host
+    // reads this once and passes it down (default false).
+    val pureBlack by rememberPreference(PureBlackKey, defaultValue = false)
 
     BackHandler(enabled = detailStack.isNotEmpty()) {
         navigator.popBackStack()
@@ -151,7 +157,10 @@ private fun MochyContent(
                 navigator = navigator,
                 snackbarHostState = snackbarHostState,
             )
-            currentTab == 1 -> TabPlaceholder(titleId = Screens.Search.titleId)
+            currentTab == 1 -> SearchScreen(
+                navigator = navigator,
+                pureBlack = pureBlack,
+            )
             currentTab == 2 -> TabPlaceholder(titleId = Screens.Library.titleId)
             else -> SettingsPlaceholder(
                 onBackToClassic = { AppSettings.setUiMode(UiMode.CLASSIC) },
@@ -177,7 +186,7 @@ private fun MochyContent(
                 .navigationBarsPadding(),
             // Phase 2 Search: a second quick tap on Search goes straight
             // into typing once the Search screen lands.
-            onSearchDoubleTap = null,
+            onSearchDoubleTap = navigator::requestSearchFocus,
         )
     }
 }

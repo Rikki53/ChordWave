@@ -91,4 +91,16 @@ class MochyNavigator {
     fun requestScrollToTop() {
         _scrollToTopRequests.value += 1
     }
+
+    // Search focus requests (phase2-search NEEDS.md §(a) A7): the
+    // double-tap-on-Search-tab signal, mirroring requestScrollToTop
+    // exactly. SearchScreen collects it and focuses the field (or
+    // re-requests focus when already active). A counter, not a boolean,
+    // so two quick double-taps are two requests.
+    private val _searchFocusRequests = MutableStateFlow(0)
+    val searchFocusRequests: StateFlow<Int> = _searchFocusRequests.asStateFlow()
+
+    fun requestSearchFocus() {
+        _searchFocusRequests.value += 1
+    }
 }

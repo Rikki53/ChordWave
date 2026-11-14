@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): strings the Search tab + suggestions
+     screens need that ChordWave does not already have. Values are Mochy's
+     verbatim (English). Reused from ChordWave's own strings.xml instead:
+     search, recent_searches, recent_search_remove. -->
+<resources>
+    <string name="search_tracks_placeholder">Search for tracks, albums, lyrics…</string>
+    <string name="search_history">Search history</string>
+    <string name="suggestions">Suggestions</string>
+    <string name="search_top_result">Top result</string>
+    <string name="search_offline_no_matches">Offline mode: nothing in your library matches</string>
+    <string name="recent_searches_clear">Clear</string>
+    <string name="recent_search_song">Song · %1$s</string>
+    <string name="recent_search_album">Album · %1$s</string>
+    <string name="recent_search_playlist">Playlist · %1$s</string>
+    <string name="recent_search_artist">Artist</string>
+</resources>

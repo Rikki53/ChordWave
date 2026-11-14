@@ -80,3 +80,59 @@ enum class QuickPicks {
 }
 
 val QuickPicksKey = stringPreferencesKey("discover")
+
+// --- added for the Phase 2 Search port (phase2-search NEEDS.md §(a) A5/A6) ---
+// Verbatim Mochy key names (PreferenceKeys.kt:347, :106) and region map
+// (:1233-1275, 42 entries). The suggestions screen persists the chosen
+// region slug via SuggestionRegionKey.
+val PauseSearchHistoryKey = booleanPreferencesKey("pauseSearchHistory")
+val SuggestionRegionKey = stringPreferencesKey("suggestionRegion")
+
+val SuggestionRegionSlugToName =
+    mapOf(
+        "system" to "System Default",
+        "us" to "Global (USA)",
+        "in" to "India",
+        "gb" to "United Kingdom",
+        "ca" to "Canada",
+        "au" to "Australia",
+        "jp" to "Japan",
+        "kr" to "South Korea",
+        "de" to "Germany",
+        "fr" to "France",
+        "br" to "Brazil",
+        "mx" to "Mexico",
+        "ru" to "Russia",
+        "it" to "Italy",
+        "es" to "Spain",
+        "nl" to "Netherlands",
+        "se" to "Sweden",
+        "no" to "Norway",
+        "dk" to "Denmark",
+        "fi" to "Finland",
+        "pl" to "Poland",
+        "tr" to "Turkey",
+        "za" to "South Africa",
+        "ng" to "Nigeria",
+        "id" to "Indonesia",
+        "my" to "Malaysia",
+        "ph" to "Philippines",
+        "th" to "Thailand",
+        "vn" to "Vietnam",
+        "tw" to "Taiwan",
+        "hk" to "Hong Kong",
+        "sg" to "Singapore",
+        "ar" to "Argentina",
+        "co" to "Colombia",
+        "cl" to "Chile",
+        "pe" to "Peru",
+        "eg" to "Egypt",
+        "sa" to "Saudi Arabia",
+        "ae" to "United Arab Emirates",
+        "il" to "Israel"
+    )
+
+// --- added for the Phase 2 Search push (SearchScreen's pureBlack flag) ---
+// Verbatim Mochy key (PreferenceKeys.kt:22). Mochy's host reads it with
+// default false and passes it to SearchScreen for the page background.
+val PureBlackKey = booleanPreferencesKey("pureBlack")
