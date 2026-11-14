@@ -78,6 +78,8 @@ plugins {
     // Hilt is PINNED at 2.58: 2.59+ requires AGP 9.0.0+ (verified: 2.60.1
     // fails configuration on this project's AGP 8.10.1), and AGP 9 is a
     // separate major migration (Gradle 9, built-in Kotlin) out of scope here.
+    // KSP is PINNED at 2.3.5 (Mochy's version): 2.3.14 requires AGP 8.12.0+
+    // (verified: fails configuration on AGP 8.10.1).
     id("com.google.dagger.hilt.android") version "2.58" apply false
-    id("com.google.devtools.ksp") version "2.3.14" apply false
+    id("com.google.devtools.ksp") version "2.3.5" apply false
 }
