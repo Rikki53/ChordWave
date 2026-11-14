@@ -11,6 +11,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 val DisableBlurKey = booleanPreferencesKey("disableBlur")
 
@@ -141,3 +143,41 @@ val PureBlackKey = booleanPreferencesKey("pureBlack")
 // Verbatim Mochy key (PreferenceKeys.kt:47). GridItemSize enum (BIG/SMALL)
 // + rememberEnumPreference are already staged.
 val GridItemsSizeKey = stringPreferencesKey("gridItemSize")
+
+// --- added for the Phase 2.3 Library/detail/playlist push ---
+// Verbatim Mochy keys + sort enums (playlist NEEDS.md C9, detail NEEDS.md C11).
+val SongSortTypeKey = stringPreferencesKey("songSortType")
+val SongSortDescendingKey = booleanPreferencesKey("songSortDescending")
+val PlaylistSongSortTypeKey = stringPreferencesKey("playlistSongSortType")
+val PlaylistSongSortDescendingKey = booleanPreferencesKey("playlistSongSortDescending")
+val LikedSongSortTypeKey = stringPreferencesKey("likedSongSortType")
+val LikedSongSortDescendingKey = booleanPreferencesKey("likedSongSortDescending")
+val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
+val AccountNameKey = stringPreferencesKey("accountName")
+val YtmSyncKey = booleanPreferencesKey("ytmSync")
+
+enum class SongSortType { CREATE_DATE, NAME, ARTIST, PLAY_TIME }
+enum class PlaylistSongSortType { CUSTOM, CREATE_DATE, NAME, ARTIST, PLAY_TIME }
+/** Liked songs' own sort: the song sorts plus the order things were imported in, by service. */
+enum class LikedSongSortType { CREATE_DATE, IMPORT_ORDER, NAME, ARTIST, PLAY_TIME }
+enum class PlaylistSortType { CREATE_DATE, NAME, SONG_COUNT, LAST_UPDATED } // VM-side only
+
+enum class MyTopFilter {
+    ALL_TIME, DAY, WEEK, MONTH, YEAR;
+    fun toTimeMillis(): Long = when (this) {
+        DAY -> LocalDateTime.now().minusDays(1).toInstant(ZoneOffset.UTC).toEpochMilli()
+        WEEK -> LocalDateTime.now().minusWeeks(1).toInstant(ZoneOffset.UTC).toEpochMilli()
+        MONTH -> LocalDateTime.now().minusMonths(1).toInstant(ZoneOffset.UTC).toEpochMilli()
+        YEAR -> LocalDateTime.now().minusMonths(12).toInstant(ZoneOffset.UTC).toEpochMilli()
+        ALL_TIME -> 0
+    }
+}
+
+val ShowArtistDescriptionKey = booleanPreferencesKey("showArtistDescription")
+val ShowArtistSubscriberCountKey = booleanPreferencesKey("showArtistSubscriberCount")
+val ShowMonthlyListenersKey = booleanPreferencesKey("showMonthlyListeners")
+val ShowArtistBackgroundVideoKey = booleanPreferencesKey("showArtistBackgroundVideo")
+val ArtistSongSortTypeKey = stringPreferencesKey("artistSongSortType")
+val ArtistSongSortDescendingKey = booleanPreferencesKey("artistSongSortDescending")
+
+enum class ArtistSongSortType { CREATE_DATE, NAME, PLAY_TIME }

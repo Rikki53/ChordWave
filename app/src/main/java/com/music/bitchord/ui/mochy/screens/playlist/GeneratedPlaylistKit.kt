@@ -1,0 +1,281 @@
+// Ported from Mochy Music (GPL-3.0): ui/screens/playlist/GeneratedPlaylistKit.kt
+//
+// The pages the app puts together itself (Recently played, Most played, History, My Top, the
+// cache, Home's section pages). They have no cover of their own, so they're the playlist page with
+// the cover taken out: the title block sits at the top, the theme colour from the first song sinks
+// into black down the screen, the collapsed pill is a full capsule with a round cover, and search
+// is the Library's capsule under the buttons instead of a toolbar.
+//
+// Adaptations: rememberSongsDownloadState delegates to the staged
+// downloadStateForAll (CW Downloads) instead of Mochy's download util;
+// toggleSongsDownload takes a CoroutineScope (Downloads.delete is suspend)
+// and uses Downloads.enqueue / cancel / delete + toCwSong() instead of
+// ExoDownloadService.
+package com.music.bitchord.ui.mochy.screens.playlist
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.media3.exoplayer.offline.Download
+import com.music.bitchord.R
+import com.music.bitchord.download.Downloads
+import com.music.bitchord.ui.mochy.component.RemoteFocus
+import com.music.bitchord.ui.mochy.component.detail.CreatorUi
+import com.music.bitchord.ui.mochy.component.detail.PlaylistDetailScaffold
+import com.music.bitchord.ui.mochy.component.detail.PlaylistHeader
+import com.music.bitchord.ui.mochy.component.detail.PlaylistInset
+import com.music.bitchord.ui.mochy.component.detail.PlaylistModeBar
+import com.music.bitchord.ui.mochy.component.detail.PlaylistStatsStyle
+import com.music.bitchord.ui.mochy.component.detail.SectionTitleStyle
+import com.music.bitchord.ui.mochy.component.detail.playlistCompactHeaderHeight
+import com.music.bitchord.ui.mochy.component.downloadStateForAll
+import com.music.bitchord.ui.mochy.component.toCwSong
+import com.music.bitchord.ui.mochy.models.Song
+import com.music.bitchord.ui.mochy.screens.search.SearchFieldHeight
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+
+/**
+ * the frame every generated page sits in. [rows] fills the list under the header; the header,
+ * with its search capsule, stays put while you type so the field never loses focus.
+ */
+@Composable
+fun GeneratedPlaylistPage(
+    title: String,
+    coverUrl: String?,
+    stats: String,
+    lazyListState: LazyListState,
+    contentPadding: PaddingValues,
+    isPlaying: Boolean,
+    onPlayClick: () -> Unit,
+    onShuffleClick: () -> Unit,
+    query: TextFieldValue,
+    onQueryChange: (TextFieldValue) -> Unit,
+    searchPlaceholder: String,
+    onBackClick: () -> Unit,
+    onBackLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    creator: String? = null,
+    onMoreClick: (() -> Unit)? = null,
+    sortControl: (@Composable () -> Unit)? = null,
+    modeBar: PlaylistModeBar? = null,
+    overlay: @Composable BoxScope.() -> Unit = {},
+    rows: LazyListScope.() -> Unit,
+) {
+    // the round search button beside shuffle jumps to the capsule under the buttons and opens the keyboard
+    val searchFocus = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
+    PlaylistDetailScaffold(
+        sharedElementKey = null,
+        coverUrl = coverUrl,
+        lazyListState = lazyListState,
+        onBackClick = onBackClick,
+        onBackLongClick = onBackLongClick,
+        modifier = modifier,
+        onMoreClick = onMoreClick,
+        showCover = false,
+        roundCapsule = true,
+        headerHeight = playlistCompactHeaderHeight(),
+        contentPadding = contentPadding,
+        modeBar = modeBar,
+        overlay = overlay,
+    ) {
+        item(key = "generated_header", contentType = "header") {
+            PlaylistHeader(
+                title = title,
+                creators = listOfNotNull(creator?.takeIf { it.isNotBlank() }?.let { CreatorUi(name = it) }),
+                stats = stats,
+                isPlaying = isPlaying,
+                onPlayClick = onPlayClick,
+                onShuffleClick = onShuffleClick,
+                sortControl = sortControl,
+                compact = true,
+                onSearchClick = {
+                    scope.launch {
+                        lazyListState.animateScrollToItem(0)
+                        runCatching { searchFocus.requestFocus() }
+                    }
+                },
+                below = {
+                    GeneratedSearchCapsule(
+                        query = query,
+                        onQueryChange = onQueryChange,
+                        placeholder = searchPlaceholder,
+                        focusRequester = searchFocus,
+                    )
+                },
+            )
+        }
+        rows()
+    }
+}
+
+/**
+ * the Library's search capsule: 48dp, ends fully round. it's frosted white instead of the
+ * Library's near-black, because these pages sit on a colour rather than on black.
+ */
+@Composable
+fun GeneratedSearchCapsule(
+    query: TextFieldValue,
+    onQueryChange: (TextFieldValue) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester = remember { FocusRequester() },
+) {
+    val focusManager = LocalFocusManager.current
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = PlaylistInset - 10.dp)
+            .height(SearchFieldHeight)
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = if (focused) 0.16f else 0.1f))
+            .padding(horizontal = 16.dp),
+    ) {
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (query.text.isEmpty()) {
+                Text(
+                    text = placeholder,
+                    style = TextStyle(fontSize = 15.sp),
+                    color = Color.White.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
+                cursorBrush = SolidColor(Color.White),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focused = it.isFocused },
+            )
+        }
+        if (query.text.isNotEmpty()) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.16f))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = RemoteFocus) {
+                        onQueryChange(TextFieldValue())
+                    },
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.close),
+                    contentDescription = "Clear",
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+    }
+}
+
+/** a day's header in History, or any other break in a generated list */
+@Composable
+fun GeneratedGroupHeader(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = SectionTitleStyle,
+        color = Color.White,
+        maxLines = 1,
+        modifier = modifier.padding(start = PlaylistInset, end = PlaylistInset, top = 22.dp, bottom = 6.dp),
+    )
+}
+
+/** what a search that matches nothing says */
+@Composable
+fun GeneratedNoResults(query: String, modifier: Modifier = Modifier) {
+    Text(
+        text = "Nothing here matches \"$query\"",
+        style = PlaylistStatsStyle.copy(fontSize = 13.sp),
+        color = Color.White.copy(alpha = 0.6f),
+        modifier = modifier.padding(horizontal = PlaylistInset, vertical = 24.dp),
+    )
+}
+
+/** "21 songs · 1h 23m" */
+fun generatedStats(songCount: Int, totalSeconds: Int): String {
+    val count = "$songCount ${if (songCount == 1) "song" else "songs"}"
+    if (totalSeconds <= 0) return count
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    return "$count · ${if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"}"
+}
+
+/** all downloaded, some on their way, or neither, for the ••• menu's download line */
+@Composable
+fun rememberSongsDownloadState(songIds: List<String>): Int =
+    downloadStateForAll(songIds)
+
+/** what the menu's download line does from each state: start them, or take them back off */
+fun toggleSongsDownload(
+    scope: CoroutineScope,
+    context: android.content.Context,
+    songs: List<Song>,
+    state: Int,
+) {
+    if (state == Download.STATE_COMPLETED || state == Download.STATE_DOWNLOADING) {
+        scope.launch {
+            songs.forEach { song ->
+                Downloads.cancel(song.song.id)
+                Downloads.delete(context, song.song.id)
+            }
+        }
+    } else {
+        songs.forEach { song ->
+            Downloads.enqueue(context, song.toCwSong())
+        }
+    }
+}

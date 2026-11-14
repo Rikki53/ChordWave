@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): strings the Library tab reads that are
+     in neither ChordWave's own strings.xml nor any earlier staging dir.
+     Values verbatim from Mochy. `songs` / `playlists` / `albums` / `artists`
+     are already in the worktree; `liked` is staged in phase2-items-menus. -->
+<resources>
+    <string name="cached">Cached</string>
+    <string name="filter_library">Library</string>
+    <string name="library_albums_search">Find an album listed here</string>
+    <string name="library_albums_subtitle">Albums you saved, and the ones the songs you added come from.</string>
+    <string name="library_all_search">Search your library</string>
+    <string name="library_cached_search">Search your cached music</string>
+    <string name="library_empty_import">Nothing here yet. Import your music above to fill your library.</string>
+    <string name="library_imported_albums_subtitle">Albums with songs you imported from %1$s.</string>
+    <string name="library_local_search">Search your local music</string>
+    <string name="library_pinned">Pinned</string>
+    <string name="library_recently_added">Recently added</string>
+    <string name="library_tab_all">All</string>
+    <string name="library_tab_imported">Imported</string>
+    <string name="library_tab_local">Local</string>
+</resources>

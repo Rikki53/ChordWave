@@ -1,0 +1,33 @@
+<!-- Strings for the detail kit + menus port (phase2-detailkit).
+     Mochy values, verbatim. Every string here was checked missing from the
+     worktree res/ + all staging dirs before being added (15 Nov 2026). -->
+<resources>
+    <string name="action_remove_like">Remove like</string>
+    <string name="action_like">Like</string>
+    <string name="more_options">More options</string>
+    <string name="duplicates">Duplicates</string>
+    <string name="skip_duplicates">Skip duplicates</string>
+    <string name="add_anyway">Add anyway</string>
+    <string name="duplicates_description_single">The song is already in your playlist</string>
+    <string name="duplicates_description_multiple">%d songs are already in your playlist</string>
+    <string name="liked_songs">Liked songs</string>
+    <string name="playlist_add_local_to_synced_note">Note: Adding local songs to synced/remote playlists is unsupported. Any other combination is valid</string>
+    <string name="sort_by_song_count">Song count</string>
+    <string name="sort_by_last_updated">Date updated</string>
+    <string name="action_sync">Sync</string>
+    <string name="sync_playlist_desc">Sync playlist with YouTube Music</string>
+    <string name="share_playlist_desc">Share this playlist with others</string>
+    <string name="delete_playlist_desc">Remove this playlist permanently</string>
+    <string name="auto_download_new_songs">Download new songs</string>
+    <string name="dislike_all">Dislike all</string>
+    <string name="like_all">Like all</string>
+    <string name="edit_desc">Change the title or artist</string>
+    <string name="delete_desc">Permanently remove this item</string>
+    <string name="sync_playlist">Sync playlist</string>
+    <string name="allows_for_sync_witch_youtube">Note: This allows for syncing with YouTube Music. This is NOT changeable later.</string>
+    <string name="not_logged_in_youtube">Not logged in to YouTube</string>
+    <string name="sync_disabled">Sync disabled</string>
+    <string name="remove_from_import_and_library">Remove from import and library</string>
+    <string name="removed_from_import_and_library">Removed from your %1$s imports and your library</string>
+    <string name="queue_all_songs">All songs</string>
+</resources>

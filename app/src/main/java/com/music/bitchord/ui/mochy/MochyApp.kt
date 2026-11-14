@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -38,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.UiMode
@@ -51,11 +53,34 @@ import com.music.bitchord.ui.mochy.component.owningTab
 import com.music.bitchord.ui.mochy.component.onTabTapped
 import com.music.bitchord.ui.mochy.constants.GridItemSize
 import com.music.bitchord.ui.mochy.constants.PureBlackKey
+import com.music.bitchord.ui.mochy.importer.ImportSource
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
+import com.music.bitchord.ui.mochy.screens.AlbumScreen
+import com.music.bitchord.ui.mochy.screens.BrowseScreen
+import com.music.bitchord.ui.mochy.screens.HistoryScreen
 import com.music.bitchord.ui.mochy.screens.HomeScreen
 import com.music.bitchord.ui.mochy.screens.Screens
+import com.music.bitchord.ui.mochy.screens.SectionDetailScreen
+import com.music.bitchord.ui.mochy.screens.YouTubeBrowseScreen
+import com.music.bitchord.ui.mochy.screens.artist.ArtistAlbumsScreen
+import com.music.bitchord.ui.mochy.screens.artist.ArtistItemsScreen
+import com.music.bitchord.ui.mochy.screens.artist.ArtistScreen
+import com.music.bitchord.ui.mochy.screens.artist.ArtistSimilarScreen
+import com.music.bitchord.ui.mochy.screens.artist.ArtistSongsScreen
+import com.music.bitchord.ui.mochy.screens.library.LibraryAlbumsScreen
+import com.music.bitchord.ui.mochy.screens.library.LibraryArtistsScreen
+import com.music.bitchord.ui.mochy.screens.library.LibraryHomeScreen
+import com.music.bitchord.ui.mochy.screens.library.LibraryImportedScreen
+import com.music.bitchord.ui.mochy.screens.library.LibraryPlaylistsScreen
+import com.music.bitchord.ui.mochy.screens.library.LibraryRecentlyAddedScreen
+import com.music.bitchord.ui.mochy.screens.library.LibrarySongsScreen
+import com.music.bitchord.ui.mochy.screens.playlist.AutoPlaylistScreen
+import com.music.bitchord.ui.mochy.screens.playlist.CachePlaylistScreen
+import com.music.bitchord.ui.mochy.screens.playlist.LocalPlaylistScreen
+import com.music.bitchord.ui.mochy.screens.playlist.OnlinePlaylistScreen
+import com.music.bitchord.ui.mochy.screens.playlist.TopPlaylistScreen
 import com.music.bitchord.ui.mochy.screens.search.ExploreScreen
 import com.music.bitchord.ui.mochy.screens.search.GenreScreen
 import com.music.bitchord.ui.mochy.screens.search.OnlineSearchResult
@@ -67,6 +92,8 @@ import com.music.bitchord.ui.mochy.utils.DataSaver
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.isLandscapeLayout
 import com.music.bitchord.ui.mochy.utils.rememberPreference
+import com.music.bitchord.ui.mochy.viewmodels.HomeViewModel
+import com.music.bitchord.ui.mochy.viewmodels.LibraryShelfKind
 
 /**
  * The Modern UI host: the Mochy-style interface, branched to from
@@ -74,9 +101,10 @@ import com.music.bitchord.ui.mochy.utils.rememberPreference
  * (BitChordApp) is untouched and stays available through the Settings
  * toggle; this host grows screen by screen as the clone lands.
  *
- * Phase 2: the real tab host — MochyNavigator state drives Home (ported)
- * + Search/Library/Settings placeholders, the ported AppNavigationBar,
- * the menu sheet host, and detail-route placeholders. The mini-player
+ * Phase 2: the real tab host — MochyNavigator state drives Home, Search
+ * and Library (all ported) + the Settings placeholder, the ported
+ * AppNavigationBar, the menu sheet host, and the full detail routing
+ * (album/artist/playlist/library/history/browse). The mini-player
  * joins in Phase 3 (LocalPlayerBottomSheetState stays at its null
  * default until then; Home null-checks it).
  */
@@ -196,7 +224,10 @@ private fun MochyContent(
                         navigator = navigator,
                         pureBlack = pureBlack,
                     )
-                    currentTab == 2 -> TabPlaceholder(titleId = Screens.Library.titleId)
+                    currentTab == 2 -> LibraryHomeScreen(
+                        navigator = navigator,
+                        pureBlack = pureBlack,
+                    )
                     else -> SettingsPlaceholder(
                         onBackToClassic = { AppSettings.setUiMode(UiMode.CLASSIC) },
                     )
@@ -228,12 +259,6 @@ private fun MochyContent(
     }
 }
 
-/** A tab whose screen is not ported yet (Search, Library). */
-@Composable
-private fun TabPlaceholder(titleId: Int) {
-    PlaceholderColumn(title = stringResource(titleId))
-}
-
 /** The Settings tab until the Settings screen lands — keeps the escape
  *  hatch to Classic reachable from Modern mode. */
 @Composable
@@ -245,8 +270,8 @@ private fun SettingsPlaceholder(onBackToClassic: () -> Unit) {
 }
 
 /** A pushed detail route: the ported detail screens, falling back to the
- *  placeholder for routes whose screen hasn't landed yet (album/artist/
- *  playlist until the detail push). */
+ *  placeholder for routes whose screen hasn't landed yet (import_progress
+ *  until the settings port; unknown routes stay diagnosable on-device). */
 @Composable
 private fun DetailContent(
     route: String,
@@ -254,6 +279,10 @@ private fun DetailContent(
     pureBlack: Boolean,
     onBack: () -> Unit,
 ) {
+    // One scroll behaviour per detail (only one detail is composed at a
+    // time); the detail screens take it as a param, some only to satisfy
+    // Mochy's signature (UNUSED_PARAMETER).
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     when {
         route.startsWith("search/") -> OnlineSearchResult(
             navigator = navigator,
@@ -286,6 +315,173 @@ private fun DetailContent(
         // Modern has none) — the route is wired so a future entry (a Home
         // section or Search tile) only needs to navigate to "explore".
         route == "explore" -> ExploreScreen(navigator = navigator)
+        route.startsWith("library/imported/") -> {
+            val rest = route.removePrefix("library/imported/")
+            val source = ImportSource.fromKey(rest.substringBefore("/"))
+            when (rest.substringAfter("/", "")) {
+                "albums" -> LibraryAlbumsScreen(
+                    navigator = navigator,
+                    pureBlack = pureBlack,
+                    source = source,
+                )
+                "playlists" -> LibraryPlaylistsScreen(
+                    navigator = navigator,
+                    pureBlack = pureBlack,
+                    source = source,
+                )
+                "" -> LibraryImportedScreen(
+                    navigator = navigator,
+                    pureBlack = pureBlack,
+                    importSource = source,
+                )
+                else -> DetailPlaceholder(route = route, onBack = onBack)
+            }
+        }
+        route.startsWith("library/") -> {
+            val segments = route.removePrefix("library/").split("/")
+            // library/{local|cached}/{page} vs library/{page}
+            val shelf = segments.firstOrNull()?.let { key ->
+                LibraryShelfKind.entries.firstOrNull { it.key == key }
+            }
+            val page = if (shelf != null) segments.getOrNull(1) else segments.firstOrNull()
+            when (page) {
+                "songs" -> LibrarySongsScreen(
+                    navigator = navigator,
+                    pureBlack = pureBlack,
+                )
+                "playlists" -> LibraryPlaylistsScreen(
+                    navigator = navigator,
+                    pureBlack = pureBlack,
+                    shelf = shelf,
+                )
+                "albums" -> LibraryAlbumsScreen(
+                    navigator = navigator,
+                    pureBlack = pureBlack,
+                    shelf = shelf,
+                )
+                "artists" -> LibraryArtistsScreen(
+                    navigator = navigator,
+                    pureBlack = pureBlack,
+                    shelf = shelf,
+                )
+                "added" -> LibraryRecentlyAddedScreen(
+                    navigator = navigator,
+                    pureBlack = pureBlack,
+                    shelf = shelf,
+                )
+                else -> DetailPlaceholder(route = route, onBack = onBack)
+            }
+        }
+        route.startsWith("album/") -> AlbumScreen(
+            navigator = navigator,
+            scrollBehavior = scrollBehavior,
+            albumId = Uri.decode(route.removePrefix("album/")),
+        )
+        route.startsWith("artist/") -> {
+            val rest = route.removePrefix("artist/")
+            val artistId = rest.substringBefore("/")
+            when (val sub = rest.substringAfter("/", "")) {
+                "" -> ArtistScreen(
+                    navigator = navigator,
+                    scrollBehavior = scrollBehavior,
+                    artistId = artistId,
+                )
+                "songs" -> ArtistSongsScreen(
+                    navigator = navigator,
+                    scrollBehavior = scrollBehavior,
+                    artistId = artistId,
+                )
+                "albums" -> ArtistAlbumsScreen(
+                    navigator = navigator,
+                    scrollBehavior = scrollBehavior,
+                    artistId = artistId,
+                )
+                "similar" -> ArtistSimilarScreen(
+                    navigator = navigator,
+                    artistId = artistId,
+                )
+                else -> if (sub.startsWith("items")) {
+                    // Mochy's route literally contains a second '?':
+                    // artist/{id}/items?browseId={bid}?params={params}
+                    // — and may pass the string "null" for a missing param.
+                    val query = sub.substringAfter("?", "")
+                    val browseId = query.substringAfter("browseId=", "")
+                        .substringBefore("?params=")
+                        .takeIf { it.isNotEmpty() && it != "null" }
+                    val params = query.substringAfter("?params=", "")
+                        .takeIf { it.isNotEmpty() && it != "null" }
+                    ArtistItemsScreen(
+                        navigator = navigator,
+                        scrollBehavior = scrollBehavior,
+                        artistId = artistId,
+                        browseId = browseId,
+                        params = params,
+                    )
+                } else {
+                    DetailPlaceholder(route = route, onBack = onBack)
+                }
+            }
+        }
+        route.startsWith("online_playlist/") -> OnlinePlaylistScreen(
+            navigator = navigator,
+            scrollBehavior = scrollBehavior,
+            playlistId = Uri.decode(route.removePrefix("online_playlist/")),
+        )
+        route.startsWith("local_playlist/") -> LocalPlaylistScreen(
+            navigator = navigator,
+            scrollBehavior = scrollBehavior,
+            playlistId = Uri.decode(route.removePrefix("local_playlist/")),
+        )
+        route.startsWith("auto_playlist/") -> AutoPlaylistScreen(
+            navigator = navigator,
+            scrollBehavior = scrollBehavior,
+            playlist = Uri.decode(route.removePrefix("auto_playlist/")),
+        )
+        // No entry point navigates here yet; the route is wired so a
+        // future entry only needs to navigate to it. The VM polls the
+        // player cache on its own (no route arg is read).
+        route.startsWith("cache_playlist/") -> CachePlaylistScreen(
+            navigator = navigator,
+            scrollBehavior = scrollBehavior,
+        )
+        // No entry point navigates here yet (same as cache_playlist).
+        route.startsWith("top_playlist/") -> TopPlaylistScreen(
+            navigator = navigator,
+            scrollBehavior = scrollBehavior,
+            top = Uri.decode(route.removePrefix("top_playlist/")),
+        )
+        // No entry point navigates here yet (same as explore).
+        route == "history" -> HistoryScreen(navigator = navigator)
+        route.startsWith("section_detail/") -> {
+            // The section screen reads the Home tab's VM (the same
+            // Activity-scoped instance the Home tab composes with).
+            val homeViewModel: HomeViewModel = hiltViewModel()
+            SectionDetailScreen(
+                navigator = navigator,
+                sectionId = Uri.decode(route.removePrefix("section_detail/")),
+                homeViewModel = homeViewModel,
+            )
+        }
+        route.startsWith("browse/") -> BrowseScreen(
+            navigator = navigator,
+            scrollBehavior = scrollBehavior,
+            browseId = Uri.decode(route.removePrefix("browse/")),
+        )
+        route.startsWith("youtube_browse/") -> {
+            val rest = route.removePrefix("youtube_browse/")
+            val browseId = rest.substringBefore("?")
+            val params = rest.substringAfter("?params=", "")
+                .takeIf { it.isNotEmpty() && it != "null" }
+            YouTubeBrowseScreen(
+                navigator = navigator,
+                browseId = browseId,
+                params = params,
+            )
+        }
+        // import_progress leads to the settings import-sync screen (not
+        // ported yet); the Library banner navigates here. Placeholder
+        // until the settings port lands.
+        route == "import_progress" -> DetailPlaceholder(route = route, onBack = onBack)
         else -> DetailPlaceholder(route = route, onBack = onBack)
     }
 }

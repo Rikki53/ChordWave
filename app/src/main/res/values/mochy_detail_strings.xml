@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): strings the detail pages read.
+     Values verbatim from Mochy's res/values/strings.xml and
+     res/values/mochy_strings.xml. -->
+<resources>
+    <!-- AlbumScreen: the album's own song search field -->
+    <string name="search_in_album">Search in this album…</string>
+    <!-- HistoryScreen: date-group headers -->
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="this_week">This week</string>
+    <string name="last_week">Last week</string>
+    <!-- SectionDetailScreen: the quick-picks section title -->
+    <string name="quick_picks">Quick picks</string>
+    <!-- ArtistScreen: toast after copying the artist link -->
+    <string name="link_copied">Link copied to clipboard</string>
+    <!-- NOTE: ArtistSongsScreen also reads sort_by_create_date / sort_by_name /
+         sort_by_play_time — already in phase2-playlist's
+         mochy_playlist_strings.xml with the same values, so NOT repeated here. -->
+</resources>
