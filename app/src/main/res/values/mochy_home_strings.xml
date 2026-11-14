@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings the Mochy-clone Home screen needs that ChordWave does not have.
+     English values copied from Mochy Music (GPL-3.0):
+     app/src/main/res/values/mochy_strings.xml and values/app_language.xml.
+     R.string.home already exists in ChordWave's strings.xml and is NOT
+     duplicated here. -->
+<resources>
+    <string name="profile_label">Profile</string>
+    <string name="home_start_listening">Start listening now</string>
+    <string name="home_hop_in">Hop in</string>
+    <string name="home_your_playlists">Your playlists</string>
+    <string name="home_most_played">Most Played</string>
+    <string name="speed_dial">Jump Back In</string>
+    <string name="from_the_community">From the community</string>
+    <string name="recently_played">Recently Played</string>
+    <string name="home_history">History</string>
+    <string name="dont_forget_these_songs">Don\'t forget these songs</string>
+    <string name="artist_list">Artist List</string>
+    <string name="music_videos_for_you">Music Videos for You</string>
+    <string name="live_shows">Live Shows</string>
+    <string name="home_because_you_like">Because you like</string>
+    <string name="home_more_like">More like</string>
+    <string name="home_because_you_listen_to">Because you listen to</string>
+    <string name="home_try_something_new">Try something new</string>
+    <string name="home_new_from_your_artists">New from your artists</string>
+    <string name="all_time_hits">All Time Hits</string>
+
+    <plurals name="n_song">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+</resources>

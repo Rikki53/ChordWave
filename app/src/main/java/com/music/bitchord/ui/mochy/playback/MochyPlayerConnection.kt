@@ -107,6 +107,14 @@ class MochyPlayerConnection(context: Context) {
     val playbackState = MutableStateFlow(Player.STATE_IDLE)
     val isPlaying = MutableStateFlow(false)
 
+    // Mochy semantics: playing and not buffering (per-card play indicators).
+    // Added 15 Nov 00:50 for the HomeScreen port (it read isPlaying until
+    // this flow existed).
+    val isEffectivelyPlaying: StateFlow<Boolean> =
+        kotlinx.coroutines.flow.combine(isPlaying, playbackState) { playing, state ->
+            playing && state != Player.STATE_BUFFERING
+        }.stateIn(scope, SharingStarted.Lazily, false)
+
     val mediaMetadata = MutableStateFlow<MediaMetadata?>(null)
     val currentSong = MutableStateFlow<Song?>(null)
 

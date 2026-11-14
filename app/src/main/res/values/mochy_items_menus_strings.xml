@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings the Mochy items/menus port needs that ChordWave does not already
+     have. Values copied verbatim from Mochy Music (GPL-3.0)
+     app/src/main/res/values/strings.xml. NOTE: Mochy's "subscribed" value
+     is "Subed" (a typo in the source) — fixed to "Subscribed" here at the
+     coordinator's call. The n_song plurals live in mochy_home_strings.xml
+     (kept in one place only — duplicate resource names break the build). -->
+<resources>
+    <string name="view_album">View album</string>
+    <string name="view_artist">View artist</string>
+    <string name="edit">Edit</string>
+    <string name="add_to_an_playlist">Add</string>
+    <string name="add_to_playlist_desc">Add to one of your playlists</string>
+    <string name="play_next_desc">Add to the top of your queue</string>
+    <string name="add_to_queue_desc">Add to the bottom of your queue</string>
+    <string name="start_radio_desc">Create a station based on this item</string>
+    <string name="start_an_radio">Radio</string>
+    <string name="subscribed">Subscribed</string>
+    <string name="add_to_library_desc">Save to your library</string>
+    <string name="added_to_library">Added to library</string>
+    <string name="removed_from_library">Removed from library</string>
+    <string name="refetch">Refetch</string>
+    <string name="refetch_desc">Fetch the latest metadata from YouTube Music</string>
+    <string name="details">Details</string>
+    <string name="details_desc">View the song\'s information</string>
+    <string name="download_desc">Make available for offline playback</string>
+    <string name="remove_download_playlist_confirm">Do you really want to remove all \"%s\" playlist songs from the Downloaded Songs storage?</string>
+    <string name="already_in_playlist">Already in playlist:</string>
+    <string name="liked">Liked</string>
+    <string name="offline">Downloaded</string>
+    <string name="cached_playlist">Cached</string>
+    <string name="uploaded_playlist">Uploaded</string>
+    <string name="pin_to_speed_dial">Pin to library</string>
+    <string name="unpin_from_speed_dial">Unpin from library</string>
+    <string name="select">Select all</string>
+    <string name="share_desc">Share a link to this item</string>
+    <string name="reset">Reset</string>
+</resources>

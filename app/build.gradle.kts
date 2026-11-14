@@ -319,6 +319,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    // Mochy UI clone (Phase 2): HomeScreen uses LifecycleEventEffect
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     // ProcessLifecycleOwner: whether the app is on screen, for the open-app count.
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     // The scheduled check behind "Keep playlists updated"; see PlaylistSync.
