@@ -390,7 +390,12 @@ dependencies {
     implementation("com.valentinilk.shimmer:compose-shimmer:1.3.3")
     implementation("com.github.racra:smooth-corner-rect-android-compose:v1.0.0")
     // Dynamic-color scoring for the ported Mochy theme (Theme.kt).
-    implementation("com.materialkolor:material-kolor:4.1.1")
+    // JetBrains material3 excluded for the reason given in
+    // app/build.gradle.kts (1.10.0-alpha05 would beat :sharedUi's 1.7.3
+    // and break MainActivity's SheetState call sites).
+    implementation("com.materialkolor:material-kolor:4.1.1") {
+        exclude(group = "org.jetbrains.compose.material3")
+    }
     // Preferences DataStore for the ported Mochy settings layer.
     implementation("androidx.datastore:datastore-preferences:1.2.0")
 

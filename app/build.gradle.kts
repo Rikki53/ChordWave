@@ -375,7 +375,15 @@ dependencies {
     // Dynamic-color scoring for the ported Mochy theme (Theme.kt uses
     // Score.score; mirrored in tv/build.gradle.kts — the TV module compiles
     // all app sources, so it needs every ported-UI dep on its classpath).
-    implementation("com.materialkolor:material-kolor:4.1.1")
+    // EXCLUDE JetBrains material3: material-kolor 4.1.1 wants
+    // org.jetbrains.compose.material3 1.10.0-alpha05, which would beat
+    // :sharedUi's pinned 1.7.3 — and 1.10's SheetState dropped the `density`
+    // parameter MainActivity's player sheet passes (broke the build 14 Nov).
+    // CW uses ONLY Score (pure color math) from this library, so its
+    // material3 is never needed.
+    implementation("com.materialkolor:material-kolor:4.1.1") {
+        exclude(group = "org.jetbrains.compose.material3")
+    }
     // Preferences DataStore for the ported Mochy settings layer
     // (ui/mochy/utils/DataStore.kt); mirrored in tv/build.gradle.kts.
     implementation("androidx.datastore:datastore-preferences:1.2.0")
