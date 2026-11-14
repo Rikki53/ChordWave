@@ -195,7 +195,7 @@ private fun MusicTile(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(taps)
-                    .styleSongSwipe(LocalStyleInteractive.current, carousel) { connection?.player },
+                    .styleSongSwipe(LocalStyleInteractive.current, carousel) { connection },
             )
         }
         if (live) {

@@ -451,6 +451,17 @@ class MochyPlayerConnection(context: Context) {
     // lack of one. loadLyrics dedupes by its own key, so a re-trigger that
     // changes nothing is a cheap no-op.
 
+    /**
+     * The four lyrics settings as one value, so the lyrics trigger combine
+     * stays at four flows (see the note in [init]).
+     */
+    private data class LyricsSettings(
+        val synced: Boolean,
+        val sources: Set<LyricsSource>,
+        val order: List<LyricsSource>,
+        val prioritizeSyllables: Boolean,
+    )
+
     private data class LyricsTriggerKey(
         val videoId: String?,
         val durationKnown: Boolean,
@@ -462,23 +473,32 @@ class MochyPlayerConnection(context: Context) {
     )
 
     init {
+        // The trigger watches seven sources, but a seven-flow combine does
+        // not resolve here — the compiler falls back to the vararg form and
+        // the lambda's parameter types go unknown — so the four lyrics
+        // settings combine first (the same four-flow shape PlaybackService
+        // uses for these settings) and the outer combine takes four flows.
         scope.launch {
             combine(
                 mediaMetadata,
                 progressState,
-                AppSettings.syncedLyrics,
-                AppSettings.lyricsSources,
-                AppSettings.lyricsSourceOrder,
-                AppSettings.prioritizeSyllableSync,
+                combine(
+                    AppSettings.syncedLyrics,
+                    AppSettings.lyricsSources,
+                    AppSettings.lyricsSourceOrder,
+                    AppSettings.prioritizeSyllableSync,
+                ) { synced, sources, order, prioritizeSyllables ->
+                    LyricsSettings(synced, sources, order, prioritizeSyllables)
+                },
                 lyricsLoaderFlow,
-            ) { metadata, progress, synced, sources, order, prioritizeSyllables, loader ->
+            ) { metadata, progress, settings, loader ->
                 LyricsTriggerKey(
                     videoId = metadata?.id,
                     durationKnown = (metadata?.duration ?: 0) > 0 || progress.duration > 0L,
-                    syncedLyrics = synced,
-                    sources = sources,
-                    order = order,
-                    prioritizeSyllableSync = prioritizeSyllables,
+                    syncedLyrics = settings.synced,
+                    sources = settings.sources,
+                    order = settings.order,
+                    prioritizeSyllableSync = settings.prioritizeSyllables,
                     loaderAttached = loader != null,
                 )
             }

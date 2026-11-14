@@ -1,5 +1,7 @@
 // Ported from Mochy Music (GPL-3.0): ui/player/PlayerProgressSlider.kt
 
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.music.bitchord.ui.mochy.player
 
 import androidx.compose.animation.AnimatedContent
@@ -28,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
@@ -109,9 +112,29 @@ fun PlayerProgressSlider(
         derivedStateOf { progress.value.duration.let { it != C.TIME_UNSET && it > 0L } }
     }
     val rangeEnd by remember { derivedStateOf { if (durationKnown) progress.value.duration.toFloat() else 0f } }
+    // SliderState's callbacks are constructor-only in Material3 1.3 (the
+    // properties are internal): the state hands itself to its own callbacks
+    // through a holder filled by also.
     val sliderState = remember(rangeEnd) {
         val start = Snapshot.withoutReadObservation { sliderPosition ?: pendingSeek ?: progress.value.position }
-        SliderState(valueRange = 0f..rangeEnd).also { it.value = start.toFloat() }
+        var state: SliderState? = null
+        SliderState(
+            value = start.toFloat(),
+            onValueChange = { raw ->
+                val position = raw.toLong()
+                sliderPosition = position
+                state?.value = position.toFloat()
+            },
+            valueRange = 0f..rangeEnd,
+            onValueChangeFinished = {
+                sliderPosition?.let { target ->
+                    playerConnection.seekTo(target)
+                    pendingSeek = target
+                }
+                sliderPosition = null
+                state?.value = (pendingSeek ?: progress.value.position).toFloat()
+            },
+        ).also { state = it }
     }
     LaunchedEffect(active, sliderState) {
         if (!active) return@LaunchedEffect
@@ -126,19 +149,6 @@ fun PlayerProgressSlider(
         if (pendingSeek == null) return@LaunchedEffect
         delay(SeekGiveUpMs)
         pendingSeek = null
-    }
-    sliderState.onValueChange = { raw ->
-        val position = raw.toLong()
-        sliderPosition = position
-        sliderState.value = position.toFloat()
-    }
-    sliderState.onValueChangeFinished = {
-        sliderPosition?.let { target ->
-            playerConnection.seekTo(target)
-            pendingSeek = target
-        }
-        sliderPosition = null
-        sliderState.value = (pendingSeek ?: progress.value.position).toFloat()
     }
     val transport = playerConnection.uiState.transportState.collectAsState()
     val transportState = transport.value

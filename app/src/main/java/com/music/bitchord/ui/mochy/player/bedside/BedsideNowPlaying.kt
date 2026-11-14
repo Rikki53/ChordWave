@@ -91,7 +91,7 @@ internal fun BedsideNowPlaying(
     BoxWithConstraints(
         modifier
             .fillMaxSize()
-            .styleSongSwipe(LocalStyleInteractive.current, carousel) { connection?.player },
+            .styleSongSwipe(LocalStyleInteractive.current, carousel) { connection },
     ) {
         val landscape = maxWidth > maxHeight
         if (landscape) {

@@ -591,7 +591,7 @@ private fun rememberRecordTurn(preview: Boolean, speed: Float): () -> Float {
     val obscured = LocalAppContentObscured.current
     LaunchedEffect(connection, preview, speed) {
         if (preview || connection == null) return@LaunchedEffect
-        val playing = connection.isPlaying.distinctUntilChanged()
+        val playing = connection.isPlaying
         combine(playing, snapshotFlow { showing() && !obscured.value }) { on, shown -> on && shown }
             .distinctUntilChanged()
             .collectLatest { turning ->

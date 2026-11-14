@@ -101,8 +101,10 @@ fun FlagshipTransportRow(
 
     val onPlayPause: () -> Unit = {
         if (transportState.playbackState == Player.STATE_ENDED) {
-            playerConnection.player.seekTo(0, 0)
-            playerConnection.player.playWhenReady = true
+            playerConnection.player?.let { player ->
+                player.seekTo(0, 0)
+                player.playWhenReady = true
+            }
         } else {
             playerConnection.togglePlayPause()
         }
@@ -147,7 +149,7 @@ fun FlagshipTransportRow(
                         forward = false,
                         iconSize = DpSize(unit * TenIconWidth, unit * TenIconHeight),
                         onClick = {
-                            val player = playerConnection.player
+                            val player = playerConnection.player ?: return@onClick
                             playerConnection.seekTo((player.currentPosition - TenSecondsMs).coerceAtLeast(0L))
                         },
                         description = stringResource(R.string.flagship_back_ten),
@@ -181,7 +183,7 @@ fun FlagshipTransportRow(
                         forward = true,
                         iconSize = DpSize(unit * TenIconWidth, unit * TenIconHeight),
                         onClick = {
-                            val player = playerConnection.player
+                            val player = playerConnection.player ?: return@onClick
                             val duration = player.duration.takeIf { it > 0L } ?: Long.MAX_VALUE
                             playerConnection.seekTo((player.currentPosition + TenSecondsMs).coerceAtMost(duration))
                         },

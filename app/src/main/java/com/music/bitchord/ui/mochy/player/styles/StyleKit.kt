@@ -297,7 +297,7 @@ private class ProgressClock(
             reportedAtMs = now
             return reported.toDouble()
         }
-        return reported + (now - reportedAtMs).coerceAtMost(ClockCarryMaxMs)
+        return (reported + (now - reportedAtMs).coerceAtMost(ClockCarryMaxMs)).toDouble()
     }
 }
 
@@ -316,7 +316,7 @@ fun rememberLivePosition(animated: Boolean = true): LivePosition {
     LaunchedEffect(connection, animated, showing) {
         if (connection == null) return@LaunchedEffect
         combine(
-            connection.isPlaying.distinctUntilChanged(),
+            connection.isPlaying,
             connection.progressState.map { it.position }.distinctUntilChanged(),
             snapshotFlow { showing() },
         ) { playing, _, shown -> playing to shown }

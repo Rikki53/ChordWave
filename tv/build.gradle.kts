@@ -305,6 +305,8 @@ dependencies {
     // already in effect (foundation was reaching 1.10.0 transitively through
     // the liquid-glass library before that dependency was removed).
     implementation("androidx.compose.foundation:foundation:1.10.0")
+    // Mirror of :app — the TV module compiles the same ui/mochy sources.
+    implementation("androidx.compose.animation:animation-graphics")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")

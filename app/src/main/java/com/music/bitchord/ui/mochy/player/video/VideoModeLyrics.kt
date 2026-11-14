@@ -710,7 +710,7 @@ internal fun FollowingLyrics(
                                 suppressEffects = userScrolling,
                                 onClick = {
                                     if (!unsynced) {
-                                        connection.player.seekTo(row.entry.time)
+                                        connection.player?.seekTo(row.entry.time)
                                         followPlayback = true
                                     }
                                 },

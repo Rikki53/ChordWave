@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsIgnoringVisibility
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
@@ -81,6 +82,8 @@ internal fun playerVolumeBarFootprint(): Dp =
  * like the seek bar's, and under it the lyrics and queue buttons. Place it with
  * [playerVolumeBarFootprint] of room under the controls.
  */
+// The custom thumb/track Slider overload is experimental in Material3 1.3.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PlayerVolumeBar(
     isActive: (PlayerMenuAction) -> Boolean,

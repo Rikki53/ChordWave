@@ -235,10 +235,13 @@ fun MochyApp(modifier: Modifier = Modifier) {
                 // (80dp) over the gesture bar, plus the mini player (64dp)
                 // while a song is loaded. Mochy's formula, without the wide
                 // bar (the host is phone-layout only for now).
-                val playerAwareInsets = remember(bottomInset, sheetDismissed) {
+                // WindowInsets.navigationBars is a @Composable getter, so it
+                // is read here in the composable body, not inside remember.
+                val navBars = WindowInsets.navigationBars
+                val playerAwareInsets = remember(bottomInset, sheetDismissed, navBars) {
                     val bottom = bottomInset + NavigationBarHeight +
                         if (sheetDismissed) 0.dp else MiniPlayerHeight
-                    WindowInsets.navigationBars.union(WindowInsets(bottom = bottom))
+                    navBars.union(WindowInsets(bottom = bottom))
                 }
                 CompositionLocalProvider(
                     LocalPlayerConnection provides connection,

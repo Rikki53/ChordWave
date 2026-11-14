@@ -117,7 +117,7 @@ internal fun rememberSkinEvents(events: Set<SkinEvent>, pulse: SkinPulse, previe
                 connection.mediaMetadata.map { it?.id }.distinctUntilChanged().drop(1).collect { hub.flow.tryEmit(SkinEvent.Song) }
             }
             if (SkinEvent.Play in events || SkinEvent.Pause in events) launch {
-                connection.isPlaying.distinctUntilChanged().drop(1)
+                connection.isPlaying.drop(1)
                     .collect { hub.flow.tryEmit(if (it) SkinEvent.Play else SkinEvent.Pause) }
             }
             if (SkinEvent.Like in events || SkinEvent.Unlike in events) launch {

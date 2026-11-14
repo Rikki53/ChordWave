@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
@@ -16,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /** A settings slider that uses the player's default rounded seek-bar treatment. */
+// The custom thumb/track Slider overload is experimental in Material3 1.3.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DefaultPlayerSeekBarSlider(
     value: Float,

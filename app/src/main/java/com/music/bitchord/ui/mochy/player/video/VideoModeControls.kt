@@ -403,7 +403,7 @@ internal fun BoxScope.VideoSeekRow(
         while (true) {
             withFrameNanos { }
             fill.floatValue = (positionProvider().toFloat() / durationMs).coerceIn(0f, 1f)
-            if (!connection.player.isPlaying) delay(200)
+            if (connection.player?.isPlaying != true) delay(200)
         }
     }
     val moreLabel = stringResource(R.string.more_options)

@@ -310,6 +310,9 @@ dependencies {
     // already in effect (foundation was reaching 1.10.0 transitively through
     // the liquid-glass library before that dependency was removed).
     implementation("androidx.compose.foundation:foundation:1.10.0")
+    // Animated play/pause vectors in the Modern player (PlayerControls):
+    // AnimatedImageVector + rememberAnimatedVectorPainter. BOM version.
+    implementation("androidx.compose.animation:animation-graphics")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")

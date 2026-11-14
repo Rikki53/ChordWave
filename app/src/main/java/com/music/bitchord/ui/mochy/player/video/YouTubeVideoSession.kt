@@ -22,6 +22,7 @@ package com.music.bitchord.ui.mochy.player.video
 
 import android.content.Context
 import android.graphics.SurfaceTexture
+import android.net.Uri
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
@@ -35,18 +36,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.ByteArrayDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.DashMediaSource
+import androidx.media3.exoplayer.dash.manifest.DashManifestParser
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -384,14 +386,18 @@ class YouTubeVideoSession internal constructor(context: Context, val videoId: St
             .setDefaultRequestProperties(streams.headers)
         val chunkedFactory = ChunkedDataSource.Factory(httpFactory, ChunkBytes)
         val family = streams.tracksFor(track.shortSide)
-        val manifest = if (family.chunked) VideoDash.manifest(family, streams.durationMs) else null
-        if (manifest != null) {
-            val manifestFactory = DataSource.Factory {
-                ByteArrayDataSource(manifest.toByteArray(Charsets.UTF_8))
+        // Mochy's own shape: the generated manifest is parsed and sideloaded
+        // into the DASH source (there is no setManifestDataSourceFactory in
+        // media3 — the factory only takes one in its constructor). A manifest
+        // that fails to parse falls through to the progressive source below.
+        val manifest = if (family.chunked) {
+            VideoDash.manifest(family, streams.durationMs)?.let { xml ->
+                runCatching { DashManifestParser().parse(Uri.parse(ManifestUri), xml.byteInputStream()) }.getOrNull()
             }
-            return DashMediaSource.Factory(chunkedFactory)
-                .setManifestDataSourceFactory(manifestFactory)
-                .createMediaSource(MediaItem.fromUri(ManifestUri))
+        } else null
+        if (manifest != null) {
+            val item = MediaItem.Builder().setUri(ManifestUri).setMimeType(MimeTypes.APPLICATION_MPD).build()
+            return DashMediaSource.Factory(chunkedFactory).createMediaSource(manifest, item)
         }
         return ProgressiveMediaSource.Factory(chunkedFactory)
             .createMediaSource(MediaItem.fromUri(track.url))

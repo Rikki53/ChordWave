@@ -103,7 +103,7 @@ fun DriveYouTubeVideo(
     }
 
     LaunchedEffect(session, streams) {
-        session.load(streams, quality, autoCap, target(playerConnection.player.currentPosition) ?: 0L)
+        session.load(streams, quality, autoCap, target(playerConnection.player?.currentPosition ?: 0L) ?: 0L)
     }
     LaunchedEffect(session, quality, autoCap) { session.setQuality(quality, autoCap) }
 
@@ -123,7 +123,9 @@ fun DriveYouTubeVideo(
     LaunchedEffect(session) {
         while (isActive) {
             val player = playerConnection.player
-            session.sync(target(player.currentPosition), player.playbackParameters.speed, running)
+            if (player != null) {
+                session.sync(target(player.currentPosition), player.playbackParameters.speed, running)
+            }
             delay(SyncIntervalMs)
         }
     }
