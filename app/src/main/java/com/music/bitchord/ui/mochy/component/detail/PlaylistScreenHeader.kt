@@ -242,7 +242,7 @@ fun PlaylistScreenHeader(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (playing) "Pause" else "Play",
+                        text = if (isPlaying) "Pause" else "Play",
                         style = MaterialTheme.typography.titleMedium,
                         color = contentColor,
                         fontWeight = FontWeight.Bold

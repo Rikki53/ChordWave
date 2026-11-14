@@ -461,7 +461,7 @@ class LibraryHomeViewModel @Inject constructor(
     fun unpin(id: String) {
         val browseId = when {
             id in AppSettings.pinnedPlaylists.value -> id
-            else -> playlists.value.firstOrNull { it.id == id }?.playlist.browseId
+            else -> playlists.value.firstOrNull { it.id == id }?.playlist?.browseId
                 ?: ("VL$id").takeIf { it in AppSettings.pinnedPlaylists.value }
         } ?: run {
             Timber.w("Library: unpin($id) — no pinned playlist matches")
@@ -478,7 +478,7 @@ class LibraryHomeViewModel @Inject constructor(
     fun pin(item: YTItem) {
         val playlist = playlists.value.firstOrNull { it.id == item.id }
             ?: playlists.value.firstOrNull { it.playlist.browseId == item.id }
-        val browseId = playlist?.playlist.browseId
+        val browseId = playlist?.playlist?.browseId
         if (browseId == null) {
             Timber.w("Library: pin(${item.id}) — not a known playlist, CW pins playlists only")
             return

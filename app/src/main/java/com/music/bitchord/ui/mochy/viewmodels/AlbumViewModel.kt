@@ -151,7 +151,8 @@ class AlbumViewModel @Inject constructor() : ViewModel() {
         songs.firstNotNullOfOrNull { it.artists.takeIf { refs -> refs.isNotEmpty() } }
             ?.let { refs -> return refs.map { ArtistEntity(id = it.browseId ?: it.name, name = it.name) } }
         val first = songs.firstOrNull() ?: return emptyList()
-        if (first.artistId != null) return listOf(ArtistEntity(id = first.artistId, name = first.artist))
+        val artistId = first.artistId
+        if (artistId != null) return listOf(ArtistEntity(id = artistId, name = first.artist))
         val name = subtitle?.let { InnertubeParser.artistFromSubtitle(it) }?.takeIf { it.isNotBlank() }
             ?: first.artist
         return listOf(ArtistEntity(id = name, name = name))

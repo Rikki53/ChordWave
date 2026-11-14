@@ -81,7 +81,7 @@ fun CwSong.toDownloadedMochySong(): Song {
  */
 fun CwSong.toLocalFileMochySong(): Song {
     val base = toMochySong()
-    val album = base.album?.let { it.copy(album = it.album.copy(isLocal = true)) }
+    val album = base.album?.copy(isLocal = true)
     return base.copy(
         song = base.song.copy(isLocal = true, date = addedDate()),
         artists = base.artists.map { it.copy(isLocal = true) },

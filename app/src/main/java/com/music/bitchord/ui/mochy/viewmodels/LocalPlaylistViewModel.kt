@@ -255,7 +255,7 @@ class LocalPlaylistViewModel @Inject constructor(
                             val current = _rawSongs.value.toMutableList()
                             val known = current.mapNotNull { it.map.setVideoId }.toHashSet()
                             next.songs
-                                .filter { it.setVideoId == null || known.add(it.setVideoId) }
+                                .filter { val setVideoId = it.setVideoId; setVideoId == null || known.add(setVideoId) }
                                 .forEach { song -> current.add(song.toPlaylistSong(id, nextMapId++)) }
                             _rawSongs.value = current
                             refreshCounts()

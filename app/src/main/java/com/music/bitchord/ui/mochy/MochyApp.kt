@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -272,6 +273,7 @@ private fun SettingsPlaceholder(onBackToClassic: () -> Unit) {
 /** A pushed detail route: the ported detail screens, falling back to the
  *  placeholder for routes whose screen hasn't landed yet (import_progress
  *  until the settings port; unknown routes stay diagnosable on-device). */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DetailContent(
     route: String,

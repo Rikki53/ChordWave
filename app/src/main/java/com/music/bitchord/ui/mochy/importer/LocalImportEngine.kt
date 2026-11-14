@@ -211,7 +211,7 @@ object LocalImportEngine {
             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull()?.let { durationMs = it }
             val embedded = retriever.embeddedPicture
-            if (!embedded.isNullOrEmpty()) {
+            if (embedded != null && embedded.isNotEmpty()) {
                 saveArtwork(input.uri, embedded)?.let { artworkUri = it }
             }
         } catch (e: Exception) {
