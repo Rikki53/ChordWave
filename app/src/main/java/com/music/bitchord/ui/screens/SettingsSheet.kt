@@ -1016,7 +1016,7 @@ fun SettingsScreen(
             // playback keeps going — it runs in a service.
             val uiModeTitle = stringResource(R.string.ui_mode)
             row(uiModeTitle, "interface", "modern", "classic", "mochy") {
-                SettingsRow(icon = Icons.Rounded.Style, title = uiModeTitle)
+                SettingsRow(icon = Icons.Rounded.Palette, title = uiModeTitle)
                 SegmentedControl(
                     options = UiMode.entries.map { it.localizedLabel() },
                     selectedIndex = UiMode.entries.indexOf(uiMode),
