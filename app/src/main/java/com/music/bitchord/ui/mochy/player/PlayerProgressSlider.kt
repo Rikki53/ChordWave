@@ -33,7 +33,6 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,7 +49,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -112,36 +110,18 @@ fun PlayerProgressSlider(
         derivedStateOf { progress.value.duration.let { it != C.TIME_UNSET && it > 0L } }
     }
     val rangeEnd by remember { derivedStateOf { if (durationKnown) progress.value.duration.toFloat() else 0f } }
-    // SliderState's callbacks are constructor-only in Material3 1.3 (the
-    // properties are internal): the state hands itself to its own callbacks
-    // through a holder filled by also.
-    val sliderState = remember(rangeEnd) {
-        val start = Snapshot.withoutReadObservation { sliderPosition ?: pendingSeek ?: progress.value.position }
-        var state: SliderState? = null
-        SliderState(
-            value = start.toFloat(),
-            onValueChange = { raw ->
-                val position = raw.toLong()
-                sliderPosition = position
-                state?.value = position.toFloat()
-            },
-            valueRange = 0f..rangeEnd,
-            onValueChangeFinished = {
-                sliderPosition?.let { target ->
-                    playerConnection.seekTo(target)
-                    pendingSeek = target
-                }
-                sliderPosition = null
-                state?.value = (pendingSeek ?: progress.value.position).toFloat()
-            },
-        ).also { state = it }
-    }
-    LaunchedEffect(active, sliderState) {
+    // The bar's shown position. Material3 1.3's SliderState has no
+    // onValueChange constructor parameter and its callback properties are
+    // internal, so the value-based Slider below owns the callbacks and
+    // this float is the state (Mochy's newer Material3 allows the
+    // SliderState form; ChordWave's 1.3 does not).
+    var sliderValue by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(active) {
         if (!active) return@LaunchedEffect
         progressFlow.collect { latest ->
             progress.value = latest
             pendingSeek?.let { if (abs(latest.position - it) < SeekLandedMs) pendingSeek = null }
-            if (sliderPosition == null) sliderState.value = (pendingSeek ?: latest.position).toFloat()
+            if (sliderPosition == null) sliderValue = (pendingSeek ?: latest.position).toFloat()
         }
     }
     // a seek the player never confirms (a failed stream, a song change) stops holding the bar after a moment
@@ -232,7 +212,21 @@ fun PlayerProgressSlider(
             .height(28.dp)
     ) {
         Slider(
-            state = sliderState,
+            value = sliderValue,
+            onValueChange = { raw ->
+                val position = raw.toLong()
+                sliderPosition = position
+                sliderValue = raw
+            },
+            valueRange = 0f..rangeEnd,
+            onValueChangeFinished = {
+                sliderPosition?.let { target ->
+                    playerConnection.seekTo(target)
+                    pendingSeek = target
+                }
+                sliderPosition = null
+                sliderValue = (pendingSeek ?: progress.value.position).toFloat()
+            },
             interactionSource = trackInteractionSource,
             thumb = { Spacer(modifier = Modifier.size(0.dp)) },
             track = {

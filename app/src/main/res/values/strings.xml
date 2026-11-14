@@ -1409,7 +1409,7 @@
     <string name="ui_mode_classic">Classic</string>
     <string name="ui_mode_classic_desc">The ChordWave look you know</string>
     <string name="ui_mode_modern">Modern</string>
-    <string name="ui_mode_modern_desc">A fresh, Mochy-style look</string>
+    <string name="ui_mode_modern_desc">A fresh, modern look</string>
     <string name="ui_mode_modern_coming_soon">The Modern interface is being built. It will appear here in a later dev build.</string>
     <string name="ui_mode_back_to_classic">Back to Classic</string>
     <!-- Ported Mochy utils -->

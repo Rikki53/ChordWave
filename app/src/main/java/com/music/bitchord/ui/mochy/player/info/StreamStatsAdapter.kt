@@ -167,7 +167,7 @@ object StreamStatsAdapter {
             isActive = true,
             isChosen = AudioRouting.selectedId.value == device.id,
             maxSampleRate = info?.sampleRates?.maxOrNull(),
-            bitDepths = (info?.encodings ?: intArrayOf()).mapNotNull { encoding ->
+            bitDepths = info?.encodings?.toList().orEmpty().mapNotNull { encoding ->
                 when (encoding) {
                     AudioFormat.ENCODING_PCM_16BIT -> 16
                     AudioFormat.ENCODING_PCM_24BIT_PACKED -> 24

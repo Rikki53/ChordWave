@@ -82,8 +82,6 @@ internal fun playerVolumeBarFootprint(): Dp =
  * like the seek bar's, and under it the lyrics and queue buttons. Place it with
  * [playerVolumeBarFootprint] of room under the controls.
  */
-// The custom thumb/track Slider overload is experimental in Material3 1.3.
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PlayerVolumeBar(
     isActive: (PlayerMenuAction) -> Boolean,
@@ -131,6 +129,8 @@ internal fun PlayerVolumeBar(
  * bar's above. While it's held the line thickens and both speakers light up and grow a little, and
  * the quiet one turns into a muted speaker at zero.
  */
+// The custom thumb/track Slider overload is experimental in Material3 1.3.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun VolumeRow(listening: Boolean) {
     val volume = rememberMusicVolume(listening)
