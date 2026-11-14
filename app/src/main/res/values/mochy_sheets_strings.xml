@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): strings used by ui/component/PlaylistSheetKit.kt (SheetDownloadCard). -->
+<resources>
+    <string name="action_download">Download</string>
+    <string name="remove_download">Remove download</string>
+</resources>

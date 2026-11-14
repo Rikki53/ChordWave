@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings the Mochy-mode UI needs that ChordWave does not have. -->
+<resources>
+    <string name="your_library">Your Library</string>
+</resources>
