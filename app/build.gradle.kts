@@ -7,6 +7,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    // Mochy UI clone: the ported screens use Hilt ViewModels (KSP codegen).
+    id("com.google.dagger.hilt.android")
+    id("com.google.devtools.ksp")
 }
 
 /**
@@ -334,11 +337,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0")
 
     // ---- Images: Coil 3 + Palette (dominant colors for the mesh gradient) ----
-    implementation("io.coil-kt.coil3:coil-compose:3.0.4")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
+    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     // Title logos are PNG, but artist signatures are usually SVG — without
     // this Coil can't decode them (see ArtistSignatureRepository).
-    implementation("io.coil-kt.coil3:coil-svg:3.0.4")
+    implementation("io.coil-kt.coil3:coil-svg:3.3.0")
     // SF Symbols as Compose vectors, for the iOS-style settings and menus (as Convx uses).
     // Without its own dependencies: it asks for Compose 1.12, which needs a newer Android
     // Gradle plugin than this build, and the plain ImageVectors used here need nothing
@@ -347,6 +350,25 @@ dependencies {
         isTransitive = false
     }
     implementation("androidx.palette:palette-ktx:1.0.0")
+
+    // ---- Dependency injection: Hilt (Mochy UI clone) ----
+    // The ported Mochy screens use @HiltViewModel ViewModels and
+    // hiltViewModel(); the codegen runs through KSP (see plugins above).
+    implementation("com.google.dagger:hilt-android:2.60.1")
+    ksp("com.google.dagger:hilt-android-compiler:2.60.1")
+    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
+
+    // ---- Mochy UI clone: libraries the ported UI depends on ----
+    // Lottie nav icons (R.raw) and animations.
+    implementation("com.airbnb.android:lottie-compose:6.6.2")
+    // Logging in ported Mochy code.
+    implementation("com.jakewharton.timber:timber:5.0.1")
+    // Drag-to-reorder lists (queue, playlists).
+    implementation("sh.calvin.reorderable:reorderable:3.0.0")
+    // Loading shimmer placeholders.
+    implementation("com.valentinilk.shimmer:compose-shimmer:1.3.3")
+    // Squircle/smooth-corner shapes (JitPack).
+    implementation("com.github.racra:smooth-corner-rect-android-compose:v1.0.0")
 
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
     implementation("dev.chrisbanes.haze:haze:1.3.1")

@@ -74,4 +74,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.20" apply false
     id("org.jetbrains.kotlin.plugin.serialization") version "2.3.20" apply false
     id("org.jetbrains.compose") version "1.10.3" apply false
+    // Mochy UI clone: Hilt (KSP) for the ported ViewModels, KSP for its codegen.
+    id("com.google.dagger.hilt.android") version "2.60.1" apply false
+    id("com.google.devtools.ksp") version "2.3.14" apply false
 }

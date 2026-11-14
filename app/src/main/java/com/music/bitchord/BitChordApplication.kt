@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import android.app.Application
+import dagger.hilt.android.HiltAndroidApp
 import androidx.annotation.OptIn
 import androidx.compose.ui.ComposeUiFlags
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -48,6 +49,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlin.concurrent.thread
 
+@HiltAndroidApp
 class BitChordApplication : Application(), SingletonImageLoader.Factory, Configuration.Provider {
 
     /** Asked for on first use rather than at launch; see [PlaylistSync.init]. */
