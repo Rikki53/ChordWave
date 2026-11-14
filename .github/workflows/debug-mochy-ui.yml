@@ -1,0 +1,45 @@
+name: Debug Build (Mochy UI)
+
+on:
+  push:
+    branches: [mochy-ui]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: debug-mochy-ui
+  cancel-in-progress: true
+
+jobs:
+  build-debug:
+    runs-on: ubuntu-latest
+    env:
+      LISTEN_TOGETHER_SERVER: https://party.rikinurjaman.my.id
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: chmod +x gradlew
+
+      - name: Build dev debug APK
+        run: ./gradlew assembleDevDebug
+
+      - name: Publish APK to rolling pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create dev-mochy-ui --prerelease \
+            --target "${{ github.sha }}" \
+            --title "Dev build (Mochy UI clone)" \
+            --notes "Rolling debug build from the mochy-ui branch. Pre-release, so the in-app updater ignores it." \
+            2>/dev/null || true
+          gh release upload dev-mochy-ui app/build/outputs/apk/dev/debug/*.apk --clobber
