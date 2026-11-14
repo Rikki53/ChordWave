@@ -93,7 +93,7 @@ class ExploreViewModel @Inject constructor(
 
     /** The best (lowest) rank among an album's artists; unknown artists sort last. */
     private fun albumRank(album: AlbumItem, ranks: Map<String, Int>): Int =
-        album.artists.orEmpty().minOfOrNull { artist ->
+        album.artists.orEmpty().mapNotNull { artist ->
             artist.id?.let { ranks[it] } ?: ranks[artist.name.lowercase()]
-        } ?: Int.MAX_VALUE
+        }.minOrNull() ?: Int.MAX_VALUE
 }
