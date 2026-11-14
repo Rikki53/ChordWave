@@ -101,6 +101,7 @@ import androidx.core.content.getSystemService
 import com.music.bitchord.ui.mochy.models.DailyDiscoverItem
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
+import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
 import coil3.compose.AsyncImage
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -144,9 +145,6 @@ import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.sin
-import com.music.bitchord.ui.mochy.constants.CanvasThumbnailAnimationKey
-import com.music.bitchord.ui.mochy.constants.CanvasWifiOnlyKey
-import com.music.bitchord.ui.mochy.utils.DataSaver
 import com.music.bitchord.ui.mochy.LocalAppContentObscured
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.Artist
@@ -921,44 +919,13 @@ private fun HeroMedia(
     heroScrollProgressProvider: () -> Float,
 ) {
     val context = LocalContext.current
-    val canvasEnabled by rememberPreference(CanvasThumbnailAnimationKey, defaultValue = true)
-    val canvasWifiOnly by rememberPreference(CanvasWifiOnlyKey, defaultValue = true)
-    var canvasArtwork by remember(item.mediaId) { mutableStateOf<CanvasArtwork?>(null) }
-
-    LaunchedEffect(item.mediaId, canvasEnabled, canvasWifiOnly) {
-        val id = item.mediaId ?: return@LaunchedEffect
-        if (!canvasEnabled) return@LaunchedEffect
-
-        val connectivityManager = context.getSystemService<android.net.ConnectivityManager>()
-        if (canvasWifiOnly && connectivityManager?.isActiveNetworkMetered == true) return@LaunchedEffect
-        // data saver keeps the cover still, a canvas is a video loop
-        if (DataSaver.isActive(context)) return@LaunchedEffect
-
-        CanvasArtworkPlaybackCache.get(id)?.let {
-            canvasArtwork = it
-            return@LaunchedEffect
-        }
-
-        val song = normalizeCanvasSongTitle(item.songTitle ?: "")
-        val artist = normalizeCanvasArtistName(item.artistName ?: "")
-        if (song.isBlank() || artist.isBlank()) return@LaunchedEffect
-
-        val storefront = Locale.getDefault().country.takeIf { it.length == 2 }?.lowercase(Locale.ROOT) ?: "us"
-        val fetched = withContext(Dispatchers.IO) {
-            MonochromeApiCanvas.getBySongArtist(song, artist, item.albumTitle)
-                ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() }
-                ?: AppleMusicCanvasProvider.getBySongArtist(song, artist, item.albumTitle, storefront)
-                    ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() }
-        }
-        if (fetched != null) {
-            canvasArtwork = fetched
-            CanvasArtworkPlaybackCache.put(id, fetched)
-        }
-    }
-
-    // derived so scrolling only recomposes when the hero starts moving, not on every frame. the
-    // video stops as soon as it does, so the scroll's blur is working from a still frame
-    val heroAtRest by remember { derivedStateOf { heroScrollProgressProvider() < HeroStillFrom } }
+    // CANVAS STUBBED (Phase 2 decision, 14 Nov 2026): Mochy's hero fetches a
+    // looping canvas video per track (Monochrome/Apple providers +
+    // CanvasArtworkPlayer). The providers live in Mochy Gradle modules CW
+    // does not have, so hero cards show static artwork until the Phase 5
+    // canvas port. The fetch effect, the CanvasArtwork state and the player
+    // block below are all dropped here; canvasAttached/canvasMayPlay stay in
+    // the signature so the Phase 5 port drops back in without touching callers.
 
     val imageRequest = remember(item.thumbnailUrl, context) {
         ImageRequest.Builder(context)
@@ -992,17 +959,7 @@ private fun HeroMedia(
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    if (canvasAttached && canvasEnabled && canvasArtwork?.preferredAnimationUrl != null) {
-                        CanvasArtworkPlayer(
-                            primaryUrl = canvasArtwork?.preferredAnimationUrl,
-                            fallbackUrl = null,
-                            // also held while the open player covers Home: it kept decoding and drawing
-                            // frames under it. It picks up where it was once Home shows again.
-                            isPlaying = canvasMayPlay() && heroAtRest && !isPagerMoving() &&
-                                !LocalAppContentObscured.current.value,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                    // Canvas video would play here (Phase 5); static artwork until then.
                 }
             }
             if (isTvLayout()) TvHeroArt(item, art) else art(Modifier.fillMaxSize())

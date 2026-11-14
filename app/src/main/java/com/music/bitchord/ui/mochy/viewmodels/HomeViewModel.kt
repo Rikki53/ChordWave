@@ -527,7 +527,7 @@ class HomeViewModel @Inject constructor(
         loadKeepListening()
 
         localPlaylists.value = OfflinePlaylists.playlists.value.map { it.toMochyPlaylist() }
-        _lastPlayedSong.value = recentTracks.firstOrNull()?.toCwSong().toMochyMetadata()
+        _lastPlayedSong.value = recentTracks.firstOrNull()?.toCwSong()?.toMochyMetadata()
 
         // No onboarding artist picker in CW: the hero's starter songs stay empty.
         starterSongs.value = emptyList()

@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +42,7 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 import com.music.bitchord.R
+import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.ui.mochy.theme.CoverThemeColor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -126,11 +126,18 @@ object LikedCoverColors {
 }
 
 /** the colours of the four songs liked last; each cover is read once and remembered */
+// Adapted for ChordWave (no LocalDatabase): the liked covers come from the
+// account's Liked Music list via YtMusicRepository.library() (cached by the
+// repo), fetched once per composition. Signed out / empty library keeps the
+// default colours.
 @Composable
 fun rememberLikedCoverColors(): List<Color> {
-    val database = LocalDatabase.current
     val context = LocalContext.current
-    val urls by remember(database) { database.likedCovers() }.collectAsState(initial = null)
+    var urls by remember { mutableStateOf<List<String>?>(null) }
+    LaunchedEffect(Unit) {
+        urls = YtMusicRepository.library().getOrNull()?.likedSongs
+            ?.take(4)?.mapNotNull { it.thumbnailUrl }
+    }
     var colors by remember { mutableStateOf(LikedCoverColors.last) }
     LaunchedEffect(urls) {
         urls?.let { colors = LikedCoverColors.of(context, it) }
