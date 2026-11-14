@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): res/values/mochy_strings.xml + song_edit_strings.xml (video-mode strings only).
+     Deliberately NOT duplicated here (already in the app's res): play, pause, more_options, add_to_playlist, sleep_timer. -->
+<resources>
+    <string name="video_mode_exit">Exit video mode</string>
+    <string name="video_mode_close_player">Close player</string>
+    <string name="video_mode_exit_full_screen">Exit full screen</string>
+    <string name="video_mode_finding">Looking for the video…</string>
+    <string name="video_mode_no_video">No video for this song. The lyrics still play here.</string>
+    <string name="video_mode_no_lyrics">No lyrics for this song</string>
+    <string name="video_mode_queue">Queue</string>
+    <string name="video_mode_lyrics">Lyrics</string>
+    <string name="video_mode_lyrics_provider">Lyrics provider</string>
+    <string name="video_mode_lyrics_offset">Lyrics offset</string>
+    <string name="video_mode_lyrics_translation">Lyrics translation</string>
+    <string name="video_mode_speed">Playback speed and tempo</string>
+    <string name="video_mode_volume">Volume</string>
+    <string name="video_mode_song_info">Song info</string>
+    <string name="video_mode_whole_video">Show the whole video</string>
+    <string name="video_quality">Video quality</string>
+    <string name="video_quality_auto">Auto</string>
+    <string name="video_quality_auto_desc">Drops lower on slow internet so it won\'t freeze</string>
+    <string name="video_quality_auto_now">Auto · %1$s</string>
+    <string name="video_quality_size">%1$dp</string>
+    <string name="video_quality_fixed_desc">Stays here, may pause to load on slow internet</string>
+    <string name="video_quality_not_loaded">Sizes show up once the video loads</string>
+    <string name="video_quality_4k">4K</string>
+    <string name="video_quality_sharp_desc">If the video and your phone can, uses way more data</string>
+    <string name="video_wrong">Wrong video?</string>
+    <string name="video_find">Find video</string>
+    <string name="previous">Previous</string>
+    <string name="next">Next</string>
+    <plurals name="video_mode_seek_seconds">
+        <item quantity="one">%d second</item>
+        <item quantity="other">%d seconds</item>
+    </plurals>
+</resources>

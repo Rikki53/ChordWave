@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for the Modern UI queue screen + player info sheets (phase3-player-queue-info).
+     Ported from Mochy's res/values/strings.xml, mochy_strings.xml and audiopass_strings.xml.
+     Checked against the worktree res + other staging res: no name collides.
+     Brand rule: user-visible "Mochy" became "ChordWave" (audiopass_stat_skip_no_access,
+     audiopass_now_inexact). -->
+<resources>
+    <string name="remove_from_queue">Remove from queue</string>
+    <string name="repeat">Repeat</string>
+
+    <string name="about_song_nothing_yet">%1$s doesn\'t have anything about this song yet.</string>
+    <string name="about_song_provided_by">provided by %1$s</string>
+
+    <string name="audiopass_stat_label">Passthrough</string>
+    <string name="audiopass_stat_off">Off, songs go through Android\'s mixer</string>
+    <string name="audiopass_stat_song_rate">Song\'s rate: Android still mixes the sound</string>
+    <string name="audiopass_stat_old_android">This mode needs Android %1$s</string>
+    <string name="audiopass_stat_blocked">Waiting until these are off: %1$s</string>
+    <string name="audiopass_stat_skip_busy">The other song in a crossfade has the DAC right now</string>
+    <string name="audiopass_stat_skip_format">This song\'s format can\'t go straight to the DAC</string>
+    <string name="audiopass_stat_skip_lossy">Lossy songs play the normal way in this mode</string>
+    <string name="audiopass_stat_skip_fell">This rate and bit depth couldn\'t open the DAC earlier, so it plays the normal way</string>
+    <string name="audiopass_stat_skip_no_dac">No DAC found for this mode. Plug it in or pick another mode</string>
+    <string name="audiopass_stat_skip_no_access">ChordWave can\'t use the DAC yet. Tap Allow USB access on the Audio Pass page</string>
+    <string name="audiopass_stat_skip_dac_cant">Your DAC has no setting for this song\'s rate and bit depth</string>
+    <string name="audiopass_stat_unknown">On, but this song played the normal way</string>
+
+    <string name="audiopass_now_bitperfect">Bit-perfect to %1$s · %2$s kHz · %3$s-bit</string>
+    <string name="audiopass_now_untouched">Untouched to %1$s · %2$s kHz · %3$s-bit. The song itself was compressed before it got here.</string>
+    <string name="audiopass_now_inexact">Reaching %1$s unchanged, but this song\'s samples were already rounded before ChordWave got them.</string>
+    <string name="audiopass_now_waiting">Its Ready rn. The next song it can take -&gt; straight intto the dac.</string>
+    <string name="audiopass_now_fell">A %1$s kHz %2$s-bit song couldn\'t open the DAC this way, so it plays the normal way.</string>
+
+    <string name="audiopass_blocker_equalizer">Equalizer</string>
+    <string name="audiopass_blocker_fx">Audio FX</string>
+    <string name="audiopass_blocker_volume">Volume below 100%</string>
+    <string name="audiopass_blocker_normalization">Even out songs (normalization)</string>
+    <string name="audiopass_blocker_speed">Speed or pitch changed</string>
+    <string name="audiopass_blocker_transitions">Crossfade or a fade effect</string>
+    <string name="audiopass_blocker_silence">Skip silence or haptics</string>
+</resources>

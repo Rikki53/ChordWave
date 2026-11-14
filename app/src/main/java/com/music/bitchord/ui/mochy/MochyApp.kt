@@ -3,8 +3,10 @@ package com.music.bitchord.ui.mochy
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,17 +37,28 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.UiMode
 import com.music.bitchord.playback.rememberMediaController
+import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.mochy.component.AppNavigationBar
+import com.music.bitchord.ui.mochy.component.BottomSheetState
+import com.music.bitchord.ui.mochy.component.LocalPlayerBottomSheetState
+import com.music.bitchord.ui.mochy.component.rememberBottomSheetState
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.PopupSheetHost
@@ -53,11 +66,18 @@ import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.owningTab
 import com.music.bitchord.ui.mochy.component.onTabTapped
 import com.music.bitchord.ui.mochy.constants.GridItemSize
+import com.music.bitchord.ui.mochy.constants.KeepScreenOn
+import com.music.bitchord.ui.mochy.constants.MiniPlayerHeight
+import com.music.bitchord.ui.mochy.constants.NavigationBarHeight
 import com.music.bitchord.ui.mochy.constants.PureBlackKey
 import com.music.bitchord.ui.mochy.importer.ImportSource
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
+import com.music.bitchord.ui.mochy.player.BottomSheetPlayer
+import com.music.bitchord.ui.mochy.player.ipod.ChordWaveIpodLibrary
+import com.music.bitchord.ui.mochy.player.ipod.LocalIpodLibrarySource
+import com.music.bitchord.ui.mochy.player.share.song.SongShareHost
 import com.music.bitchord.ui.mochy.screens.AlbumScreen
 import com.music.bitchord.ui.mochy.screens.BrowseScreen
 import com.music.bitchord.ui.mochy.screens.HistoryScreen
@@ -88,7 +108,9 @@ import com.music.bitchord.ui.mochy.screens.search.OnlineSearchResult
 import com.music.bitchord.ui.mochy.screens.search.SearchScreen
 import com.music.bitchord.ui.mochy.screens.search.SearchSidePane
 import com.music.bitchord.ui.mochy.screens.search.showsSearchPane
+import com.music.bitchord.ui.mochy.theme.DefaultThemeColor
 import com.music.bitchord.ui.mochy.theme.MochyTheme
+import com.music.bitchord.ui.mochy.theme.rememberCoverThemeColor
 import com.music.bitchord.ui.mochy.utils.DataSaver
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.isLandscapeLayout
@@ -105,9 +127,19 @@ import com.music.bitchord.ui.mochy.viewmodels.LibraryShelfKind
  * Phase 2: the real tab host — MochyNavigator state drives Home, Search
  * and Library (all ported) + the Settings placeholder, the ported
  * AppNavigationBar, the menu sheet host, and the full detail routing
- * (album/artist/playlist/library/history/browse). The mini-player
- * joins in Phase 3 (LocalPlayerBottomSheetState stays at its null
- * default until then; Home null-checks it).
+ * (album/artist/playlist/library/history/browse).
+ *
+ * Phase 3 (adapter-host): the player joins. The host creates the
+ * [BottomSheetState] (Mochy's bounds: dismissed 0, collapsed at the nav bar
+ * + mini player, expanded full height), provides it via
+ * LocalPlayerBottomSheetState (Home's null-checks still hold, but the value
+ * is now non-null), provides LocalArtworkColor from the playing song's cover
+ * colour, applies the KeepScreenOn preference to the window, composes the
+ * BottomSheetPlayer (mini player + full sheet) and the SongShareHost once
+ * above it, and hands the iPod library source to the iPod player style.
+ * The bottom insets the tab screens pad for now follow the sheet: nav bar
+ * height + the mini player while a song is loaded, nav bar alone when the
+ * sheet is dismissed.
  */
 @Composable
 fun MochyApp(modifier: Modifier = Modifier) {
@@ -133,6 +165,26 @@ fun MochyApp(modifier: Modifier = Modifier) {
         onDispose { connection.dispose() }
     }
 
+    // Lyrics pipeline: Modern mode never runs BitChordApp's lyrics-loading
+    // effect (MainActivity returns early with MochyApp), so the host
+    // attaches MainViewModel's lyrics flows + loader to the connection —
+    // the connection itself never touches the ViewModel, it only takes
+    // flows and a loader lambda (see attachLyrics).
+    val mainViewModel: MainViewModel = viewModel()
+    LaunchedEffect(connection, mainViewModel) {
+        connection.attachLyrics(
+            lyrics = mainViewModel.lyrics,
+            source = mainViewModel.lyricsSource,
+            checked = mainViewModel.lyricsChecked,
+            loader = { request ->
+                mainViewModel.loadLyrics(
+                    request.videoId, request.title, request.artist,
+                    request.durationMs, request.album, request.localUri,
+                )
+            },
+        )
+    }
+
     val navigator = remember { MochyNavigator() }
     val glassState = remember { GlassState() }
     val menuState = remember { PopupSheetState() }
@@ -140,32 +192,115 @@ fun MochyApp(modifier: Modifier = Modifier) {
     val detailAccentColor = remember { mutableStateOf<androidx.compose.ui.graphics.Color?>(null) }
     val appContentObscured = remember { mutableStateOf(false) }
 
-    MochyTheme {
-        CompositionLocalProvider(
-            LocalPlayerConnection provides connection,
-            LocalGridItemSize provides GridItemSize.BIG,
-            LocalCropAlbumArt provides false,
-            LocalAppContentObscured provides appContentObscured,
-            LocalDetailAccentColor provides detailAccentColor,
-            LocalGlassState provides glassState,
-            LocalMenuState provides menuState,
-            // Bottom insets the tab screens pad for: the floating nav bar
-            // (64dp + 2x8dp padding = 80dp) over the gesture bar (~16dp).
-            // A flat 96dp floor until the mini-player exists (Phase 3),
-            // when its height joins here. Tune on-device in Phase 6.
-            LocalPlayerAwareWindowInsets provides
-                WindowInsets.navigationBars.union(WindowInsets(bottom = 96.dp)),
-        ) {
-            // Menus (and later info pages) render through this host; the
-            // app zooms out and dims behind the active sheet.
-            PopupSheetHost(states = listOf(menuState)) {
-                MochyContent(
-                    navigator = navigator,
-                    snackbarHostState = snackbarHostState,
-                    modifier = modifier,
-                )
+    // The iPod player's library: downloads + device files + offline
+    // playlists + listening history, warmed lazily on first use (see
+    // ChordWaveIpodLibrary). Provided for the iPod style; the styles chunk's
+    // AlternatePlayerStyle passes it to IpodPlayerStyle at merge time.
+    val ipodLibrary = remember { ChordWaveIpodLibrary(context, scope) }
+
+    // The connection's progress poll rests while the app is hidden instead
+    // of recomposing the player for nobody.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, connection) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> connection.isUiVisible.value = true
+                Lifecycle.Event.ON_STOP -> connection.isUiVisible.value = false
+                else -> Unit
             }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    MochyTheme {
+        KeepScreenOnEffect()
+        // The artwork colour lives in its own provider so a song change
+        // recomposes only it and its readers, not the whole host.
+        MochyArtworkColorHost(connection) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val bottomInset = WindowInsets.navigationBars.asPaddingValues()
+                    .calculateBottomPadding()
+                // The player sheet, Mochy's bounds: dismissed at 0, collapsed
+                // with the mini player level above the tab bar, expanded to
+                // the full window. Starts dismissed; MochyContent brings it
+                // up when a song loads.
+                val playerSheetState = rememberBottomSheetState(
+                    dismissedBound = 0.dp,
+                    collapsedBound = bottomInset + NavigationBarHeight + MiniPlayerHeight,
+                    expandedBound = maxHeight,
+                )
+                val sheetDismissed = playerSheetState.isDismissed
+                // Bottom insets the tab screens pad for: the floating nav bar
+                // (80dp) over the gesture bar, plus the mini player (64dp)
+                // while a song is loaded. Mochy's formula, without the wide
+                // bar (the host is phone-layout only for now).
+                val playerAwareInsets = remember(bottomInset, sheetDismissed) {
+                    val bottom = bottomInset + NavigationBarHeight +
+                        if (sheetDismissed) 0.dp else MiniPlayerHeight
+                    WindowInsets.navigationBars.union(WindowInsets(bottom = bottom))
+                }
+                CompositionLocalProvider(
+                    LocalPlayerConnection provides connection,
+                    LocalPlayerBottomSheetState provides playerSheetState,
+                    LocalIpodLibrarySource provides ipodLibrary,
+                    LocalGridItemSize provides GridItemSize.BIG,
+                    LocalCropAlbumArt provides false,
+                    LocalAppContentObscured provides appContentObscured,
+                    LocalDetailAccentColor provides detailAccentColor,
+                    LocalGlassState provides glassState,
+                    LocalMenuState provides menuState,
+                    LocalPlayerAwareWindowInsets provides playerAwareInsets,
+                ) {
+                    // Menus (and later info pages) render through this host; the
+                    // app zooms out and dims behind the active sheet.
+                    PopupSheetHost(states = listOf(menuState)) {
+                        MochyContent(
+                            navigator = navigator,
+                            snackbarHostState = snackbarHostState,
+                            connection = connection,
+                            playerSheetState = playerSheetState,
+                            modifier = modifier,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * "Keep screen on" (the player's menu, or a chevron button): the phone
+ * doesn't sleep while ChordWave is on screen. A window flag only holds
+ * while the app is in front, which is the point. [android.view.View.keepScreenOn]
+ * sets FLAG_KEEP_SCREEN_ON on the window under the hood — Mochy's
+ * MainActivity does exactly this.
+ */
+@Composable
+private fun KeepScreenOnEffect() {
+    val keepScreenOn by rememberPreference(KeepScreenOn, defaultValue = false)
+    val rootView = LocalView.current
+    DisposableEffect(keepScreenOn) {
+        rootView.keepScreenOn = keepScreenOn
+        onDispose { rootView.keepScreenOn = false }
+    }
+}
+
+/**
+ * Provides [LocalArtworkColor] with the playing song's cover colour: the
+ * bottom-sampled, darkened theme colour of its artwork
+ * ([rememberCoverThemeColor]), falling back to [DefaultThemeColor] while
+ * there is no song or no artwork yet.
+ */
+@Composable
+private fun MochyArtworkColorHost(
+    connection: MochyPlayerConnection,
+    content: @Composable () -> Unit,
+) {
+    val metadata by connection.mediaMetadata.collectAsState()
+    val coverColor by rememberCoverThemeColor(metadata?.thumbnailUrl)
+    CompositionLocalProvider(LocalArtworkColor provides (coverColor ?: DefaultThemeColor)) {
+        content()
     }
 }
 
@@ -173,6 +308,8 @@ fun MochyApp(modifier: Modifier = Modifier) {
 private fun MochyContent(
     navigator: MochyNavigator,
     snackbarHostState: SnackbarHostState,
+    connection: MochyPlayerConnection,
+    playerSheetState: BottomSheetState,
     modifier: Modifier = Modifier,
 ) {
     val currentTab by navigator.currentTab.collectAsState()
@@ -193,7 +330,27 @@ private fun MochyContent(
         navigator.popBackStack()
     }
 
+    // The sheet follows the player, Mochy's MainActivity logic: a song
+    // loading brings the mini player up, the queue emptying sends it away.
+    // state.dismiss() is programmatic — it does not run the sheet's
+    // onDismiss (only a finger flinging the mini player away does that, and
+    // that is what stops playback), so this cannot stop a song by itself.
+    val currentMetadata by connection.mediaMetadata.collectAsState()
+    LaunchedEffect(currentMetadata) {
+        if (currentMetadata == null) {
+            if (!playerSheetState.isDismissed) playerSheetState.dismiss()
+        } else if (playerSheetState.isDismissed) {
+            playerSheetState.collapseSoft()
+        }
+    }
+
     val selectedTabRoute = owningTab(currentTab, detailStack, Screens.MainScreens)
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues()
+        .calculateBottomPadding()
+    val density = LocalDensity.current
+    // How far the tab bar slides down (and fades out) as the player opens:
+    // its own height, Mochy's formula.
+    val navBarTotalPx = with(density) { (NavigationBarHeight + bottomInset).toPx() }
 
     Box(modifier = modifier.fillMaxSize()) {
         Row(Modifier.fillMaxSize()) {
@@ -240,8 +397,26 @@ private fun MochyContent(
             hostState = snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 104.dp),
+                // Above the tab bar, and above the mini player while it is up.
+                .padding(
+                    bottom = bottomInset + NavigationBarHeight +
+                        (if (playerSheetState.isDismissed) 0.dp else MiniPlayerHeight) + 8.dp,
+                ),
         )
+
+        // The player sheet: the mini player collapsed, the full player open.
+        // Swipe-skip on the mini player is the player's own: BottomSheetPlayer
+        // hands the sheet its SongCarousel swipe, which skips through the
+        // connection (seekToNext/skipToPreviousSong) — the host wires no
+        // onSwipeSkip of its own.
+        BottomSheetPlayer(
+            state = playerSheetState,
+            navigator = navigator,
+            pureBlack = pureBlack,
+        )
+
+        // "Share song" from any menu opens here, over the app and the player.
+        SongShareHost()
 
         AppNavigationBar(
             navigationItems = Screens.MainScreens,
@@ -252,7 +427,14 @@ private fun MochyContent(
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .graphicsLayer {
+                    // Slides down and fades as the player opens, Mochy's
+                    // formula: gone once the sheet is 60% up.
+                    val progress = playerSheetState.progress.coerceIn(0f, 1f)
+                    translationY = navBarTotalPx * progress
+                    alpha = (1f - progress / 0.6f).coerceIn(0f, 1f)
+                },
             // Phase 2 Search: a second quick tap on Search goes straight
             // into typing once the Search screen lands.
             onSearchDoubleTap = navigator::requestSearchFocus,

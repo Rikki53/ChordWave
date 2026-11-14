@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Ported from Mochy Music (GPL-3.0): res/values/player_flagship_strings.xml
+      (verbatim values). ChordWave Modern UI — Phase 3 player covers & visual
+      styles (staging). Used by player/flagship/FlagshipBottomBar.kt,
+      FlagshipTransport.kt and PagesPill.kt.
+
+      The editor's layout strings (flagship_layout_three / _caption,
+      flagship_layout_ten / _caption) are NOT here — they belong to the
+      player-studio chunk (the controls sheet in the player editor).
+      No "Mochy" brand strings: user-visible text uses the product-neutral
+      wording from Mochy as-is (no brand name appears in these strings).
+    -->
+
+    <!-- the new flagship player's bottom bar: where the sound is going -->
+    <string name="flagship_output_speaker">Internal speaker</string>
+    <string name="flagship_output_wired">Wired headphones</string>
+    <string name="flagship_output_usb">USB audio</string>
+    <string name="flagship_output_bluetooth">Bluetooth</string>
+    <string name="flagship_output_hdmi">HDMI</string>
+    <string name="flagship_output_change">Change where the music plays</string>
+
+    <!-- read out for the buttons that only show an icon -->
+    <string name="flagship_play">Play</string>
+    <string name="flagship_pause">Pause</string>
+    <string name="flagship_next">Next song</string>
+    <string name="flagship_previous">Previous song</string>
+    <string name="flagship_back_ten">Back 10 seconds</string>
+    <string name="flagship_forward_ten">Forward 10 seconds</string>
+    <string name="flagship_lyrics">Lyrics</string>
+    <string name="flagship_queue">Queue</string>
+    <string name="flagship_volume">Volume</string>
+</resources>

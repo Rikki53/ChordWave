@@ -7,8 +7,10 @@
 
 package com.music.bitchord.ui.mochy.constants
 
+import android.os.Build
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import java.time.LocalDateTime
@@ -181,3 +183,314 @@ val ArtistSongSortTypeKey = stringPreferencesKey("artistSongSortType")
 val ArtistSongSortDescendingKey = booleanPreferencesKey("artistSongSortDescending")
 
 enum class ArtistSongSortType { CREATE_DATE, NAME, PLAY_TIME }
+
+// ---- Player styles (Phase 3, verbatim from Mochy PreferenceKeys.kt:692-811) ----
+
+enum class PlayerStyle(val displayName: String, val selectorName: String) {
+    // the flagship as it is now: frosted cover fade, moving cover colours, the new buttons and bottom bar
+    FLAGSHIP("Flagship", "Flagship"),
+    // the flagship before its layout refresh, kept as a variant under it in the selector
+    CLASSIC("Classic", "Classic"),
+    /** the flagship with a record player for its cover, whose arm is the seek bar */
+    TURNTABLE("Turntable", "Turntable"),
+    // the song's youtube video across the whole screen, turned sideways, with its lyrics in a pane
+    VIDEO("Full video", "Full video"),
+    // the ipod classic, click wheel and all, browsing the library from inside the player
+    IPOD("iPod", "iPod"),
+    POSTER("Poster", "Poster"),
+    TIMELINE("Timeline", "Timeline"),
+    LYRICS("Lyrics", "Lyrics stage"),
+    // a big quiet clock for the nightstand, with the song a swipe away, that can stay up over the lock screen
+    BEDSIDE("Bedside clock", "Big clock"),
+    // the nightstand as two tiles side by side, the music on one and the lyrics or a clock on the other, each scrolled on its own
+    BEDSIDE_TILES("Bedside", "Bedside"),
+    // a look module's own player, drawn from its layout; kept last so the others keep their places, and only offered while such a module is on
+    MODULE("Module", "Module");
+
+    val editable: Boolean get() = this == FLAGSHIP || this == CLASSIC || this == TURNTABLE || this == POSTER || this == IPOD || isBedside
+
+    // the two nightstand styles share their sheet, their night look and their lock screen rules
+    val isBedside: Boolean get() = this == BEDSIDE || this == BEDSIDE_TILES
+
+    /** drawn by the flagship's own player (cover, controls, card), not a design of its own */
+    val flagshipFamily: Boolean get() = this == FLAGSHIP || this == CLASSIC || this == TURNTABLE
+
+    // the two flagships the full editor works on: cover, middle part, controls and bottom bar
+    val hasFullEditor: Boolean get() = this == FLAGSHIP || this == CLASSIC
+
+    // the styles whose menu has a rotate button, each with a landscape layout of its own to turn into
+    val turnable: Boolean get() = this == TURNTABLE || this == POSTER || this == TIMELINE || this == LYRICS || this == MODULE || isBedside
+
+    // laid out sideways until someone turns it upright, the way a phone stands on a nightstand
+    val startsSideways: Boolean get() = this == BEDSIDE_TILES
+
+    // the looks that read well across a room and stay smooth on a tv's gpu; the rest stay on phones
+    val availableOnTv: Boolean get() = this == FLAGSHIP || this == POSTER || this == VIDEO || this == TIMELINE || isBedside
+
+    companion object {
+        /** the styles these replaced, so a stored choice lands on its nearest successor */
+        fun fromStored(name: String?): PlayerStyle? = when (name) {
+            "SIMPLE", "SIMPLE_COMPACT" -> TIMELINE
+            "LYRICS_ABSTRACT" -> LYRICS
+            // everyone on the old flagship moves to the new one once; picking classic later sticks
+            "DEFAULT" -> FLAGSHIP
+            else -> null
+        }
+
+        // the selector's columns, each look with its variants stacked under it, a swipe down away
+        val selectorColumns: List<List<PlayerStyle>> = listOf(
+            listOf(FLAGSHIP, CLASSIC),
+            listOf(TURNTABLE),
+            listOf(VIDEO),
+            listOf(IPOD),
+            // the tiles first, the single big clock a swipe down under them
+            listOf(BEDSIDE_TILES, BEDSIDE),
+            listOf(POSTER),
+            // the lyrics stage sits under the timeline, the way the classic sits under the flagship
+            listOf(TIMELINE, LYRICS),
+        )
+    }
+}
+
+val PlayerStyleKey = stringPreferencesKey("playerStyle")
+
+// the tv's "flagship square": the flagship with its whole cover as a rounded square
+val TvFlagshipSquareKey = booleanPreferencesKey("tvFlagshipSquare")
+// a phone on its side: the flagship's cover fills the left and melts into the controls, instead of a rounded square beside them
+val LandscapeFullCoverKey = booleanPreferencesKey("landscapeFullCover")
+// Experimental: the app may turn sideways into its wide layout; off (the default) it stays upright
+val LandscapeUnlockedKey = booleanPreferencesKey("landscapeUnlocked")
+
+// the ipod player's body colours, ipod.js's three plus a pitch black one with a dark screen
+enum class IpodTheme { SILVER, BLACK, U2, TRUE_DARK }
+
+val IpodThemeKey = stringPreferencesKey("ipodTheme")
+
+// the click wheel's own colour, or whatever the body's theme comes with
+enum class IpodWheelColor { THEME, WHITE, BLACK, RED }
+
+val IpodWheelColorKey = stringPreferencesKey("ipodWheelColor")
+
+// the screen grows down to the wheel on tall phones instead of keeping the classic's shape
+val IpodTallScreenKey = booleanPreferencesKey("ipodTallScreen")
+
+// the soft shading round the edges of the body
+val IpodShadowKey = booleanPreferencesKey("ipodShadow")
+
+/** the Poster's bars round its cover, moving with the music; off until turned on in its editor */
+val PosterVisualizerKey = booleanPreferencesKey("posterVisualizer")
+
+// the bedside's clock faces, swiped through sideways on the clock or picked in its sheet
+enum class BedsideClockFace { BIG, STACKED, ANALOG, COVER }
+
+val BedsideClockFaceKey = stringPreferencesKey("bedsideClockFace")
+
+// the colour the bedside settles into once it's left alone: none, a warm orange, or the cover's own hue
+enum class BedsideNightTint { OFF, ORANGE, COVER }
+
+val BedsideNightTintKey = stringPreferencesKey("bedsideNightTint")
+
+// left alone, the bedside dims and drifts a few pixels now and then so an oled screen doesn't burn in overnight
+val BedsideScreenSaverKey = booleanPreferencesKey("bedsideScreenSaver")
+
+// the phone doesn't sleep while the bedside is open, on out of the box
+val BedsideKeepAwakeKey = booleanPreferencesKey("bedsideKeepAwake")
+
+// lock the phone with the bedside open and it's still there over the lock screen when the screen wakes
+val BedsideLockScreenKey = booleanPreferencesKey("bedsideLockScreen")
+
+// "not now" on the bedside's lock screen prompt, so it asks once and then leaves it to the sheet
+val BedsideLockPromptDismissedKey = booleanPreferencesKey("bedsideLockPromptDismissed")
+
+// whether a style's rotate button turned it sideways; the same key as before, so a style someone had turned comes back turned
+fun playerStyleRotatedKey(style: PlayerStyle) = booleanPreferencesKey("playerStyleRotated_${style.name}")
+
+// the page each bedside tile was left on, so it opens where it was
+val BedsideMusicTilePageKey = intPreferencesKey("bedsideMusicTilePage")
+val BedsideInfoTilePageKey = intPreferencesKey("bedsideInfoTilePage")
+
+val HideSettingsDescriptionsKey = booleanPreferencesKey("hideSettingsDescriptions")
+
+val PlayerStatusBarKey = booleanPreferencesKey("playerStatusBar")
+const val PlayerStatusBarDefault = false
+
+// ---- Lyrics (Phase 3, verbatim from Mochy PreferenceKeys.kt:924,963-990) ----
+
+val LyricsHighBloomKey = booleanPreferencesKey("lyricsHighBloom")
+
+/**
+ * How the active lyric line animates. A new key rather than [LyricsAnimationStyleKey]: that one
+ * belonged to renderers that no longer exist and may still hold their old values on upgrade.
+ */
+val LyricsMotionStyleKey = stringPreferencesKey("lyricsMotionStyle")
+
+// risesWords: words rise and lines cascade (style 1's motion), shaded: the agsl glow and wave run on top
+enum class LyricsMotionStyle(
+    val displayName: String,
+    val description: String,
+    val risesWords: Boolean,
+    val shaded: Boolean,
+) {
+    /** Style 1: words rise into place as they're sung, held notes swell and glow, lines cascade. */
+    MOTION("Style 1", "Words rise as they're sung, long notes swell, lines cascade", risesWords = true, shaded = true),
+
+    /** Style 2: the original - a wave across the sung letters, the list scrolls as one piece. */
+    LEGACY("Style 2", "The original wave across the sung letters", risesWords = false, shaded = true),
+
+    // style 1 without the shader, for phones that struggle with it
+    BORING("Boring", "Style 1's rise, without the glow", risesWords = true, shaded = false),
+
+    // style 2 without the shader, just the colour sweeping along
+    PLAIN("Plain", "Style 2's sweep, without the glow or the wave", risesWords = false, shaded = false);
+
+    // the same motion with the shader switched off, used when moving people off the old shader switch
+    val withoutShader: LyricsMotionStyle get() = if (risesWords) BORING else PLAIN
+}
+
+val LyricsAnimationStyleKey = stringPreferencesKey("lyricsAnimationStyle")
+enum class LyricsAnimationStyle {
+    NONE,
+    FADE,
+    GLOW,
+    SLIDE,
+    KARAOKE,
+    APPLE,
+    APPLE_V2,
+    MOCHY_1,
+    LYRICS_V2,
+    METRO_LYRICS,
+}
+// ---- Player editor keys (Phase 3, verbatim from Mochy PreferenceKeys.kt) ----
+
+val ShowPlayerBottomCardKey = booleanPreferencesKey("showPlayerBottomCard")
+
+enum class PlayerCoverStyle {
+    EDGE_TO_EDGE,
+    SQUARED,
+    DISC_SMALL_FULL,
+    DISC_SMALL_LABEL,
+    DISC_BIG_FULL,
+    DISC_BIG_LABEL,
+    DISC_ALBUM,
+    /** the Turntable player's own: a big record and its arm. Not offered on the flagship. */
+    TURNTABLE,
+}
+
+/** what the timestamp at the right of the seek bar shows */
+enum class PlayerEndTimestamp { END_TIME, TIME_LEFT }
+
+val PlayerEndTimestampKey = stringPreferencesKey("playerEndTimestamp")
+
+/** the four actions in the player's chevron menu, top to bottom, as action names joined by commas */
+val PlayerMenuSlotsKey = stringPreferencesKey("playerMenuSlots")
+
+/** the action of the round button beside the chevron (a like, out of the box) */
+val PlayerSideButtonKey = stringPreferencesKey("playerSideButton")
+
+/** what sits at the bottom of the player, under the play buttons */
+enum class PlayerBottomBarStyle(val displayName: String) {
+    /** the lyrics and queue cards, one behind the other */
+    STACK("Stack"),
+    /** the phone's volume, with the lyrics and queue buttons under it */
+    VOLUME("Volume"),
+}
+
+val PlayerBottomBarStyleKey = stringPreferencesKey("playerBottomBarStyle")
+
+// the new flagship keeps its own bottom bar, so it shows the volume bar it was designed with even where classic has the cards
+val FlagshipBottomBarStyleKey = stringPreferencesKey("flagshipBottomBarStyle")
+
+// the new flagship's own background, the moving cover colours out of the box
+val FlagshipBackgroundStyleKey = stringPreferencesKey("flagshipBackgroundStyle")
+
+// how the new flagship lays out its play buttons
+enum class FlagshipTransportLayout {
+    // back, play and next, wide apart with nothing round them
+    THREE,
+    // ten seconds back and forward on the outside, play in a white circle
+    TEN_SECONDS,
+}
+
+val FlagshipTransportLayoutKey = stringPreferencesKey("flagshipTransportLayout")
+
+/** how far the player's controls were held and dragged from their usual place in the editor, in dp (down is positive) */
+val PlayerControlsShiftKey = floatPreferencesKey("playerControlsShift")
+
+/** how much taller the player's card was pulled in the editor, in dp: room for readings and the next line */
+val PlayerCardGrowthKey = floatPreferencesKey("playerCardGrowth")
+
+/** what the disc's label shows */
+enum class DiscLabelContent { CUSTOM, MUSIC_NAME, ARTIST_NAME, ALBUM_NAME, MUSIC_AND_ARTIST, NONE }
+
+val DiscLabelContentKey = stringPreferencesKey("discLabelContent")
+
+val SeekBarStyleKey = stringPreferencesKey("seekBarStyle")
+
+val ButtonStyleKey = stringPreferencesKey("buttonStyle")
+
+val PlayerCoverStyleKey = stringPreferencesKey("playerCoverStyle")
+
+
+/**
+ * Cover style to use when the user has not picked one.
+ *
+ * Edge-to-edge art leans on the backdrop blur behind it to separate the cover from the controls,
+ * and that blur needs API 31. Below that the full-bleed art runs straight under the chrome with
+ * nothing softening it, so squared reads far better there. This is only the *default* - an
+ * explicit choice in Player customise still wins on every device.
+ */
+val DefaultPlayerCoverStyle: PlayerCoverStyle
+    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        PlayerCoverStyle.EDGE_TO_EDGE
+    } else {
+        PlayerCoverStyle.SQUARED
+    }
+
+val ShowBigDiscStylesKey = booleanPreferencesKey("showBigDiscStyles")
+
+val DiscRotatingAnimationKey = booleanPreferencesKey("discRotatingAnimation")
+
+val DiscRealisticModeKey = booleanPreferencesKey("discRealisticMode")
+
+val DiscNameKey = stringPreferencesKey("discName")
+
+enum class PlayerTextContent {
+    MUSIC_NAME,
+    ALBUM_NAME,
+    ARTIST_NAME,
+    COMBINED,
+}
+
+val PlayerTitleSlotKey = stringPreferencesKey("playerTitleSlot")
+val PlayerSubtitleSlotKey = stringPreferencesKey("playerSubtitleSlot")
+
+val PlayerButtonsStyleKey = stringPreferencesKey("player_buttons_style")
+val PlayerBackgroundStyleKey = stringPreferencesKey("playerBackgroundStyle")
+val MiniPlayerBackgroundStyleKey = stringPreferencesKey("miniPlayerBackgroundStyle")
+val ShowLyricsKey = booleanPreferencesKey("showLyrics")
+val SwipeLyricsKey = booleanPreferencesKey("swipeLyrics")
+
+// ---- Player core/covers keys (Phase 3, verbatim from Mochy PreferenceKeys.kt) ----
+
+val EnableHighRefreshRateKey = booleanPreferencesKey("enableHighRefreshRate")
+
+// there's no limit to the larp
+val LarpModeKey = booleanPreferencesKey("larpMode")
+val LarpLevelKey = stringPreferencesKey("larpLevel")
+// a swipe down anywhere on the open player closes it, not only from its top and cover (#121)
+val PlayerSwipeDownAnywhereKey = booleanPreferencesKey("playerSwipeDownAnywhere")
+
+val InfiniteQueueKey = booleanPreferencesKey("infiniteQueue")
+
+// a track that is a YouTube video (from a video row or the Videos search tab) shows that video in the player
+val DisableVideoAutoplayKey = booleanPreferencesKey("disableVideoAutoplay")
+
+// the style the player goes back to when the full video mode is left
+val VideoModeReturnStyleKey = stringPreferencesKey("videoModeReturnStyle")
+
+/** The player's format badge beside the title (OPUS, AAC, FLAC...) */
+val ShowFormatBadgeKey = booleanPreferencesKey("showFormatBadge")
+/** The badge also says the stream's sample rate */
+val ShowFormatSampleRateKey = booleanPreferencesKey("showFormatSampleRate")
+
+val ForceYtBackdropBlur1500Key = booleanPreferencesKey("forceYtBackdropBlur1500")

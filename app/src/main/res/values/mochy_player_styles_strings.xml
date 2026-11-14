@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): strings the player styles read.
+     Values verbatim from Mochy's res/values/mochy_strings.xml (player_*),
+     modules_strings.xml (skin_*) and strings.xml (queue).
+     `queue` is NOT redefined here: it already exists in the worktree's
+     res/values/strings.xml. `flagship_output_*` is NOT defined here either:
+     it belongs to the flagship chunk (Mochy player_flagship_strings.xml)
+     and is only referenced by the stubbed SkinAudio device names — the
+     adapter round takes it from the flagship chunk, not from here.
+     skin_audio_*/skin_output_* are referenced only by the stubbed
+     SkinAudio stream/device code; they are staged now so the adapter round
+     restores that code without adding resources. -->
+<resources>
+    <string name="player_rotate">Rotate</string>
+    <string name="player_turn_upright">Turn upright</string>
+    <string name="skin_customise_title">Customise</string>
+    <string name="skin_audio_lossy">Lossy</string>
+    <string name="skin_audio_lossless">Lossless</string>
+    <string name="skin_output_speaker">Speaker</string>
+    <string name="skin_output_wired">Headphones</string>
+</resources>

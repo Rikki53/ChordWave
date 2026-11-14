@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): res/values/player_bedside_strings.xml (subset) -->
+<!-- Only the strings the bedside/ipod player styles in this chunk actually read.
+     The bedside editor-sheet strings (bedside_sheet_title, bedside_tint_*, bedside_saver_*,
+     bedside_keep_awake_*, bedside_lock_screen_*, bedside_lock_blocked_*) belong to the
+     player-editor chunk and are intentionally NOT duplicated here. -->
+<resources>
+    <!-- the bedside player style: a big clock for the nightstand -->
+    <string name="bedside_close">Close the player</string>
+    <string name="bedside_unlock_to_close">Unlock to close the player</string>
+    <string name="bedside_more">More</string>
+    <string name="bedside_like">Like</string>
+    <string name="bedside_now_playing">Now playing</string>
+
+    <!-- asked once over the bedside when the phone keeps apps off the lock screen (MIUI and HyperOS do, until you allow it) -->
+    <string name="bedside_lock_ask_title">Keep the clock on your lock screen?</string>
+    <string name="bedside_lock_ask_body">Your phone keeps apps off the lock screen until you allow it. On the next screen, turn on \"Show on Lock screen\".</string>
+    <string name="bedside_lock_ask_allow">Allow</string>
+    <string name="bedside_lock_ask_later">Not now</string>
+</resources>

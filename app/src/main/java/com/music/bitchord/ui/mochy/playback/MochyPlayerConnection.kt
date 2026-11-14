@@ -10,13 +10,40 @@
 // MediaItem.toSong() + the ui.mochy.models mappers), queue flows
 // (queueWindows/queueItems/queueSnapshot), progress ticker, mute via volume,
 // and the simple transport methods (play/pause/toggle/seek/next/previous).
-// STUBBED (Phase 3): playQueue/playNext/addToQueue/playQueueItem/
-// moveQueueItem/removeQueueItems (need the Queue -> CW play translation),
-// toggleLike/toggleLibrary (need the CW LikeState bridge), radio/infinite
-// queue, lyrics, stream facts, PlayerUiState.
+// The Phase 3 adapter round wired the rest (see below): queue methods,
+// like/library, radio, infinite queue, lyrics, stream facts.
 // SKIPPED (no CW equivalent, out of scope): MusicService-bound flows
-// (waitingForNetworkConnection, streamFailure, crossmix), cast, remote
+// (waitingForNetworkConnection, streamFailure — the flow exists as a
+// permanent-null stub so StreamFailureUi compiles, crossmix —
+// isCrossmixing is a permanent-false stub), cast, remote
 // control, SongEdits.
+//
+// Phase 3 adapter round (15 Nov 2026, staging/phase3-adapter-connection):
+// adds the player-connection members the ported Phase 3 player UI reads —
+// player, playbackParameters, uiState, streamFailure, lyricsOffsetMs,
+// isCrossmixing, studioRequests/requestStudio, streamFacts, musicVolume/
+// setMusicVolume. See NEEDS.md in that staging dir for the contract of
+// each member (what is real, what is a stub, and why).
+//
+// Phase 3 adapter round, lyrics (15 Nov 2026, staging/phase3-adapter-lyrics):
+// adds currentLyrics (the current song's lyrics row, serialised from
+// MainViewModel.lyrics), the lyrics loading trigger (attachLyrics + the
+// mediaMetadata watcher — Modern mode never runs the Classic UI's
+// loadLyrics effect, so the connection has to trigger the load itself),
+// and saveLyricsOffset (v1: ChordWave's single GLOBAL offset, not
+// per-song). See NEEDS.md in that staging dir for the contracts, the
+// three-state null/LYRICS_NOT_FOUND semantics, and the host wiring the
+// coordinator must add in MochyApp.
+//
+// Phase 3 adapter round, queue/like (15 Nov 2026, coordinator, same file):
+// wires the queue methods onto the controller (playQueue/playNext/
+// addToQueue/playQueueItem/moveQueueItem/playQueueItemNext/
+// removeQueueItems), the like/library bridge (toggleLike/toggleLibrary
+// via MenuActions' toggleSongLike/sendLibraryFeedback + a LikeState
+// overlay on the published metadata), startRadioSeamlessly (append
+// YtMusicRepository.radio results), and setInfiniteQueueEnabled (Mochy
+// pref + CW autoplay together). stopRecommendingCurrent stays a no-op:
+// CW has no recommendation engine to stop.
 //
 // The Modern host (MochyApp) creates one instance, binds it to
 // rememberMediaController() inside a DisposableEffect, provides it via
@@ -27,37 +54,87 @@ import android.content.Context
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
+import com.music.bitchord.data.LikeState
+import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song as CwSong
+import com.music.bitchord.data.model.LikeStatus
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.fromAutoplay
 import com.music.bitchord.playback.toSong
+import com.music.bitchord.ui.mochy.constants.InfiniteQueueKey
+import com.music.bitchord.ui.mochy.extensions.toMediaItem
+import com.music.bitchord.ui.mochy.lyrics.LyricsEntity
+import com.music.bitchord.ui.mochy.lyrics.mapLyricsToEntity
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.toMochyMetadata
 import com.music.bitchord.ui.mochy.models.toMochySong
+import com.music.bitchord.ui.mochy.playback.queues.Queue
+import com.music.bitchord.ui.mochy.player.PlayerUiState
+import com.music.bitchord.ui.mochy.player.menu.sendLibraryFeedback
+import com.music.bitchord.ui.mochy.player.menu.toggleSongLike
 import com.music.bitchord.ui.mochy.player.models.ProgressState
 import com.music.bitchord.ui.mochy.player.models.QueueItemData
 import com.music.bitchord.ui.mochy.player.models.QueueState
+import com.music.bitchord.ui.mochy.utils.PreferencesCache
+import com.music.bitchord.ui.mochy.utils.dataStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.time.LocalDateTime
 
 val LocalPlayerConnection = staticCompositionLocalOf<MochyPlayerConnection?> {
     error("No MochyPlayerConnection provided")
 }
+
+/**
+ * A stream that started failing: the player is retrying until [timeoutMs]
+ * after [startedAt] (both [android.os.SystemClock.elapsedRealtime]).
+ * Mochy shape (playback/MusicService.kt:303). ChordWave has no
+ * stream-failure signal, so [MochyPlayerConnection.streamFailure] stays
+ * null and the failure UI never shows — see its KDoc.
+ */
+data class StreamFailure(val startedAt: Long, val timeoutMs: Long)
+
+/**
+ * Everything ChordWave's lyrics lookup needs for one song: exactly
+ * [com.music.bitchord.ui.MainViewModel.loadLyrics]'s parameters, bundled so
+ * the host can attach the loader as one lambda (see
+ * [MochyPlayerConnection.attachLyrics]). The connection fills it from the
+ * current [MediaMetadata] + the player's duration; the host's lambda just
+ * forwards it to the ViewModel.
+ */
+data class LyricsLoadRequest(
+    val videoId: String,
+    val title: String,
+    val artist: String,
+    val durationMs: Long,
+    val album: String?,
+    val localUri: String?,
+)
 
 class MochyPlayerConnection(context: Context) {
 
@@ -83,6 +160,9 @@ class MochyPlayerConnection(context: Context) {
         this.controller = controller
         controller?.let {
             it.addListener(listener)
+            // A fresh controller starts at full volume; restore the stored
+            // music volume / mute state so a rebind is inaudible.
+            it.volume = if (isMuted.value) 0f else musicVolume.value
             sync(it)
         } ?: run {
             playbackState.value = Player.STATE_IDLE
@@ -92,6 +172,9 @@ class MochyPlayerConnection(context: Context) {
             queueWindows.value = emptyList()
             currentMediaItemIndex.value = -1
             currentWindowIndex.value = -1
+            // Nothing is playing: drop the lyrics row too (it is gated on
+            // this id, so clearing it takes currentLyrics back to null).
+            requestedLyricsVideoId.value = null
             publishQueueSnapshot()
         }
     }
@@ -170,6 +253,298 @@ class MochyPlayerConnection(context: Context) {
     val error = MutableStateFlow<PlaybackException?>(null)
     val isMuted = MutableStateFlow(false)
 
+    // ---- Phase 3 adapter members (the ported player UI reads these) ----
+
+    /**
+     * The bound MediaController as a [Player], null until [bind] supplies
+     * one. Every call site is nullable-safe (core B1, covers B2).
+     */
+    val player: Player?
+        get() = controller
+
+    /**
+     * Playback speed/pitch, forwarded to the bound controller;
+     * [PlaybackParameters.DEFAULT] while unbound. The ported HoldSpeed
+     * (hold-to-speed ×2 / ×0.5) sets speed through this (core B2).
+     */
+    var playbackParameters: PlaybackParameters
+        get() = controller?.playbackParameters ?: PlaybackParameters.DEFAULT
+        set(value) {
+            controller?.playbackParameters = value
+        }
+
+    /**
+     * The combined UI state the player screens read (trackInfo,
+     * transportState, queueState, progressState). Lazy so construction
+     * order against the flows above can never matter (core B3, covers B1).
+     */
+    val uiState: PlayerUiState by lazy { PlayerUiState(this) }
+
+    /**
+     * STUB — stays null. ChordWave has no stream-failure signal (no
+     * retry/timeout event reaches this layer), so there is nothing real
+     * to emit. The flow exists so StreamFailureUi compiles; its helpers
+     * return -1f/null with no failure, so the red failure arc simply
+     * never shows (core B6, covers B3).
+     * TODO(phase3-adapter): emit a real StreamFailure if CW ever
+     * surfaces a stream retry/timeout.
+     */
+    val streamFailure = MutableStateFlow<StreamFailure?>(null)
+
+    /**
+     * The user's lyrics offset in ms, straight from ChordWave's own
+     * setting ([AppSettings.lyricsOffsetMs]) — exposed directly, not
+     * mapped, so there is exactly one source of truth and no extra
+     * coroutine. Positive values delay synced lyrics (core B11,
+     * styles §(b).4, menus L1).
+     */
+    val lyricsOffsetMs: StateFlow<Int> = AppSettings.lyricsOffsetMs
+
+    /**
+     * STUB — always false. ChordWave has no crossmix/crossfade engine,
+     * so nothing is ever mixing (core B12). MixingNote reads this to
+     * decide whether to show the "mixing" note; it never shows.
+     * TODO(phase3-adapter): wire to a real crossfade signal if CW
+     * ever gains one.
+     */
+    val isCrossmixing = MutableStateFlow(false)
+
+    private val _studioRequests = MutableStateFlow(0L)
+
+    /**
+     * Incremented by [requestStudio] to ask BottomSheetPlayer to open
+     * the player studio ("Customize player" in settings). BottomSheetPlayer
+     * is the only reader; nothing in staging writes it yet — [requestStudio]
+     * is the API for the settings caller (core B13).
+     */
+    val studioRequests: StateFlow<Long> = _studioRequests
+
+    /**
+     * The music volume (0..1) behind the DeviceOutputSheet slider
+     * (menus D2). Independent of [isMuted]: mute silences the controller
+     * without touching this, so unmuting restores the volume.
+     */
+    val musicVolume = MutableStateFlow(1f)
+
+    // ---- lyrics (Phase 3 adapter — lyrics) ----
+    //
+    // When ChordWave loads lyrics, and why this section exists at all:
+    // MainViewModel.loadLyrics runs AUTOMATICALLY on track change — but only
+    // from a LaunchedEffect in the CLASSIC UI (MainActivity.kt, keyed on
+    // player.song?.videoId + duration + the lyric settings). In Modern mode
+    // MainActivity returns early with MochyApp() and that effect never runs,
+    // so nothing would ever load lyrics for the Modern player. The
+    // connection therefore triggers the load itself, through a loader lambda
+    // the host attaches (see attachLyrics); it reuses CW's loadLyrics path
+    // verbatim and invents no fetcher. PlaybackService also loads lyrics on
+    // track change (loadLyricsForCurrentTrack), but into its own private
+    // serviceLyrics for the subtitle ticker — that path does not publish to
+    // MainViewModel.lyrics and cannot feed this flow.
+
+    // The host's MainViewModel flows, forwarded here so currentLyrics is one
+    // combine. The connection never touches MainViewModel directly: the host
+    // attaches the flows and the loader (MochyApp has the ViewModel).
+    private val attachedLyricsLines = MutableStateFlow<List<LyricLine>?>(null)
+    private val attachedLyricsSource = MutableStateFlow<LyricsSource?>(null)
+    private val attachedLyricsChecked = MutableStateFlow(false)
+    private val lyricsLoaderFlow = MutableStateFlow<((LyricsLoadRequest) -> Unit)?>(null)
+
+    /**
+     * The song the trigger last asked the loader for. currentLyrics is gated
+     * on this, NOT on mediaMetadata: the trigger clears the attached lyrics
+     * synchronously before setting it, so the row can never show the old
+     * song's lines under the new song's id — not even for one frame. It is
+     * cleared again when the controller unbinds (bind(null)).
+     */
+    private val requestedLyricsVideoId = MutableStateFlow<String?>(null)
+
+    private var lyricsForwardJobs: List<Job> = emptyList()
+    private var warnedNoLyricsLoader = false
+
+    /**
+     * The current song's lyrics row (lyrics B1, core B5, menus L1).
+     *
+     * Three states, matching what the staged UI was written against
+     * (LyricsScreen.kt:565-577):
+     * - null: the lookup is still running (or nothing is attached yet) —
+     *   the page shows loading dots, the card shows "No lyrics".
+     * - a row whose lyrics are [LyricsEntity.LYRICS_NOT_FOUND]: the lookup
+     *   finished and found nothing — the page shows "No lyrics found".
+     * - a row with LRC text: the serialised lines
+     *   ([com.music.bitchord.ui.mochy.lyrics.serializeLyricLines]),
+     *   parsed back by the UI with LyricsUtils.parseLyricsCached.
+     *
+     * The mapping itself lives in [mapLyricsToEntity] (pure, testable);
+     * this flow only combines the attached CW state. It stays null until
+     * [attachLyrics] supplies the flows AND the trigger has asked the
+     * loader for a song — without a loader, lyrics cannot be fresh, so
+     * nothing is shown rather than something stale.
+     */
+    val currentLyrics: StateFlow<LyricsEntity?> = combine(
+        attachedLyricsLines,
+        attachedLyricsSource,
+        attachedLyricsChecked,
+        requestedLyricsVideoId,
+    ) { lines, source, checked, requestedId ->
+        val songId = requestedId ?: return@combine null
+        mapLyricsToEntity(songId, lines, source, checked)
+    }.stateIn(scope, SharingStarted.Lazily, null)
+
+    /**
+     * Attaches ChordWave's lyrics state and loader. The host (MochyApp)
+     * calls this once, with the activity-scoped MainViewModel:
+     *
+     *     connection.attachLyrics(
+     *         lyrics = viewModel.lyrics,
+     *         source = viewModel.lyricsSource,
+     *         checked = viewModel.lyricsChecked,
+     *         loader = { request ->
+     *             viewModel.loadLyrics(
+     *                 request.videoId, request.title, request.artist,
+     *                 request.durationMs, request.album, request.localUri,
+     *             )
+     *         },
+     *     )
+     *
+     * Re-attaching cancels the previous forwarding jobs and replaces the
+     * loader. Passing a null loader disables the trigger (currentLyrics
+     * stays null and one warning is logged when a song starts).
+     */
+    fun attachLyrics(
+        lyrics: StateFlow<List<LyricLine>?>,
+        source: StateFlow<LyricsSource?>,
+        checked: StateFlow<Boolean>,
+        loader: ((LyricsLoadRequest) -> Unit)?,
+    ) {
+        lyricsForwardJobs.forEach { it.cancel() }
+        lyricsForwardJobs = listOf(
+            scope.launch { lyrics.collect { attachedLyricsLines.value = it } },
+            scope.launch { source.collect { attachedLyricsSource.value = it } },
+            scope.launch { checked.collect { attachedLyricsChecked.value = it } },
+        )
+        lyricsLoaderFlow.value = loader
+        if (loader != null) warnedNoLyricsLoader = false
+    }
+
+    /**
+     * Persists a lyric offset for [songId] (menus L1).
+     *
+     * v1 DEVIATION — the offset is GLOBAL, not per-song: ChordWave has no
+     * per-song offset store, so this writes the single AppSettings value
+     * ([AppSettings.setLyricsOffsetMs], clamped to ±5_000 ms) and [songId]
+     * is accepted for the contract's sake and ignored. Every song shares
+     * the offset until a per-song store exists. The top-level
+     * [com.music.bitchord.ui.mochy.lyrics.saveLyricsOffset] the sheets call
+     * performs this same write.
+     */
+    suspend fun saveLyricsOffset(songId: String, offsetMs: Int) {
+        AppSettings.setLyricsOffsetMs(offsetMs)
+    }
+
+    // ---- lyrics loading trigger (core B8) ----
+    //
+    // Mirrors the Classic UI's LaunchedEffect keys: the song, whether a
+    // duration is known yet, and the four lyric settings — so turning a
+    // source on/off, reordering, or changing the syllable preference
+    // re-triggers the lookup for the song already playing, and a duration
+    // that lands late re-triggers the lookup loadLyrics turned away for
+    // lack of one. loadLyrics dedupes by its own key, so a re-trigger that
+    // changes nothing is a cheap no-op.
+
+    private data class LyricsTriggerKey(
+        val videoId: String?,
+        val durationKnown: Boolean,
+        val syncedLyrics: Boolean,
+        val sources: Set<LyricsSource>,
+        val order: List<LyricsSource>,
+        val prioritizeSyllableSync: Boolean,
+        val loaderAttached: Boolean,
+    )
+
+    init {
+        scope.launch {
+            combine(
+                mediaMetadata,
+                progressState,
+                AppSettings.syncedLyrics,
+                AppSettings.lyricsSources,
+                AppSettings.lyricsSourceOrder,
+                AppSettings.prioritizeSyllableSync,
+                lyricsLoaderFlow,
+            ) { metadata, progress, synced, sources, order, prioritizeSyllables, loader ->
+                LyricsTriggerKey(
+                    videoId = metadata?.id,
+                    durationKnown = (metadata?.duration ?: 0) > 0 || progress.duration > 0L,
+                    syncedLyrics = synced,
+                    sources = sources,
+                    order = order,
+                    prioritizeSyllableSync = prioritizeSyllables,
+                    loaderAttached = loader != null,
+                )
+            }
+                .distinctUntilChanged()
+                .collect { key -> triggerLyricsLoad(key) }
+        }
+
+        // A like toggled from a menu (or seeded late from the server)
+        // updates the player heart without waiting for the next track
+        // change. Songs never touched keep the value published above.
+        scope.launch {
+            LikeState.overrides.collect { overrides ->
+                val current = mediaMetadata.value ?: return@collect
+                val liked = overrides[current.id] == LikeStatus.LIKE
+                if (current.liked != liked) mediaMetadata.value = current.copy(liked = liked)
+            }
+        }
+    }
+
+    private fun triggerLyricsLoad(key: LyricsTriggerKey) {
+        val videoId = key.videoId ?: return
+        val loader = lyricsLoaderFlow.value
+        if (loader == null) {
+            if (!warnedNoLyricsLoader) {
+                warnedNoLyricsLoader = true
+                Timber.w(
+                    "MochyPlayerConnection: no lyrics loader attached — " +
+                        "the host must call attachLyrics (MochyApp) or no lyrics will load"
+                )
+            }
+            return
+        }
+        val metadata = mediaMetadata.value
+        // Clear synchronously BEFORE requesting: currentLyrics is gated on
+        // requestedLyricsVideoId, so from this line on the row is null
+        // (loading) until the new song's lines arrive — the old song's
+        // lyrics can never be shown under the new id.
+        attachedLyricsLines.value = null
+        attachedLyricsSource.value = null
+        attachedLyricsChecked.value = false
+        requestedLyricsVideoId.value = videoId
+        // Duration: the catalogue value first. The polled player duration
+        // can still be the PREVIOUS song's at trigger time (the poller runs
+        // every 200 ms; the trigger fires on the track-change event), and a
+        // wrong duration mis-matches the lyrics lookup. The catalogue
+        // duration changes atomically with the song; the polled one is only
+        // the fallback when the catalogue has none (the durationKnown key
+        // re-fires the trigger when it lands).
+        val catalogueMs = (metadata?.duration ?: 0) * 1_000L
+        val durationMs = if (catalogueMs > 0L) {
+            catalogueMs
+        } else {
+            progressState.value.duration.coerceAtLeast(0L)
+        }
+        loader(
+            LyricsLoadRequest(
+                videoId = videoId,
+                title = metadata?.title ?: "",
+                artist = metadata?.artists?.joinToString(", ") { it.name } ?: "",
+                durationMs = durationMs,
+                album = metadata?.album?.title,
+                localUri = metadata?.localUri,
+            )
+        )
+    }
+
     // ---- sync from the controller (mirrors CW rememberPlayerState's sync) ----
 
     private fun sync(player: Player) {
@@ -189,7 +564,13 @@ class MochyPlayerConnection(context: Context) {
                 null
             }
         }
-        mediaMetadata.value = cwSong?.toMochyMetadata()
+        // The like flag is overlaid from LikeState: toMochyMetadata() never
+        // sets it (CW keeps likes in LikeState, seeded from the server at
+        // playback / library load), so without this the player heart would
+        // always read empty.
+        mediaMetadata.value = cwSong?.toMochyMetadata()?.let {
+            it.copy(liked = LikeState.overrides.value[it.id] == LikeStatus.LIKE)
+        }
         currentSong.value = cwSong?.toMochySong()
 
         val timeline = player.currentTimeline
@@ -282,60 +663,195 @@ class MochyPlayerConnection(context: Context) {
 
     fun setMuted(muted: Boolean) {
         isMuted.value = muted
-        controller?.volume = if (muted) 0f else 1f
+        // Unmuting restores the stored music volume, not full volume.
+        controller?.volume = if (muted) 0f else musicVolume.value
+    }
+
+    /**
+     * Music volume (menus D2): clamps to 0..1, stores it, and applies it
+     * to the controller unless muted (mute keeps the controller silent
+     * and the stored volume is applied on unmute / rebind).
+     */
+    fun setMusicVolume(volume: Float) {
+        val clamped = volume.coerceIn(0f, 1f)
+        musicVolume.value = clamped
+        if (!isMuted.value) controller?.volume = clamped
+    }
+
+    /** Ask BottomSheetPlayer to open the player studio (core B13). */
+    fun requestStudio() {
+        _studioRequests.value += 1
+    }
+
+    /**
+     * What [mediaId] is actually playing as, for the format badge
+     * (core B4, styles §(b).2).
+     *
+     * v1: a one-shot snapshot from the bound controller's selected audio
+     * track — real codec/sampleRate while the song is the one playing,
+     * null otherwise (other queue rows, unbound, or no track selected
+     * yet). Callers re-collect when the mediaId changes
+     * (`remember(mediaId)`), so a song change re-snapshots; the flow
+     * does NOT re-emit when track selection resolves later, so a badge
+     * can stay blank until the next recomposition that re-collects.
+     * TODO(phase3-adapter): make it reactive (re-emit on
+     * onTracksChanged) if the badge is ever seen stuck blank.
+     */
+    fun streamFacts(mediaId: String): Flow<StreamFacts?> = flow {
+        val p = controller
+        val format = if (p != null && p.currentMediaItem?.mediaId == mediaId) {
+            try {
+                StreamFacts.selectedAudio(p.currentTracks)
+            } catch (_: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+        if (format == null) {
+            emit(null)
+        } else {
+            emit(
+                StreamFacts(
+                    codec = StreamFacts.codecOf(format.sampleMimeType, format.codecs),
+                    sampleRate = format.sampleRate.takeIf { it > 0 },
+                )
+            )
+        }
     }
 
     // ---- queue methods (STUBBED — Phase 3 wires the Queue -> CW translation) ----
 
-    fun playQueue(queue: com.music.bitchord.ui.mochy.playback.queues.Queue) {
-        Timber.w("MochyPlayerConnection.playQueue is not wired yet (Phase 3)")
+    // ---- queue methods (REAL — delegate to the controller) ----
+    //
+    // The controller talks to CW's own PlaybackService session, whose
+    // MediaSource factory resolves the bare video ids toMediaItem() puts
+    // on YouTube items — the same path the Classic UI plays through.
+
+    /** Queue uids are Timeline.Window uid hashCodes (see toQueueItem). */
+    private fun indexOfUid(uid: Int): Int =
+        queueWindows.value.indexOfFirst { it.uid.hashCode() == uid }
+
+    fun playQueue(queue: Queue) {
+        val p = controller ?: return
+        scope.launch {
+            val status = try {
+                queue.getInitialStatus()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "MochyPlayerConnection.playQueue: queue failed to load")
+                return@launch
+            }
+            if (status.items.isEmpty()) return@launch
+            queueTitle.value = status.title
+            p.setMediaItems(
+                status.items,
+                status.mediaItemIndex.coerceIn(0, status.items.lastIndex),
+                status.position,
+            )
+            p.play()
+        }
     }
 
     fun playNext(item: MediaItem) = playNext(listOf(item))
 
     fun playNext(items: List<MediaItem>) {
-        Timber.w("MochyPlayerConnection.playNext is not wired yet (Phase 3)")
+        val p = controller ?: return
+        if (items.isEmpty()) return
+        p.addMediaItems((p.currentMediaItemIndex + 1).coerceAtLeast(0), items)
     }
 
     fun addToQueue(item: MediaItem) = addToQueue(listOf(item))
 
     fun addToQueue(items: List<MediaItem>) {
-        Timber.w("MochyPlayerConnection.addToQueue is not wired yet (Phase 3)")
+        val p = controller ?: return
+        if (items.isEmpty()) return
+        p.addMediaItems(items)
     }
 
     fun playQueueItem(uid: Int) {
-        Timber.w("MochyPlayerConnection.playQueueItem is not wired yet (Phase 3)")
+        val p = controller ?: return
+        val index = indexOfUid(uid)
+        if (index < 0) return
+        p.seekToDefaultPosition(index)
+        p.play()
     }
 
+    /**
+     * Drops [uid] directly after [afterUid] (QueueScreen's drag commit
+     * passes the preceding item's uid). moveMediaItem's target is the
+     * item's FINAL index: moving down, removing the item first pulls the
+     * anchor up one, so the target is the anchor's index; moving up, the
+     * anchor stays put and the target is one past it.
+     */
     fun moveQueueItem(uid: Int, afterUid: Int) {
-        Timber.w("MochyPlayerConnection.moveQueueItem is not wired yet (Phase 3)")
+        val p = controller ?: return
+        val from = indexOfUid(uid)
+        val anchor = indexOfUid(afterUid)
+        if (from < 0 || anchor < 0 || from == anchor) return
+        val to = if (from < anchor) anchor else anchor + 1
+        p.moveMediaItem(from, to.coerceIn(0, p.mediaItemCount - 1))
     }
 
     fun playQueueItemNext(uid: Int) {
-        Timber.w("MochyPlayerConnection.playQueueItemNext is not wired yet (Phase 3)")
+        val p = controller ?: return
+        val from = indexOfUid(uid)
+        val current = p.currentMediaItemIndex
+        if (from < 0 || current < 0 || from == current) return
+        // Removing an item above the current song pulls it down one.
+        val to = if (from < current) current else current + 1
+        p.moveMediaItem(from, to.coerceIn(0, p.mediaItemCount - 1))
     }
 
     fun removeQueueItems(uids: Collection<Int>) {
-        Timber.w("MochyPlayerConnection.removeQueueItems is not wired yet (Phase 3)")
+        val p = controller ?: return
+        uids.mapNotNull { indexOfUid(it).takeIf { index -> index >= 0 } }
+            .sortedDescending()
+            .forEach { p.removeMediaItem(it) }
     }
 
+    /**
+     * No-op: ChordWave has no recommendation engine to stop. Mochy's
+     * infinite queue is CW's autoplay ([setInfiniteQueueEnabled]); the
+     * per-song "stop recommending" has no equivalent to switch off.
+     */
     fun stopRecommendingCurrent() {
-        Timber.w("MochyPlayerConnection.stopRecommendingCurrent is not wired yet (Phase 3)")
     }
 
     fun toggleLike() {
-        Timber.w("MochyPlayerConnection.toggleLike is not wired yet (Phase 3, CW LikeState bridge)")
+        val meta = mediaMetadata.value ?: return
+        scope.toggleSongLike(meta.id, !meta.liked)
+        mediaMetadata.value = meta.copy(liked = !meta.liked)
     }
 
     fun toggleLibrary() {
-        Timber.w("MochyPlayerConnection.toggleLibrary is not wired yet (Phase 3, CW LikeState bridge)")
+        val meta = mediaMetadata.value ?: return
+        val adding = meta.inLibrary == null
+        scope.sendLibraryFeedback(meta.id, adding, meta.libraryAddToken, meta.libraryRemoveToken)
+        // Local hint only: the next track change republishes inLibrary as
+        // null (CW has no local library flag — the server state is the
+        // state). Within this song the button flips and stays flipped.
+        mediaMetadata.value = meta.copy(inLibrary = if (adding) LocalDateTime.now() else null)
     }
 
     fun startRadioSeamlessly() {
-        Timber.w("MochyPlayerConnection.startRadioSeamlessly is not wired yet (Phase 3)")
+        val p = controller ?: return
+        val videoId = mediaMetadata.value?.id ?: return
+        scope.launch {
+            val songs = YtMusicRepository.radio(videoId).getOrNull() ?: return@launch
+            val existing = (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }.toSet()
+            val items = songs
+                .filter { it.videoId != videoId && it.videoId !in existing }
+                .map { it.toMochyMetadata().toMediaItem() }
+            if (items.isNotEmpty()) p.addMediaItems(items)
+        }
     }
 
     fun setInfiniteQueueEnabled(enabled: Boolean) {
-        Timber.w("MochyPlayerConnection.setInfiniteQueueEnabled is not wired yet (Phase 3)")
+        // The player button reads the Mochy pref; the engine reads CW's
+        // autoplay. Both flip together so the two never disagree.
+        PreferencesCache.set(context.dataStore, InfiniteQueueKey, enabled)
+        AppSettings.setAutoplay(enabled)
     }
 }

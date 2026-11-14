@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): res/values/larp_strings.xml,
+     res/values/mochy_strings.xml (crossmix_mixing_note),
+     res/values/strings.xml (player_menu_delete_download).
+     Only the strings this chunk references. "Mochy" in values is
+     rebranded to "ChordWave" (7 values). -->
+<resources>
+    <string name="crossmix_mixing_note">Mixxing…</string>
+    <string name="larp_bit_depth">Bit depth</string>
+    <string name="larp_bit_depth_value">%1$d-bit</string>
+    <string name="larp_bitrate">Bitrate</string>
+    <string name="larp_bitrate_value">%1$s kbps</string>
+    <string name="larp_brainrot_buffer">1 ms</string>
+    <string name="larp_brainrot_channels">Stereo, tuned by ear</string>
+    <string name="larp_brainrot_dac">Chord Hugo TT2</string>
+    <string name="larp_brainrot_decoder">None, ChordWave reads FLAC fluently</string>
+    <string name="larp_brainrot_effects">None, the artist signed off every bit</string>
+    <string name="larp_brainrot_hires">64-bit float, gold-plated</string>
+    <string name="larp_brainrot_jitter">1 ps</string>
+    <string name="larp_brainrot_lead">Desktop DAC, fed by hand</string>
+    <string name="larp_brainrot_power">18 W</string>
+    <string name="larp_brainrot_route">ChordWave to the DAC over a silver cable</string>
+    <string name="larp_brainrot_runs">Brainrot</string>
+    <string name="larp_brainrot_source">The mixing desk, live</string>
+    <string name="larp_brainrot_title">Brainrot larper</string>
+    <string name="larp_buffer">Buffer</string>
+    <string name="larp_card_decoder">Decoder</string>
+    <string name="larp_card_dsp">DSP</string>
+    <string name="larp_card_format">.Flac</string>
+    <string name="larp_card_output">Output</string>
+    <string name="larp_channels">Channel type</string>
+    <string name="larp_dac_detail">%1$s · %2$d kHz · %3$d-bit · %4$s</string>
+    <string name="larp_dac_mixer">DAC mixer</string>
+    <string name="larp_dac_mixer_value">Bit-perfect, %1$d kHz · %2$d-bit</string>
+    <string name="larp_decoder_name">Decoder name</string>
+    <string name="larp_device">Device</string>
+    <string name="larp_effects">Effects</string>
+    <string name="larp_hi_res">Hi-res path</string>
+    <string name="larp_jitter">Jitter</string>
+    <string name="larp_maxxing_buffer">0 ms, it plays before you press play</string>
+    <string name="larp_maxxing_channels">Stereo, tuned by hand</string>
+    <string name="larp_maxxing_dac">Wadax Atlantis Reference</string>
+    <string name="larp_maxxing_decoder">None, ChordWave streams it raw</string>
+    <string name="larp_maxxing_effects">None, every bit lands the way the artist dreamt it</string>
+    <string name="larp_maxxing_hires">64-bit float, straight through</string>
+    <string name="larp_maxxing_jitter">0 ps</string>
+    <string name="larp_maxxing_lead">Straight from ChordWave, no decoder</string>
+    <string name="larp_maxxing_power">1,000,000 W</string>
+    <string name="larp_maxxing_route">ChordWave to the DAC, no decoder in between</string>
+    <string name="larp_maxxing_runs">Pure dopamine</string>
+    <string name="larp_maxxing_source">The studio\'s own master tape</string>
+    <string name="larp_maxxing_title">Maxxing larper</string>
+    <string name="larp_power">Power</string>
+    <string name="larp_quality">FLAC · %1$d-bit · %2$d kHz</string>
+    <string name="larp_route">Route</string>
+    <string name="larp_runs_on">Runs on</string>
+    <string name="larp_sample_rate">Sample rate</string>
+    <string name="larp_sample_rate_value">%1$d kHz</string>
+    <string name="larp_sixty_seven_buffer">10 ms</string>
+    <string name="larp_sixty_seven_channels">Stereo, phase-matched</string>
+    <string name="larp_sixty_seven_dac">Chord Mojo 2</string>
+    <string name="larp_sixty_seven_decoder">libFLAC, tuned by hand</string>
+    <string name="larp_sixty_seven_effects">None, not even a fade</string>
+    <string name="larp_sixty_seven_hires">32-bit float, straight through</string>
+    <string name="larp_sixty_seven_jitter">12 ps</string>
+    <string name="larp_sixty_seven_lead">Portable DAC, straight from ChordWave</string>
+    <string name="larp_sixty_seven_power">600 mW</string>
+    <string name="larp_sixty_seven_route">ChordWave to the DAC over asynchronous USB</string>
+    <string name="larp_sixty_seven_runs">A spare audio core</string>
+    <string name="larp_sixty_seven_source">The label\'s own hi-res master</string>
+    <string name="larp_sixty_seven_title">67 larper</string>
+    <string name="larp_skibidi_buffer">40 ms</string>
+    <string name="larp_skibidi_channels">Stereo</string>
+    <string name="larp_skibidi_dac">FiiO KA17</string>
+    <string name="larp_skibidi_decoder">libFLAC</string>
+    <string name="larp_skibidi_effects">None</string>
+    <string name="larp_skibidi_hires">24-bit, untouched</string>
+    <string name="larp_skibidi_jitter">Under 100 ps</string>
+    <string name="larp_skibidi_lead">USB DAC, bit-perfect</string>
+    <string name="larp_skibidi_power">650 mW</string>
+    <string name="larp_skibidi_route">Phone to the USB DAC, bit-perfect</string>
+    <string name="larp_skibidi_runs">Your phone\'s own CPU</string>
+    <string name="larp_skibidi_source">Hi-res studio master</string>
+    <string name="larp_skibidi_title">Skibidi larper</string>
+    <string name="larp_source">Source</string>
+    <string name="player_menu_delete_download">Delete download</string>
+</resources>

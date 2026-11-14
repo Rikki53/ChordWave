@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Coordinator-owned strings for Phase 3 shared pieces (BetaBadge label). -->
+    <string name="mochy_beta">BETA</string>
+</resources>

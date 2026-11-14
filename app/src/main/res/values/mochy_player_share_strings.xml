@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): strings for the lyrics share UI
+     (ui/player/share). Mochy hardcodes these in code; the clone keeps them in
+     one resource file. All names are mochy_share_* prefixed: plain "select"
+     and "done" already exist in the classic ChordWave strings with different
+     values, so unprefixed names would collide. Values verbatim from Mochy,
+     except mochy_share_brand, which is rebranded to ChordWave. -->
+<resources>
+    <!-- ShareCanvas: the wordmark drawn on every shared picture -->
+    <string name="mochy_share_brand">ChordWave</string>
+
+    <!-- ShareLineSheets: line picker -->
+    <string name="mochy_share_title">Share</string>
+    <string name="mochy_share_select">Select</string>
+    <string name="mochy_share_pick_lines">Pick some lines</string>
+    <string name="mochy_share_one_line_selected">1 line selected</string>
+    <string name="mochy_share_lines_selected">%1$d lines selected</string>
+    <string name="mochy_share_tap_lines">Tap the lines you want to share</string>
+    <string name="mochy_share_at_limit">%1$d words · that\'s as much as fits</string>
+    <string name="mochy_share_fits_every_style">%1$d of %2$d words · fits every style</string>
+    <string name="mochy_share_cinematic_only">%1$d of %2$d words · Cinematic only</string>
+
+    <!-- ShareWordEditor: CoolfontEditor -->
+    <string name="mochy_share_done">Done</string>
+    <string name="mochy_share_coolfont_editor">CoolfontEditor</string>
+    <string name="mochy_share_pick_look_first">Pick Glow, CAPS or Bigggg below first</string>
+    <string name="mochy_share_glow">Glow</string>
+    <string name="mochy_share_glow_prompt">Tap or swipe the words you want to glow!</string>
+    <string name="mochy_share_caps">CAPS</string>
+    <string name="mochy_share_caps_prompt">Tap or swipe the words you want in CAPS!</string>
+    <string name="mochy_share_big">Bigggg</string>
+    <string name="mochy_share_big_prompt">Tap or swipe the words you want bigggg!</string>
+    <string name="mochy_share_make_it">Make it</string>
+    <string name="mochy_share_done_making_it">I\'m done making it</string>
+
+    <!-- ShareBackgroundKit: picture / colour background controls -->
+    <string name="mochy_share_blur">Blur</string>
+    <string name="mochy_share_opacity">Opacity</string>
+    <string name="mochy_share_change_picture">Change picture</string>
+    <string name="mochy_share_your_own_colour">Your own colour</string>
+
+    <!-- ShareEditOutlines: move-the-song arrow content descriptions -->
+    <string name="mochy_share_move_song_above">Move the song above the words</string>
+    <string name="mochy_share_move_song_under">Move the song under the words</string>
+</resources>

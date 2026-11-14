@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ported from Mochy Music (GPL-3.0): res/values/player_bedside_strings.xml
+     (bedside_*) and res/values/player_flagship_strings.xml (flagship_layout_*).
+     Only the strings the player studio's own files read; the bedside player's
+     remaining strings (bedside_close, bedside_lock_ask_*, ...) belong to the
+     sibling bedside chunk. "Mochy" in bedside_lock_blocked_caption is
+     "ChordWave" here, per the no-Mochy-brand rule. -->
+<resources>
+    <string name="bedside_sheet_title">The bedside</string>
+    <string name="bedside_rest_caption">When you leave it alone</string>
+    <string name="bedside_tint_off">Stay white</string>
+    <string name="bedside_tint_off_caption">The colours don\'t change</string>
+    <string name="bedside_tint_orange">Warm orange</string>
+    <string name="bedside_tint_orange_caption">Everything turns a soft orange, easy on sleepy eyes</string>
+    <string name="bedside_tint_cover">Cover colour</string>
+    <string name="bedside_tint_cover_caption">Everything takes the colour of the song\'s cover</string>
+    <string name="bedside_saver">Screen saver</string>
+    <string name="bedside_saver_caption">Dims and moves a little now and then, so the screen doesn\'t burn in</string>
+    <string name="bedside_keep_awake">Keep the screen on</string>
+    <string name="bedside_keep_awake_caption">The phone won\'t go to sleep while this is open</string>
+    <string name="bedside_lock_screen">Show on the lock screen</string>
+    <string name="bedside_lock_screen_caption">Lock the phone with this open and it\'s still here when the screen wakes</string>
+    <string name="bedside_lock_blocked">Your phone is blocking this</string>
+    <string name="bedside_lock_blocked_caption">Tap to turn on \"Show on Lock screen\" for ChordWave</string>
+    <string name="bedside_lock_blocked_tag">FIX</string>
+
+    <string name="flagship_layout_three">Back, play, next</string>
+    <string name="flagship_layout_three_caption">Three big buttons, nothing round them</string>
+    <string name="flagship_layout_ten">With 10 second skips</string>
+    <string name="flagship_layout_ten_caption">Jump 10 seconds either way, play in a circle</string>
+</resources>
