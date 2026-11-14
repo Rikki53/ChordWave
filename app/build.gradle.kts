@@ -278,6 +278,24 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
     }
 }
 
+// Hilt 2.58 ships kotlin-metadata-jvm 2.2.20, whose reader supports Kotlin
+// metadata up to 2.3.0 — but the classpath contains classes compiled with
+// Kotlin 2.4 (metadata 2.4.0), and :app:hiltJavaCompileDevDebug fails with
+// "Provided Metadata instance has version 2.4.0, while maximum supported
+// version is 2.3.0" (14 Nov). Hilt's own error message prescribes updating
+// the library, so force 2.4.21 (latest stable; 2.5.0 is still RC) on every
+// configuration — whichever one feeds Hilt's processor gets the new reader.
+// kotlin-metadata-jvm's reading API is stable across 2.x, so the newer
+// reader is a drop-in for Hilt 2.58's processor.
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" && requested.name == "kotlin-metadata-jvm") {
+            useVersion("2.4.21")
+            because("Hilt 2.58's bundled 2.2.20 cannot read Kotlin 2.4 metadata on the classpath")
+        }
+    }
+}
+
 dependencies {
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
