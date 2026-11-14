@@ -136,3 +136,8 @@ val SuggestionRegionSlugToName =
 // Verbatim Mochy key (PreferenceKeys.kt:22). Mochy's host reads it with
 // default false and passes it to SearchScreen for the page background.
 val PureBlackKey = booleanPreferencesKey("pureBlack")
+
+// --- added for the Phase 2.2 search-results push (NEEDS.md B5) ---
+// Verbatim Mochy key (PreferenceKeys.kt:47). GridItemSize enum (BIG/SMALL)
+// + rememberEnumPreference are already staged.
+val GridItemsSizeKey = stringPreferencesKey("gridItemSize")

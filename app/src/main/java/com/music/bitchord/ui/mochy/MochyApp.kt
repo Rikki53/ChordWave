@@ -1,12 +1,15 @@
 package com.music.bitchord.ui.mochy
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -26,10 +29,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.R
@@ -50,10 +56,16 @@ import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
 import com.music.bitchord.ui.mochy.screens.HomeScreen
 import com.music.bitchord.ui.mochy.screens.Screens
+import com.music.bitchord.ui.mochy.screens.search.ExploreScreen
+import com.music.bitchord.ui.mochy.screens.search.GenreScreen
+import com.music.bitchord.ui.mochy.screens.search.OnlineSearchResult
 import com.music.bitchord.ui.mochy.screens.search.SearchScreen
+import com.music.bitchord.ui.mochy.screens.search.SearchSidePane
+import com.music.bitchord.ui.mochy.screens.search.showsSearchPane
 import com.music.bitchord.ui.mochy.theme.MochyTheme
 import com.music.bitchord.ui.mochy.utils.DataSaver
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
+import com.music.bitchord.ui.mochy.utils.isLandscapeLayout
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 
 /**
@@ -140,6 +152,13 @@ private fun MochyContent(
     // Search's page background (pure black vs dark grey) — Mochy's host
     // reads this once and passes it down (default false).
     val pureBlack by rememberPreference(PureBlackKey, defaultValue = false)
+    // Landscape search pane state (Mochy's MainActivity holds this): the
+    // pane's field text. The pane owns typing; committing navigates to
+    // search/{query}, which the results screen reads from its route.
+    val searchPaneQuery = rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    val currentRoute = currentDetail ?: Screens.MainScreens[currentTab].route
 
     BackHandler(enabled = detailStack.isNotEmpty()) {
         navigator.popBackStack()
@@ -148,23 +167,41 @@ private fun MochyContent(
     val selectedTabRoute = owningTab(currentTab, detailStack, Screens.MainScreens)
 
     Box(modifier = modifier.fillMaxSize()) {
-        when {
-            currentDetail != null -> DetailPlaceholder(
-                route = currentDetail,
-                onBack = { navigator.popBackStack() },
-            )
-            currentTab == 0 -> HomeScreen(
-                navigator = navigator,
-                snackbarHostState = snackbarHostState,
-            )
-            currentTab == 1 -> SearchScreen(
-                navigator = navigator,
-                pureBlack = pureBlack,
-            )
-            currentTab == 2 -> TabPlaceholder(titleId = Screens.Library.titleId)
-            else -> SettingsPlaceholder(
-                onBackToClassic = { AppSettings.setUiMode(UiMode.CLASSIC) },
-            )
+        Row(Modifier.fillMaxSize()) {
+            // On its side the search field + history stay at the left
+            // while the categories or results change beside it (Mochy
+            // MainActivity's Row). The pane sizes itself.
+            if (isLandscapeLayout() && showsSearchPane(currentRoute)) {
+                SearchSidePane(
+                    navigator = navigator,
+                    currentRoute = currentRoute,
+                    query = searchPaneQuery,
+                    onQueryChange = { searchPaneQuery.value = it },
+                    pureBlack = pureBlack,
+                )
+            }
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                when {
+                    currentDetail != null -> DetailContent(
+                        route = currentDetail,
+                        navigator = navigator,
+                        pureBlack = pureBlack,
+                        onBack = { navigator.popBackStack() },
+                    )
+                    currentTab == 0 -> HomeScreen(
+                        navigator = navigator,
+                        snackbarHostState = snackbarHostState,
+                    )
+                    currentTab == 1 -> SearchScreen(
+                        navigator = navigator,
+                        pureBlack = pureBlack,
+                    )
+                    currentTab == 2 -> TabPlaceholder(titleId = Screens.Library.titleId)
+                    else -> SettingsPlaceholder(
+                        onBackToClassic = { AppSettings.setUiMode(UiMode.CLASSIC) },
+                    )
+                }
+            }
         }
 
         SnackbarHost(
@@ -176,7 +213,7 @@ private fun MochyContent(
 
         AppNavigationBar(
             navigationItems = Screens.MainScreens,
-            currentRoute = currentDetail ?: Screens.MainScreens[currentTab].route,
+            currentRoute = currentRoute,
             selectedTabRoute = selectedTabRoute,
             onItemClick = { screen, isSelected ->
                 navigator.onTabTapped(screen, isSelected)
@@ -205,6 +242,52 @@ private fun SettingsPlaceholder(onBackToClassic: () -> Unit) {
         title = stringResource(R.string.settings),
         onBackToClassic = onBackToClassic,
     )
+}
+
+/** A pushed detail route: the ported detail screens, falling back to the
+ *  placeholder for routes whose screen hasn't landed yet (album/artist/
+ *  playlist until the detail push). */
+@Composable
+private fun DetailContent(
+    route: String,
+    navigator: MochyNavigator,
+    pureBlack: Boolean,
+    onBack: () -> Unit,
+) {
+    when {
+        route.startsWith("search/") -> OnlineSearchResult(
+            navigator = navigator,
+            initialQuery = Uri.decode(route.removePrefix("search/")),
+            pureBlack = pureBlack,
+        )
+        route.startsWith("genre/") -> {
+            val rest = route.removePrefix("genre/")
+            val browseId = rest.substringBefore("?")
+            val query = rest.substringAfter("?", "")
+            // New format carries the title (a ChordWave addition — CW's
+            // browse response has no page title, so the tile passes it);
+            // an old-format route without title still parses, header blank.
+            val title = query.substringAfter("title=", "").substringBefore("&params=")
+                .takeIf { it.isNotEmpty() }?.let { Uri.decode(it) }
+            val params = when {
+                query.contains("&params=") -> query.substringAfter("&params=", "")
+                query.startsWith("params=") -> query.removePrefix("params=")
+                else -> ""
+            }.takeIf { it.isNotEmpty() && it != "null" }
+            GenreScreen(
+                navigator = navigator,
+                browseId = browseId,
+                params = params,
+                title = title,
+                pureBlack = pureBlack,
+            )
+        }
+        // No entry point navigates here yet (Mochy has an Explore tab;
+        // Modern has none) — the route is wired so a future entry (a Home
+        // section or Search tile) only needs to navigate to "explore".
+        route == "explore" -> ExploreScreen(navigator = navigator)
+        else -> DetailPlaceholder(route = route, onBack = onBack)
+    }
 }
 
 /** A detail route whose screen is not ported yet (album/artist/playlist/

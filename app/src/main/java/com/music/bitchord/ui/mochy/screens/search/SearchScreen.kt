@@ -17,6 +17,7 @@
 
 package com.music.bitchord.ui.mochy.screens.search
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -404,8 +405,11 @@ private fun SearchBrowseContent(
                                     coverKey(item.endpoint.browseId, item.endpoint.params)
                                 ].orEmpty(),
                                 onClick = {
+                                    // Coordinator patch: the title rides the
+                                    // route (CW's browse response has no page
+                                    // title, so the host passes it to the VM).
                                     navigator.navigate(
-                                        "genre/${item.endpoint.browseId}?params=${item.endpoint.params}"
+                                        "genre/${item.endpoint.browseId}?title=${Uri.encode(item.title)}&params=${item.endpoint.params}"
                                     )
                                 },
                                 modifier = Modifier.weight(1f),
