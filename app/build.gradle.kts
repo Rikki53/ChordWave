@@ -324,6 +324,8 @@ dependencies {
     // The scheduled check behind "Keep playlists updated"; see PlaylistSync.
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
+    // Mochy UI clone (Phase 1.3): SplashScreenExit uses the splashscreen API
+    implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 

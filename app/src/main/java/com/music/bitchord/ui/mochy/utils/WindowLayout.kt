@@ -4,11 +4,11 @@ package com.music.bitchord.ui.mochy.utils
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
-import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 
 // a phone on its side is always wider than this, a phone held upright never is, and every tablet is
 private const val WideMinWidthDp = 600
@@ -70,7 +70,10 @@ object WindowTurning {
 // holds the window one way round while active (the recap upright, the video sideways), then hands it back to the setting
 @Composable
 fun HoldOrientation(orientation: Int, active: Boolean) {
-    val activity = LocalActivity.current ?: return
+    // LocalActivity needs activity-compose 1.10+; CW pins 1.9.3, so read the
+    // Activity from the composition context instead (in setContent the
+    // LocalContext IS the Activity). Same behavior, no version bump.
+    val activity = LocalContext.current as? Activity ?: return
     // a tv never turns, and asking it to only confuses its launcher
     if (isTvLayout()) return
     DisposableEffect(activity, orientation, active) {
