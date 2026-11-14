@@ -168,6 +168,7 @@ import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.data.settings.UiMode
 import com.music.bitchord.data.settings.AppFont
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.stats.Backup
@@ -261,6 +262,7 @@ fun SettingsScreen(
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
+    val uiMode by AppSettings.uiMode.collectAsStateWithLifecycle()
     val appFont by AppSettings.appFont.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
@@ -1006,6 +1008,19 @@ fun SettingsScreen(
                     options = ThemeMode.entries.map { it.localizedLabel() },
                     selectedIndex = ThemeMode.entries.indexOf(theme),
                     onSelect = { AppSettings.setThemeMode(ThemeMode.entries[it]) },
+                    modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                )
+            }
+            // Dual UI mode: Classic (this look) or Modern (Mochy-style).
+            // The host recomposes onto the other UI; no restart, and
+            // playback keeps going — it runs in a service.
+            val uiModeTitle = stringResource(R.string.ui_mode)
+            row(uiModeTitle, "interface", "modern", "classic", "mochy") {
+                SettingsRow(icon = Icons.Rounded.Style, title = uiModeTitle)
+                SegmentedControl(
+                    options = UiMode.entries.map { it.localizedLabel() },
+                    selectedIndex = UiMode.entries.indexOf(uiMode),
+                    onSelect = { AppSettings.setUiMode(UiMode.entries[it]) },
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
@@ -2059,6 +2074,14 @@ private fun ThemeMode.localizedLabel(): String = stringResource(
         ThemeMode.SYSTEM -> R.string.system
         ThemeMode.LIGHT -> R.string.light
         ThemeMode.DARK -> R.string.dark
+    },
+)
+
+@Composable
+private fun UiMode.localizedLabel(): String = stringResource(
+    when (this) {
+        UiMode.CLASSIC -> R.string.ui_mode_classic
+        UiMode.MODERN -> R.string.ui_mode_modern
     },
 )
 

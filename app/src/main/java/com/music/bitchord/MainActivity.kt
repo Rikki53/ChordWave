@@ -156,8 +156,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
+import com.music.bitchord.data.settings.AppFont
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.BitPerfectMode
+import com.music.bitchord.data.settings.UiMode
+import com.music.bitchord.ui.UiModePicker
+import com.music.bitchord.ui.mochy.MochyApp
 import com.music.bitchord.ui.AddonBlockedAlert
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
@@ -415,6 +419,25 @@ class MainActivity : AppCompatActivity() {
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
         setContent {
+            // Dual UI mode: fresh installs pick Classic or Modern before
+            // anything else; upgrades never see the picker (their mode is
+            // Classic until they switch in Settings). Onboarding always
+            // runs in the classic host — the mode applies once it is done.
+            // Switching modes only recomposes the host; playback runs in
+            // a service and is untouched by the switch.
+            val uiMode by AppSettings.uiMode.collectAsStateWithLifecycle()
+            val uiModeChosen by AppSettings.uiModeChosen.collectAsStateWithLifecycle()
+            val onboardingComplete by AppSettings.onboardingComplete.collectAsStateWithLifecycle()
+            if (!onboardingComplete && !uiModeChosen) {
+                BitChordTheme(darkTheme = true, font = AppFont.DEFAULT) {
+                    UiModePicker(onChoose = { AppSettings.setUiMode(it) })
+                }
+                return@setContent
+            }
+            if (onboardingComplete && uiMode == UiMode.MODERN) {
+                MochyApp()
+                return@setContent
+            }
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val appFont by AppSettings.appFont.collectAsStateWithLifecycle()
             val highPerformance by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()

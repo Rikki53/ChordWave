@@ -132,6 +132,15 @@ enum class ThemeMode(val label: String) {
 }
 
 /**
+ * Which interface the app shows: the classic ChordWave UI, or the Modern
+ * (Mochy-style) UI. Fresh installs pick one on first launch; Settings can
+ * switch at any time. Upgrades default to [CLASSIC] without asking.
+ */
+enum class UiMode {
+    CLASSIC, MODERN
+}
+
+/**
  * How the app's SF Pro Display is set. [DEFAULT] draws each weight one cut
  * lighter and spaces it to Apple Music's own screens; [LEGACY] is the cut the
  * app shipped with before that, every weight its own and spaced tight.
@@ -463,6 +472,17 @@ object AppSettings {
     val playbackSpeed = MutableStateFlow(1.0f)
     val themeMode = MutableStateFlow(ThemeMode.DARK)
     val appFont = MutableStateFlow(AppFont.DEFAULT)
+
+    /** Which interface the app shows — Classic or Modern (Mochy-style). */
+    val uiMode = MutableStateFlow(UiMode.CLASSIC)
+
+    /**
+     * Whether the user has ever picked a UI mode (first-run picker or the
+     * Settings toggle). False for everyone upgrading from a build without
+     * the picker, which is what keeps the picker a fresh-install question:
+     * upgrades stay on Classic without being asked.
+     */
+    val uiModeChosen = MutableStateFlow(false)
 
     /** Keep playing similar music once the queue runs out. */
     val autoplay = MutableStateFlow(true)
@@ -1102,6 +1122,10 @@ object AppSettings {
         themeMode.value = runCatching {
             ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "DARK")
         }.getOrDefault(ThemeMode.DARK)
+        uiMode.value = runCatching {
+            UiMode.valueOf(prefs.getString(KEY_UI_MODE, null) ?: "CLASSIC")
+        }.getOrDefault(UiMode.CLASSIC)
+        uiModeChosen.value = prefs.getBoolean(KEY_UI_MODE_CHOSEN, false)
         appFont.value = runCatching {
             AppFont.valueOf(prefs.getString(KEY_APP_FONT, null) ?: AppFont.DEFAULT.name)
         }.getOrDefault(AppFont.DEFAULT)
@@ -1581,6 +1605,21 @@ object AppSettings {
     fun setThemeMode(value: ThemeMode) {
         themeMode.value = value
         prefs.edit().putString(KEY_THEME, value.name).apply()
+    }
+
+    /**
+     * Switches the UI mode, and records that a choice was made — so the
+     * first-run picker never asks again. The host recomposes onto the
+     * other UI; no restart is needed, and playback (a service) is
+     * untouched by the switch.
+     */
+    fun setUiMode(value: UiMode) {
+        uiMode.value = value
+        uiModeChosen.value = true
+        prefs.edit()
+            .putString(KEY_UI_MODE, value.name)
+            .putBoolean(KEY_UI_MODE_CHOSEN, true)
+            .apply()
     }
 
     fun setAppFont(value: AppFont) {
@@ -2468,6 +2507,8 @@ object AppSettings {
     private const val KEY_EQ_BANDS = "equalizer_bands"
     private const val KEY_SPEED = "playback_speed"
     private const val KEY_THEME = "theme_mode"
+    private const val KEY_UI_MODE = "ui_mode"
+    private const val KEY_UI_MODE_CHOSEN = "ui_mode_chosen"
     private const val KEY_APP_FONT = "app_font"
     private const val KEY_AUTOPLAY = "autoplay"
     private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"

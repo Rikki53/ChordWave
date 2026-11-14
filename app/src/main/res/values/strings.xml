@@ -1402,4 +1402,16 @@
     <string name="karaoke_remote_mic_live">Microphone live — sing!</string>
     <string name="karaoke_remote_mic_volume">Mic volume</string>
     <string name="karaoke_remote_mic_permission">Microphone permission is needed to sing into the TV. You can still use the remote without it.</string>
+    <!-- Dual UI mode (Classic / Modern) -->
+    <string name="ui_mode">Interface</string>
+    <string name="ui_mode_picker_title">Choose your look</string>
+    <string name="ui_mode_picker_subtitle">Pick the interface you want. You can switch anytime in Settings.</string>
+    <string name="ui_mode_classic">Classic</string>
+    <string name="ui_mode_classic_desc">The ChordWave look you know</string>
+    <string name="ui_mode_modern">Modern</string>
+    <string name="ui_mode_modern_desc">A fresh, Mochy-style look</string>
+    <string name="ui_mode_modern_coming_soon">The Modern interface is being built. It will appear here in a later dev build.</string>
+    <string name="ui_mode_back_to_classic">Back to Classic</string>
+    <!-- Ported Mochy utils -->
+    <string name="error_no_stream">No stream available</string>
 </resources>
