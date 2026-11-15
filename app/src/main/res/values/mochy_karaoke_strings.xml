@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- mochy_karaoke_strings.xml — Phase 5 worker 5E (Karaoke restyle).
+     ONLY the strings the Modern karaoke UI needs that the classic
+     karaoke_* set does not already carry. Everything else is reused from
+     the worktree's strings.xml (karaoke, karaoke_subtitle,
+     karaoke_vocal_volume, karaoke_mode_*, karaoke_yt_*, karaoke_ai_*,
+     karaoke_footer, karaoke_remote_*) — NOT duplicated here.
+     No user-visible "Mochy" strings: the brand is ChordWave. -->
+<resources>
+    <!-- Shown by the karaoke screen and sheet while KaraokeFeature is off. -->
+    <string name="mochy_karaoke_unavailable">Karaoke is parked for now — it will be back after a round of testing.</string>
+
+    <!-- The TV-address field's placeholder (classic hardcodes this in code). -->
+    <string name="mochy_karaoke_remote_host_hint">TV address (from scan or list)</string>
+
+    <!-- Mic Start/Stop and Mute/Unmute (classic hardcodes these in code). -->
+    <string name="mochy_karaoke_mic_start">Start</string>
+    <string name="mochy_karaoke_mic_stop">Stop</string>
+    <string name="mochy_karaoke_mic_mute">Mute mic</string>
+    <string name="mochy_karaoke_mic_unmute">Unmute mic</string>
+
+    <!-- AI stem section: states the classic block hardcodes in code. -->
+    <string name="mochy_karaoke_ai_cancelled">Pembuatan dibatalkan.</string>
+    <string name="mochy_karaoke_ai_failed">Gagal: %1$s</string>
+    <string name="mochy_karaoke_ai_cache">Cache karaoke AI: %1$s</string>
+    <string name="mochy_karaoke_ai_stem_deleted">Stem dihapus</string>
+
+    <!-- Add-a-song search states (classic shows an empty list silently). -->
+    <string name="mochy_karaoke_searching">Searching…</string>
+    <string name="mochy_karaoke_no_results">No songs found — try another search.</string>
+    <string name="mochy_karaoke_search_failed">Search failed. Check the connection and try again.</string>
+</resources>

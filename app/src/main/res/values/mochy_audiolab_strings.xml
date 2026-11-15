@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Phase 5 (AudioLab + Customisation) strings, ported from Mochy Music
+      (GPL-3.0): audiopass_strings.xml, mochy_strings.xml, modules_strings.xml.
+
+      Brand rule: user-visible "Mochy" became "ChordWave" (audiopass_status_driven,
+      audiopass_mode_direct_usb_desc, audiopass_mode_exclusive_dac_desc,
+      audiopass_resampler, audiopass_usb_no_dac, customise_icons_caption).
+      Mochy's playful typos are kept verbatim (audiopass_options "Optstions",
+      audiopass_exclusive "Exclusibve stugf"), matching the Phase 4 precedent
+      (audiopass_now_waiting). Strings already declared elsewhere in the
+      worktree are NOT repeated here — see NEEDS.md §(a).
+    -->
+
+    <!-- appearance values shared by the blur / lyrics cards -->
+    <string name="appearance_low">Low</string>
+    <string name="appearance_high">High</string>
+    <string name="appearance_style_1">Style 1</string>
+    <string name="appearance_style_2">Style 2</string>
+
+    <!-- honest notes under AudioLab controls whose engine does not exist in ChordWave -->
+    <string name="audiolab_no_engine_reverb">ChordWave has no reverb engine yet.</string>
+    <string name="audiolab_no_engine_loudness">ChordWave has no loudness boost or compressor yet — “Even out songs” below still works.</string>
+    <string name="audiolab_no_engine_spatial_params">ChordWave’s spatial audio is a fixed stereo widener — no adjustments yet.</string>
+    <string name="audiolab_no_engine_mono">ChordWave has no mono mix yet.</string>
+    <string name="audiolab_no_engine_atmos">ChordWave has no surround renderer yet, so Atmos and 5.1/7.1 play as stereo.</string>
+    <string name="audiolab_no_engine_volume">ChordWave has no volume curve yet — the player’s own volume still works.</string>
+    <string name="audiolab_no_engine_resampler">ChordWave has no Hi-fi resampler yet.</string>
+
+    <!-- audio quality: ChordWave streams from YouTube only, so the groups are per connection -->
+    <string name="audiolab_quality_wifi">On Wi-Fi</string>
+    <string name="audiolab_quality_cellular">On mobile data</string>
+    <string name="audiolab_quality_downloads">Downloads</string>
+    <string name="quality_download_footnote">How songs downloaded from YouTube are saved, from now on. Downloads already made stay as they are.</string>
+
+    <!-- audio pass: the page's title and the status card -->
+    <string name="audiopass_title_first">Dac\'s</string>
+    <string name="audiopass_title_second">stuff</string>
+    <string name="audiopass_beta">BETA</string>
+    <string name="audiopass_joined">%1$s · %2$s</string>
+    <string name="audiopass_status_label">status</string>
+    <string name="audiopass_status_connected">Connected</string>
+    <string name="audiopass_status_driven">Driven by ChordWave</string>
+    <string name="audiopass_status_bluetooth">Bluetooth</string>
+    <string name="audiopass_status_wired">Headphones</string>
+    <string name="audiopass_status_none">Not connected</string>
+    <string name="audiopass_status_none_hint">Plug in some USB DAC / connect your headphones.</string>
+    <string name="audiopass_kind_usb">USB DAC</string>
+    <string name="audiopass_kind_speaker">Phone speaker</string>
+
+    <!-- audio pass: the status card's rows -->
+    <string name="audiopass_info_dac">DAC</string>
+    <string name="audiopass_info_takes">Takes</string>
+    <string name="audiopass_info_bitperfect">Bit-perfect</string>
+    <string name="audiopass_info_mixer">Android mixer</string>
+    <string name="audiopass_info_exact">Bit-exact</string>
+    <string name="audiopass_info_headphones">Headphones</string>
+    <string name="audiopass_info_codec">Codec</string>
+    <string name="audiopass_info_bitrate">Bitrate</string>
+    <string name="audiopass_info_output">Output</string>
+
+    <!-- audio pass: values for the rows -->
+    <string name="audiopass_value_any_rate">Any rate</string>
+    <string name="audiopass_value_khz">%1$s kHz</string>
+    <string name="audiopass_value_bits">%1$s-bit</string>
+    <string name="audiopass_value_not_offered">Not offered by this DAC</string>
+    <string name="audiopass_value_yes">Yes</string>
+    <string name="audiopass_value_no">No</string>
+    <string name="audiopass_value_jack">Headphone jack</string>
+    <string name="audiopass_value_le_audio">LE Audio</string>
+    <string name="audiopass_value_unknown">Not shared by this phone yet</string>
+    <string name="audiopass_value_db">%1$s dB</string>
+
+    <!-- audio pass: bluetooth notes -->
+    <string name="audiopass_bt_reencoded">Bluetooth always re-encodes the music, so it\'s never bit-perfect. A better codec just loses less.</string>
+    <string name="audiopass_bt_unknown_hint">This phone doesn\'t tell apps the codec straight away. It shows up here as soon as it changes.</string>
+
+    <!-- audio pass: the output switches -->
+    <string name="audiopass_options">Optstions</string>
+    <string name="audiopass_prefer_usb">Use the DAC when connected</string>
+    <string name="audiopass_hires">Hi-res output (32-bit)</string>
+    <string name="audiopass_exclusive">Exclusibve stugf</string>
+    <string name="audiopass_resampler">ChordWave\'s own Hi-fi resampler</string>
+    <string name="audiopass_resampler_desc">Speaker and headphone jack only. Songs are brought to the phone\'s own rate with a cleaner filter than Android\'s.</string>
+
+    <!-- audio pass: passthrough and its modes (only ChordWave's three modes) -->
+    <string name="audiopass_passthrough">Bit-perfect passthrough</string>
+    <string name="audiopass_passthrough_desc">Songs reach the DAC as they are, without Android mixing or resampling them.</string>
+    <string name="audiopass_modes">Modes</string>
+    <string name="audiopass_mode_direct_usb">Direct USB</string>
+    <string name="audiopass_mode_direct_usb_desc">ChordWave drives the DAC itself on any Android and sets the volume on the DAC. Asks for USB access.</string>
+    <string name="audiopass_mode_bit_perfect">Bit-perfect</string>
+    <string name="audiopass_mode_bit_perfect_desc">Android hands every lossless song to the DAC untouched.</string>
+    <string name="audiopass_mode_exclusive_dac">Built-in DAC</string>
+    <string name="audiopass_mode_exclusive_dac_desc">For music players with their own DAC: the headphone jack opens just for ChordWave.</string>
+    <string name="audiopass_mode_needs">Needs Android %1$s</string>
+
+    <!-- audio pass: direct usb -->
+    <string name="audiopass_usb_title">Direct USB</string>
+    <string name="audiopass_usb_permission">Allow USB access</string>
+    <string name="audiopass_usb_permission_hint">Android asks each time the DAC is plugged in. Until you allow it, songs play the normal way.</string>
+    <string name="audiopass_usb_no_dac">Plug in a USB DAC and ChordWave takes it from here.</string>
+    <string name="audiopass_dac_volume">DAC volume</string>
+    <string name="audiopass_dac_volume_desc">Set on the DAC itself, so the music isn\'t scaled. The volume keys move it too.</string>
+    <string name="audiopass_fixed_volume_allow">Allow full volume</string>
+
+    <!-- audio pass: blockers -->
+    <string name="audiopass_blockers_title">Bit-perfect waits until these are off</string>
+    <string name="audiopass_blockers_clear_title">Nothing\'s in the way</string>
+    <string name="audiopass_blockers_button">Turn these off</string>
+    <string name="audiopass_blockers_restore">Turn these back on</string>
+    <string name="audiopass_blocker_lossy">Lossy songs (YouTube) always play the normal way.</string>
+    <string name="audiopass_blocker_lossy_direct">Lossy songs go to the DAC untouched too. They were only compressed before they got here.</string>
+
+    <!-- audio pass: asked when passthrough is switched on while something still changes the sound -->
+    <string name="audiopass_offer_title">A few things are in the way</string>
+    <string name="audiopass_offer_body">Passthrough only takes songs while nothing changes the sound. These are on right now:</string>
+    <string name="audiopass_offer_keep">Keep them on</string>
+
+    <!-- customisation: the page -->
+    <string name="customise_title">Customize</string>
+    <string name="customise_nothing_matches">Nothing here matches “%1$s”. Try another word.</string>
+    <string name="customise_reset">Reset to default</string>
+    <string name="customise_px">%1$dpx</string>
+    <string name="customise_off">Off</string>
+
+    <!-- customisation: cover rounding -->
+    <string name="customise_customize_it">customize it</string>
+    <string name="customise_square">square</string>
+    <string name="customise_more_rounded">more rounded</string>
+    <string name="customise_swipe_caption">swipe, then tap one to use it</string>
+
+    <!-- customisation: launcher icons (families group ChordWave's flat icon enum) -->
+    <string name="customise_icons">Icons</string>
+    <string name="customise_icons_caption">Your home screen can take a few seconds to show the new icon. Opening ChordWave from it starts from that icon too.</string>
+    <string name="customise_icons_show_all">Show all icons</string>
+    <string name="customise_icons_show_less">Show fewer icons</string>
+    <string name="customise_icons_family_default">Default</string>
+    <string name="customise_icons_family_monochrome">Monochrome</string>
+    <string name="customise_icons_family_liquid_glass">Liquid Glass</string>
+    <string name="customise_icons_family_samsung_glass">Samsung Glass</string>
+    <string name="customise_icons_family_pixel_glass">Pixel Glass</string>
+    <string name="customise_icons_family_neon">Neon</string>
+    <string name="customise_icons_family_samsung_neon">Samsung Neon</string>
+    <string name="customise_icons_family_pixel_neon">Pixel Neon</string>
+
+    <!-- customisation: player styles and the sideways player -->
+    <string name="customise_player_caption">tap to go into customisation</string>
+    <string name="customise_play_first">Play a song first to open player customisation</string>
+    <string name="customise_landscape_player">Player on its side</string>
+    <string name="customise_landscape_player_desc">How the player looks when you turn your phone sideways</string>
+    <string name="customise_landscape_full_cover">Full cover</string>
+    <string name="customise_landscape_full_cover_desc">The cover fills the left side and melts into the controls. Off, it sits as a rounded square</string>
+
+    <!-- customisation: blur and animation -->
+    <string name="customise_element_blur_desc">Lyrics, cover zoom, titles, menus and page swipes</string>
+    <string name="customise_animation_follows">Follows your phone\'s animation speed</string>
+    <string name="customise_animation_on_top">On top of your phone\'s animation speed</string>
+    <string name="customise_slower">slower</string>
+    <string name="customise_faster">faster</string>
+
+    <!-- customisation: lyrics -->
+    <string name="customise_lyrics_animation">Lyrics\nAnimation</string>
+    <string name="customise_lyrics_preview_translation">si je suis une pierre</string>
+    <string name="customise_lyrics_romanisation">Romanisation</string>
+    <string name="customise_lyrics_romanisation_desc">Readings for Japanese, Korean, Chinese, Hindi and Cyrillic lyrics</string>
+    <string name="customise_lyrics_translation">Translation</string>
+    <string name="customise_lyrics_translation_desc">Translates every song\'s lyrics as it plays</string>
+    <string name="customise_style_boring">Boring</string>
+    <string name="customise_style_plain">Plain</string>
+
+    <!-- customisation: the player's top and bottom bars -->
+    <string name="customise_top_bar_desc">The clock and icons over the open player. Off, every player style runs to the top of the screen</string>
+    <string name="customise_bottom_bar">Bottom Bar on player</string>
+    <string name="customise_bottom_bar_desc">The phone\'s navigation buttons under the open player. Off, the player runs to the bottom of the screen</string>
+
+    <!-- customisation: gestures -->
+    <string name="customise_player_gestures">Player</string>
+    <string name="customise_player_gestures_desc">How the open player answers your swipes</string>
+    <string name="customise_swipe_right_desc">Slide a song in any list to the right</string>
+    <string name="customise_swipe_left_desc">Slide a song in any list to the left</string>
+    <string name="customise_swipe_down_anywhere_desc">Otherwise only from the top of the player and its cover</string>
+    <string name="customise_swipe_up_follows_desc">Swiping up the mini player carries the player with you, and it opens as fast as you swipe</string>
+</resources>

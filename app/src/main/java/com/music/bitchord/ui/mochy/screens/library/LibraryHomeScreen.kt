@@ -378,6 +378,29 @@ private fun LazyListScope.libraryAllTab(
             )
         }
     }
+
+    // ChordWave-only pages with no shelf of their own: your year in
+    // music, and live radio. A Home tile for Radio is the nicer home
+    // (Phase 6 polish); the rows here keep both reachable meanwhile.
+    item(key = "more_pages") {
+        Spacer(modifier = Modifier.height(16.dp))
+        LibraryRule()
+        Spacer(modifier = Modifier.height(10.dp))
+        LibraryListRow(
+            title = stringResource(R.string.replay),
+            subtitle = stringResource(R.string.replay_subtitle),
+            thumbnailUrl = null,
+            onClick = { navigator.navigate("replay") },
+            onLongClick = {},
+        )
+        LibraryListRow(
+            title = stringResource(R.string.radio_title),
+            subtitle = null,
+            thumbnailUrl = null,
+            onClick = { navigator.navigate("radio") },
+            onLongClick = {},
+        )
+    }
 }
 
 /**

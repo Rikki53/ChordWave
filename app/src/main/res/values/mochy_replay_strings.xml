@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modern Replay strings (Phase 5D). Only one string is new: every other
+     label on the Modern Replay reuses the Classic replay strings already in
+     strings.xml (replay, top_songs, play_your_replay, share_my_replay,
+     not_enough_listening, replay_share_*_description, ...). Names use the
+     mochy_replay_ prefix; grep of res/values found no collisions. -->
+<resources>
+    <!-- Shown as an error toast when a chart song is tapped but the player
+         connection has no bound controller yet, so nothing can play. -->
+    <string name="mochy_replay_playback_unavailable">Playback isn\'t available right now</string>
+</resources>

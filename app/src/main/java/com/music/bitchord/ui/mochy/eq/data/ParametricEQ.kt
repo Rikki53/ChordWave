@@ -1,0 +1,24 @@
+// Ported from Mochy Music (GPL-3.0): eq/data/ParametricEQ.kt (verbatim, package only).
+package com.music.bitchord.ui.mochy.eq.data
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class ParametricEQBand(
+    val frequency: Double,
+    val gain: Double,
+    val q: Double = 1.41,
+    val filterType: FilterType = FilterType.PK,
+    val enabled: Boolean = true
+)
+
+@Serializable
+data class ParametricEQ(
+    val preamp: Double,
+    val bands: List<ParametricEQBand>,
+    val metadata: Map<String, String> = emptyMap()
+) {
+    companion object {
+        const val MAX_BANDS = 20
+    }
+}

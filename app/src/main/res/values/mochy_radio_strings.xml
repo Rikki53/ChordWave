@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings the Modern (Mochy-style) Radio screen needs that ChordWave does
+     not have. The Classic radio_* strings in strings.xml (radio_title,
+     radio_search_hint, radio_favourites, radio_indonesia,
+     radio_top_worldwide, radio_no_results, radio_load_failed, radio_retry,
+     radio_favourite) are reused where the text matches and are NOT
+     duplicated here; neither are R.string.play / pause / share. -->
+<resources>
+    <string name="mochy_radio_top_stations">Top stations</string>
+    <string name="mochy_radio_search_results">Search results</string>
+    <string name="mochy_radio_add_favourite">Add to favourites</string>
+    <string name="mochy_radio_remove_favourite">Remove from favourites</string>
+    <string name="mochy_radio_couldnt_play">Couldn't play this station</string>
+</resources>

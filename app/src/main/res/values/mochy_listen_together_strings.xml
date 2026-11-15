@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  New strings for the Modern (Mochy-style) Listen Together screen. Everything
+  the Classic screen already says is REUSED from strings.xml
+  (listen_together_*, copy_code, save, test, cancel, share, remove) — this
+  file holds only what the Modern screen adds: the shared party queue, which
+  the Classic screen never showed. All names carry the mochy_listen_together_
+  prefix; grep-verified against app/src/main/res/values/* (no collisions).
+-->
+<resources>
+    <string name="mochy_listen_together_queue">Party queue</string>
+    <string name="mochy_listen_together_queue_empty">Nothing queued yet. Songs anyone in the party adds show up here.</string>
+    <string name="mochy_listen_together_queue_up_next">Up next · %1$d</string>
+    <string name="mochy_listen_together_queue_now_playing">Now playing</string>
+    <string name="mochy_listen_together_queue_clear">Clear queue</string>
+    <string name="mochy_listen_together_queue_hint">Tap a song to play it for everyone in the party.</string>
+    <string name="mochy_listen_together_queue_cleared">Queue cleared</string>
+    <string name="mochy_listen_together_queue_autoplay">Autoplay</string>
+</resources>

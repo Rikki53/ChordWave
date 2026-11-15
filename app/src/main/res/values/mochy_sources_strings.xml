@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phase 5 (Sources restyle): new strings only. Every other string on the
+     Sources screen is reused from the classic screen's existing entries
+     (source, sources_order_*, add_addon, webdav/smb, source_*, and the
+     generic test/save/remove/done) — verified present in res/values.
+     Zero collisions with worktree res/values (verified by grep). -->
+<resources>
+    <!-- Subtitle under the sources list heading: how an addon is removed. -->
+    <string name="sources_swipe_to_delete">Swipe left on an addon to remove it</string>
+    <!-- Swipe-to-delete confirmation dialog. %1$s is the source's display name. -->
+    <string name="sources_remove_title">Remove %1$s?</string>
+    <string name="sources_remove_body">This source will stop being searched and streamed from. You can add it again any time.</string>
+</resources>

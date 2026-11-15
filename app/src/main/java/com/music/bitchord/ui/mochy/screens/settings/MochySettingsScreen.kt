@@ -133,6 +133,8 @@ private val LocalizedSettingsTitles = mapOf(
     "Hi-fi resampler" to R.string.playback_hifi,
     "Audio Lab" to R.string.settings_audio_lab_category,
     "Storage" to R.string.storage,
+    "Sources" to R.string.source,
+    "Listen together" to R.string.listen_together,
     "App behaviour" to R.string.settings_app_behaviour,
     "Disable description on settings" to R.string.settings_hide_descriptions,
     "Cover rounding" to R.string.customise_cover_rounding,
@@ -152,6 +154,8 @@ private val LocalizedSettingsPages = mapOf(
     "App behaviour" to R.string.settings_app_behaviour,
     "Customisation" to R.string.settings_customisation_category,
     "Storage" to R.string.storage,
+    "Sources" to R.string.source,
+    "Listen together" to R.string.listen_together,
     "Audio Lab" to R.string.settings_audio_lab_category,
     "Integrations" to R.string.integrations,
 )
@@ -212,7 +216,7 @@ private val SettingsIndex = listOf(
     SettingsEntry("Transition", "Audio Lab", "crossmix_settings", "crossfade crossmix automix transition gapless blend"),
     SettingsEntry("Blend skips", "Audio Lab", "crossmix_settings", "skip next previous back crossfade seamless preload transition fade blend"),
     SettingsEntry("Equalizer", "Audio Lab", "equalizer", "eq bass treble band parametric graph autoeq headphones correction preset"),
-    SettingsEntry("AutoEQ", "Audio Lab", "equalizer", "headphones earbuds correction harman database model"),
+    SettingsEntry("AutoEQ", "Audio Lab", "equalizer?tab=autoeq", "headphones earbuds correction harman database model"),
     SettingsEntry("Audio Quality", "Audio Lab", "audio_quality", "bitrate stream high low lossless hi-res flac monochrome"),
     SettingsEntry("Audio Pass", "Audio Lab", "audio_pass", "dac usb output headphones bluetooth codec bit perfect exclusive"),
     SettingsEntry("Prefer USB DAC", "Audio Lab", "audio_pass", "usb dac headphones output external audio"),
@@ -242,6 +246,15 @@ private val SettingsIndex = listOf(
     SettingsEntry("Music cache limit", "Storage", "storage_settings", "cache size limit space song stream"),
     SettingsEntry("Manage downloads", "Storage", "storage_settings", "downloads delete remove biggest offline space"),
     SettingsEntry("Remove all downloads", "Storage", "storage_settings", "delete clear downloads offline space"),
+
+    // Sources (Phase 5 restyle)
+    SettingsEntry("Sources", "Sources", "sources", "addon addons sources jiosaavn youtube webdav smb lossless quality order"),
+    SettingsEntry("Add source", "Sources", "sources", "add addon url provider source new"),
+
+    // Listen together (Phase 5 restyle)
+    SettingsEntry("Listen together", "Listen together", "listen_together", "party jam friends together code invite host queue"),
+    SettingsEntry("Create party", "Listen together", "listen_together", "party create host code start together"),
+    SettingsEntry("Join party", "Listen together", "listen_together", "party join code invite together"),
 
     // Experimental
     SettingsEntry("Import & sync", "Experimental", "import_sync", "import spotify apple music deezer tidal tunemymusic csv youtube sync export backup transfer"),
@@ -557,6 +570,20 @@ fun MochySettingsScreen(navigator: MochyNavigator, pane: SettingsPane? = null) {
                             iconRes = R.drawable.storage,
                             selected = selected == "storage_settings",
                             onClick = { open("storage_settings") }
+                        )
+
+                        CategoryBubble(
+                            title = stringResource(R.string.source),
+                            iconRes = R.drawable.puzzle,
+                            selected = selected == "sources",
+                            onClick = { open("sources") }
+                        )
+
+                        CategoryBubble(
+                            title = stringResource(R.string.listen_together),
+                            iconRes = R.drawable.group,
+                            selected = selected == "listen_together",
+                            onClick = { open("listen_together") }
                         )
 
                         CategoryBubble(

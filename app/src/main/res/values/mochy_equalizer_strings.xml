@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Equalizer screen (route `equalizer`) + AutoEq tab. Ported from Mochy
+     Music (GPL-3.0) ui/screens/equalizer/*; the wording is Mochy's except
+     where ChordWave's engine differs (the correction replaces the manual
+     curve rather than sitting under it; preamp is automatic).
+     All names are mochy_eq_* — verified collision-free against the
+     worktree res/values and staging/phase5-audiolab. Preset names reuse
+     the existing eq_preset_* strings; mode names reuse
+     equalizer_dynamic/equalizer_manual. -->
+<resources>
+    <string name="mochy_eq_title">Equalizer</string>
+    <string name="mochy_eq_tab_graph">Graph</string>
+    <string name="mochy_eq_tab_bands">Bands</string>
+    <string name="mochy_eq_tab_autoeq">AutoEQ</string>
+    <string name="mochy_eq_mode">Mode</string>
+    <string name="mochy_eq_presets">Presets</string>
+    <string name="mochy_eq_reset">Reset</string>
+    <string name="mochy_eq_status_off">Off</string>
+    <string name="mochy_eq_status_flat">On · Flat</string>
+    <string name="mochy_eq_status_on">On · %1$s</string>
+    <string name="mochy_eq_output">Output</string>
+    <string name="mochy_eq_preamp">Preamp</string>
+    <string name="mochy_eq_preamp_auto">Set automatically from your curve — boosts are pulled back so nothing clips.</string>
+
+    <!-- graph editor -->
+    <string name="mochy_eq_graph_editor">Graph editor</string>
+    <string name="mochy_eq_freq_response">FREQUENCY RESPONSE</string>
+    <string name="mochy_eq_graph_hint_manual">Drag a node up or down to shape the sound</string>
+    <string name="mochy_eq_tone_note">Tone pad · tilt %1$s · contour %2$s · %3$s</string>
+    <string name="mochy_eq_switch_manual">Switch to Manual</string>
+    <string name="mochy_eq_band_title">%1$s band</string>
+    <string name="mochy_eq_reset_band">Reset band</string>
+
+    <!-- bands editor -->
+    <string name="mochy_eq_bands">Bands</string>
+    <string name="mochy_eq_bands_hint">Sweep across the sliders to draw a curve</string>
+    <string name="mochy_eq_bands_dynamic_note">These bands are stored but not playing — the tone pad is driving the sound.</string>
+
+    <!-- AutoEq tab -->
+    <string name="mochy_eq_autoeq_correction">Headphone correction</string>
+    <string name="mochy_eq_autoeq_original">Original</string>
+    <string name="mochy_eq_autoeq_target">Target</string>
+    <string name="mochy_eq_autoeq_corrected">Corrected</string>
+    <string name="mochy_eq_autoeq_pick">Pick your headphones below</string>
+    <string name="mochy_eq_autoeq_loading">Loading %1$s…</string>
+    <string name="mochy_eq_autoeq_by">by %1$s</string>
+    <string name="mochy_eq_autoeq_filters_count">%1$d filters</string>
+    <string name="mochy_eq_autoeq_apply">Apply correction</string>
+    <string name="mochy_eq_autoeq_apply_desc">Sets the seven bands to this correction; switching it off restores your previous curve</string>
+    <string name="mochy_eq_autoeq_filter_bands">Filter bands</string>
+    <string name="mochy_eq_autoeq_bands_choice">%1$d bands</string>
+    <string name="mochy_eq_autoeq_correct_up_to">Correct up to</string>
+    <string name="mochy_eq_autoeq_khz">%1$d kHz</string>
+    <string name="mochy_eq_autoeq_bass">Bass</string>
+    <string name="mochy_eq_autoeq_tilt">Tilt</string>
+    <string name="mochy_eq_autoeq_use_fit">Use AutoEq’s fit</string>
+    <string name="mochy_eq_autoeq_remove">Remove</string>
+    <string name="mochy_eq_autoeq_database">Database</string>
+    <string name="mochy_eq_autoeq_database_sub">AutoEq · measured by reviewers</string>
+    <string name="mochy_eq_autoeq_models">%1$s models</string>
+    <string name="mochy_eq_autoeq_search_hint">Search model (e.g. HD 600)</string>
+    <string name="mochy_eq_autoeq_no_match">No headphones match “%1$s”</string>
+    <string name="mochy_eq_autoeq_try_again">Try again</string>
+    <string name="mochy_eq_autoeq_profiles">%1$d profiles</string>
+    <string name="mochy_eq_autoeq_clear">Clear</string>
+    <string name="mochy_eq_autoeq_load_failed">Couldn’t load %1$s. Check your connection.</string>
+    <string name="mochy_eq_autoeq_db_unreachable">Couldn’t reach the AutoEq database</string>
+</resources>

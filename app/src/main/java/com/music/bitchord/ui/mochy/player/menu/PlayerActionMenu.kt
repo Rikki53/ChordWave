@@ -75,6 +75,7 @@ import coil3.request.ImageRequest
 import com.music.bitchord.R
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.SleepTimer
+import com.music.bitchord.karaoke.KaraokeFeature
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.SheetActionCard
@@ -134,6 +135,7 @@ fun PlayerActionMenu(
 
     var showChoosePlaylistDialog by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
+    var showKaraoke by remember { mutableStateOf(false) }
     var showAudioDevices by remember { mutableStateOf(false) }
     var showPlaybackSpeed by remember { mutableStateOf(false) }
     var showLyricsEditor by remember { mutableStateOf(false) }
@@ -353,6 +355,14 @@ fun PlayerActionMenu(
                 DeviceMenuRows(onDismiss = onDismiss)
                 Spacer(modifier = Modifier.height(8.dp))
                 SleepTimerRow(onClick = { showSleepTimer = true })
+                // Karaoke sits next to the sleep timer, as in Classic.
+                // The row renders nothing while KaraokeFeature.ENABLED
+                // is off, so the spacer is gated too — otherwise a
+                // stray 8.dp gap would sit here while parked.
+                if (KaraokeFeature.ENABLED) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    KaraokeMenuRow(onOpenKaraoke = { showKaraoke = true })
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 KeepScreenOnRow()
                 Spacer(modifier = Modifier.height(8.dp))
@@ -443,6 +453,15 @@ fun PlayerActionMenu(
     }
     if (showSleepTimer) {
         SleepTimerSheet(onDismiss = { showSleepTimer = false })
+    }
+    if (showKaraoke) {
+        KaraokeSheet(
+            onDismiss = { showKaraoke = false },
+            onOpenRemote = {
+                showKaraoke = false
+                onOpenRoute?.invoke("karaoke_remote")
+            },
+        )
     }
     if (showAudioDevices) {
         DeviceOutputSheet(onDismiss = { showAudioDevices = false })

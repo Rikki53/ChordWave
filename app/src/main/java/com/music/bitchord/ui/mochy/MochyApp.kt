@@ -144,6 +144,19 @@ import com.music.bitchord.ui.mochy.screens.settings.integrations.ScrobbleService
 import com.music.bitchord.ui.mochy.screens.settings.integrations.ScrobbleSite
 import com.music.bitchord.ui.mochy.screens.settings.integrations.discord.DiscordScreen
 import com.music.bitchord.ui.mochy.screens.settings.storage.StorageScreen
+import com.music.bitchord.ui.mochy.screens.audiolab.AudioFxScreen
+import com.music.bitchord.ui.mochy.screens.audiolab.AudioLabScreen
+import com.music.bitchord.ui.mochy.screens.audiolab.AudioPassScreen
+import com.music.bitchord.ui.mochy.screens.audiolab.AudioQualityScreen
+import com.music.bitchord.ui.mochy.screens.equalizer.EqualizerScreen
+import com.music.bitchord.ui.mochy.screens.karaoke.KaraokeRemoteScreen
+import com.music.bitchord.ui.mochy.screens.listen.ListenTogetherScreen
+import com.music.bitchord.ui.mochy.screens.radio.RadioScreen
+import com.music.bitchord.ui.mochy.screens.replay.ReplayScreen
+import com.music.bitchord.ui.mochy.screens.settings.CustomisationScreen
+import com.music.bitchord.ui.mochy.screens.sources.SourcesScreen
+import com.music.bitchord.ui.mochy.utils.rememberYouTubeSignedIn
+import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.ui.mochy.screens.setup.ProfilePhotoStore
 import com.music.bitchord.ui.mochy.screens.setup.SetupRerun
 import com.music.bitchord.ui.mochy.screens.setup.SetupWizardContainer
@@ -246,6 +259,20 @@ fun MochyApp(modifier: Modifier = Modifier) {
     // Update notification taps (UpdateDeepLink relay): the opener below
     // shows the version sheet each time the count goes up.
     val updateRequests by UpdateDeepLink.requests.collectAsState()
+
+    // A Listen Together invite arriving while Modern is active opens the
+    // party page (Classic precedent: MainActivity navigates to its own
+    // page on the same signal). The screen runs the consent + preview +
+    // confirm flow itself and calls JamInviteLink.handled() once it
+    // starts, so this fires once per invite; navigate() also dedups a
+    // same-top route. Signed-out users land on the page's sign-in row.
+    val pendingInvite by JamInviteLink.pending.collectAsState()
+    val youTubeSignedIn = rememberYouTubeSignedIn()
+    LaunchedEffect(pendingInvite, youTubeSignedIn) {
+        if (pendingInvite != null && youTubeSignedIn) {
+            navigator.navigate("listen_together")
+        }
+    }
 
     // The setup wizard: a fresh Modern install sees it (both flags false);
     // a Classic user switching to Modern does not (onboardingComplete is
@@ -777,6 +804,24 @@ private fun DetailContent(
         route == "import_progress" -> ImportProgressScreen(navigator = navigator)
         route == "youtube_sync" -> YouTubeSyncScreen(navigator = navigator)
         route == "youtube_login" -> YouTubeLoginScreen(navigator = navigator)
+        // ---- ChordWave-only restyles (Phase 5) ----
+        route == "listen_together" -> ListenTogetherScreen(navigator = navigator)
+        route == "sources" -> SourcesScreen(navigator = navigator)
+        route == "radio" -> RadioScreen(navigator = navigator)
+        route == "replay" -> ReplayScreen(navigator = navigator)
+        route == "karaoke_remote" -> KaraokeRemoteScreen(navigator = navigator)
+        route == "audio_lab" -> AudioLabScreen(navigator = navigator)
+        route == "audio_fx" -> AudioFxScreen(navigator = navigator)
+        route == "audio_quality" -> AudioQualityScreen(navigator = navigator)
+        route == "audio_pass" -> AudioPassScreen(navigator = navigator)
+        route == "customisation_settings" -> CustomisationScreen(navigator = navigator)
+        // The equalizer takes a tab query: the Settings AutoEQ entry
+        // lands straight on the AutoEq tab (2); every other caller
+        // opens the graph (0). No other route starts with "equalizer".
+        route.startsWith("equalizer") -> {
+            val tab = if ("tab=autoeq" in route) 2 else 0
+            EqualizerScreen(navigator = navigator, initialTab = tab)
+        }
         route.startsWith("account_import/") -> {
             // account_import/{service}?resync={id|all}&then={svc,svc}
             val rest = route.removePrefix("account_import/")

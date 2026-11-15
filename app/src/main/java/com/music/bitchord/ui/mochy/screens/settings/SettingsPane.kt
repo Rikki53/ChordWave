@@ -59,6 +59,8 @@ val SettingsPaneRoutes = setOf(
     "import_sync",
     "settings/update",
     "import_progress",
+    "sources",
+    "listen_together",
 )
 
 // how wide the list is beside the open page: a phone's column on a phone on its side, a little more on a tablet
