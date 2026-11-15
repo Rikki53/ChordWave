@@ -240,7 +240,7 @@ fun ListenTogetherScreen(navigator: MochyNavigator) {
             failure = context.getString(R.string.listen_together_scan_invalid)
             return@rememberQrCodeScanner
         }
-        routeInvite(scannedCode, scannedServer, offerOfficialSwitch = false)
+        routeInvite(scannedCode, scannedServer, false)
     }
 
     // A membership outlives the process; the socket does not. Opening it when
@@ -265,7 +265,7 @@ fun ListenTogetherScreen(navigator: MochyNavigator) {
         // A link says which party, not that this device has agreed to join it.
         // The confirm sheet is what actually joins — the same one a typed
         // code goes through, whether or not this device is already in a party.
-        routeInvite(invite.code, invite.serverUrl, offerOfficialSwitch = true)
+        routeInvite(invite.code, invite.serverUrl, true)
         JamInviteLink.handled()
     }
 

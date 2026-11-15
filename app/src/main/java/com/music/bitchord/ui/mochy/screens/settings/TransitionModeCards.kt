@@ -49,7 +49,7 @@ private val SmallCardHeight = 136.dp
 private val BigStageHeight = 156.dp
 private val MinStageHeight = 44.dp
 private val CardPadding = 14.dp
-private val CardShape = RoundedCornerShape(26.dp)
+private val TransitionCardShape = RoundedCornerShape(26.dp)
 private val CardSpring = spring<Float>(dampingRatio = 0.86f, stiffness = 360f)
 
 // where a card is heading, read only in layout and draw so the move never recomposes the page
@@ -116,7 +116,7 @@ internal fun TransitionModeCard(
         ),
         modifier = Modifier
             .pressBounce(interaction, pressedScale = 0.96f)
-            .clip(CardShape)
+            .clip(TransitionCardShape)
             .background(LabColors.Card)
             .selectable(
                 selected = selected,

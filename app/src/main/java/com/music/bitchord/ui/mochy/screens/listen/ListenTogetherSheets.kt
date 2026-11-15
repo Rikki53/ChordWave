@@ -238,14 +238,17 @@ private fun JoinPartySheetContent(
     val navBottom = WindowInsets.stableSystemBars.asPaddingValues().calculateBottomPadding()
 
     val submit: () -> Unit = {
-        if (code.length != ListenTogether.CODE_LENGTH || busy) return
-        busy = true
-        error = null
-        scope.launch {
-            ListenTogether.previewParty(code, null)
-                .onSuccess { preview -> onPreview(preview, null) }
-                .onFailure { problem -> error = problem.message }
-            busy = false
+        // a bare `return` is prohibited in a lambda held in a val, so
+        // the guard wraps the body instead of exiting early
+        if (code.length == ListenTogether.CODE_LENGTH && !busy) {
+            busy = true
+            error = null
+            scope.launch {
+                ListenTogether.previewParty(code, null)
+                    .onSuccess { preview -> onPreview(preview, null) }
+                    .onFailure { problem -> error = problem.message }
+                busy = false
+            }
         }
     }
 
