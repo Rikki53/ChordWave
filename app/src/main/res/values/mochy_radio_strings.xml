@@ -10,5 +10,5 @@
     <string name="mochy_radio_search_results">Search results</string>
     <string name="mochy_radio_add_favourite">Add to favourites</string>
     <string name="mochy_radio_remove_favourite">Remove from favourites</string>
-    <string name="mochy_radio_couldnt_play">Couldn't play this station</string>
+    <string name="mochy_radio_couldnt_play">Couldn\'t play this station</string>
 </resources>
