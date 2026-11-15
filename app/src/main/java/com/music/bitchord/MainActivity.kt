@@ -17,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import dagger.hilt.android.AndroidEntryPoint
 import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
@@ -409,6 +410,13 @@ internal fun shouldSkipAfterDislike(
 ): Boolean = previousStatus != LikeStatus.DISLIKE && targetVideoId == currentVideoId
 
 
+// Hilt entry point: the Modern UI resolves 36 @HiltViewModel classes
+// through hiltViewModel() (58 call sites), and without this annotation
+// EntryPoints.get(activity) throws at the first one — the app
+// force-closed on every Modern launch until this landed (15 Nov 2026).
+// The Application already carries @HiltAndroidApp; TvActivity needs no
+// annotation because the TV UI never calls hiltViewModel().
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
