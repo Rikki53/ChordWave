@@ -183,12 +183,10 @@ private val DiscoveryStationEyebrow = Color(0xFFCDBDFF)
 
 // Classic draws these two as canvas art; Modern uses the same hues as gradients.
 private val PersonalStationGradient = Brush.verticalGradient(
-    Color(0xFFF06292),
-    Color(0xFFAD1457),
+    listOf(Color(0xFFF06292), Color(0xFFAD1457)),
 )
 private val DiscoveryStationGradient = Brush.verticalGradient(
-    Color(0xFF9575CD),
-    Color(0xFF4527A0),
+    listOf(Color(0xFF9575CD), Color(0xFF4527A0)),
 )
 
 /** What a card says: the small coloured line, the title, and an optional line under it. */
@@ -293,8 +291,10 @@ fun TopPickCard(
                 Box(
                     Modifier.fillMaxSize().background(
                         Brush.verticalGradient(
-                            moodColors.background,
-                            lerp(moodColors.background, Color.Black, 0.38f),
+                            listOf(
+                                moodColors.background,
+                                lerp(moodColors.background, Color.Black, 0.38f),
+                            ),
                         ),
                     ),
                 )
@@ -368,8 +368,10 @@ fun HomeMoodTile(
     val colors = remember(mood) { mood.colors() }
     val tileBrush = remember(colors) {
         Brush.verticalGradient(
-            colors.background,
-            lerp(colors.background, Color.Black, 0.38f),
+            listOf(
+                colors.background,
+                lerp(colors.background, Color.Black, 0.38f),
+            ),
         )
     }
     val washBrush = remember(colors) {
