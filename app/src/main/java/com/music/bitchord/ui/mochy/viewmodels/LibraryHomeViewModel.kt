@@ -257,6 +257,17 @@ class LibraryHomeViewModel @Inject constructor(
         LibraryShelfKind.Cached -> cached
     }
 
+    // These MUST be declared above the init block: init calls load(), whose
+    // Dispatchers.IO coroutine can run on a worker thread while this
+    // constructor is still running — a field declared below init would still
+    // be null there (crashed twice on device as NPE in tryLock, 15 Nov 2026).
+    private val loadMutex = Mutex()
+    private val libraryMutex = Mutex()
+    private val artistRefreshAttempted = Collections.synchronizedSet(HashSet<String>())
+
+    @Volatile
+    private var reloadRequested = false
+
     init {
         LocalImportStore.init(context)
         load()
@@ -294,11 +305,6 @@ class LibraryHomeViewModel @Inject constructor(
     }
 
     // --- Load orchestration -------------------------------------------------
-
-    private val loadMutex = Mutex()
-
-    @Volatile
-    private var reloadRequested = false
 
     /** Reloads the library (account + local). Safe to call any time; a load already running queues one more pass. */
     fun load() {
@@ -373,7 +379,6 @@ class LibraryHomeViewModel @Inject constructor(
     }
 
     // One library fetch per load, shared by the songs/albums/artists loaders.
-    private val libraryMutex = Mutex()
     private var libraryResult: Result<LibraryPage>? = null
 
     private suspend fun libraryPage(): Result<LibraryPage> = libraryMutex.withLock {
@@ -510,8 +515,6 @@ class LibraryHomeViewModel @Inject constructor(
      * most 25 per pass; each artist is attempted once per ViewModel lifetime
      * so the watchers that re-fire on every list change don't re-fetch.
      */
-    private val artistRefreshAttempted = Collections.synchronizedSet(HashSet<String>())
-
     private suspend fun refreshArtistImages(list: List<Artist>) {
         val missing = list.map { it.artist }
             .filter { it.thumbnailUrl == null && it.id.startsWith("UC") && artistRefreshAttempted.add(it.id) }
