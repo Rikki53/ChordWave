@@ -18,39 +18,35 @@
 package com.music.bitchord.ui.mochy.extensions
 
 import android.os.Bundle
-import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC
+import com.music.bitchord.data.model.Song as CwSong
+import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.innertube.SongItem
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
+import com.music.bitchord.ui.mochy.models.toMochyMetadata
 
-fun Song.toMediaItem() = MediaItem.Builder()
-    .setMediaId(song.id)
-    .setUri(if (song.isLocal && song.localUri != null) song.localUri else song.id)
-    .setCustomCacheKey(song.id)
-    .setTag(toMediaMetadata())
-    .setMediaMetadata(
-        androidx.media3.common.MediaMetadata.Builder()
-            .setTitle(song.title)
-            .setSubtitle(artists.joinToString { it.name })
-            .setArtist(artists.joinToString { it.name })
-            .setArtworkUri(song.thumbnailUrl?.toUri())
-            .setAlbumTitle(song.albumName)
-            .setAlbumArtist(artists.firstOrNull()?.name)
-            .setDisplayTitle(song.title)
-            .setMediaType(MEDIA_TYPE_MUSIC)
-            .setIsBrowsable(false)
-            .setIsPlayable(true)
-            .setExtras(Bundle().apply {
-                putString("artwork_uri", song.thumbnailUrl)
-            })
-            .build()
-    )
-    .build()
+// A library song as a queue item: through its metadata, so it takes the
+// same engine-compatible build as every other Modern item (see
+// MediaItemExt.buildMediaItem) rather than the bare-id URI the old builder
+// put on it — the service resolver cannot answer one of those.
+fun Song.toMediaItem() = toMediaMetadata().toMediaItem()
 
 // built through the metadata so a youtube result picks up the song's hand edits too
 fun SongItem.toMediaItem() = toMediaMetadata().toMediaItem()
+
+/**
+ * A ChordWave catalogue song (radio, watch queue, browse page) as a
+ * Modern-queue MediaItem: the engine-compatible CW item, tagged with its
+ * Mochy metadata so the queue filters and the swipe actions read it back
+ * the same way they read locally built items.
+ */
+fun CwSong.toMochyQueueItem(): MediaItem =
+    toMediaItem()
+        .buildUpon()
+        .setTag(toMochyMetadata())
+        .setCustomCacheKey(videoId)
+        .build()
 
 /**
  * Flags a song the infinite queue lined up on its own (the queue's "Autoplay" section), as

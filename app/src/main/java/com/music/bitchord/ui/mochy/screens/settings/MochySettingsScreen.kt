@@ -216,7 +216,7 @@ private val SettingsIndex = listOf(
     SettingsEntry("Transition", "Audio Lab", "crossmix_settings", "crossfade crossmix automix transition gapless blend"),
     SettingsEntry("Blend skips", "Audio Lab", "crossmix_settings", "skip next previous back crossfade seamless preload transition fade blend"),
     SettingsEntry("Equalizer", "Audio Lab", "equalizer", "eq bass treble band parametric graph autoeq headphones correction preset"),
-    SettingsEntry("AutoEQ", "Audio Lab", "equalizer?tab=autoeq", "headphones earbuds correction harman database model"),
+    SettingsEntry("Headphone correction", "Audio Lab", "equalizer?tab=autoeq", "headphones earbuds correction harman database model"),
     SettingsEntry("Audio Quality", "Audio Lab", "audio_quality", "bitrate stream high low lossless hi-res flac monochrome"),
     SettingsEntry("Audio Pass", "Audio Lab", "audio_pass", "dac usb output headphones bluetooth codec bit perfect exclusive"),
     SettingsEntry("Prefer USB DAC", "Audio Lab", "audio_pass", "usb dac headphones output external audio"),

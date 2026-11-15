@@ -11,7 +11,7 @@
     <string name="mochy_eq_title">Equalizer</string>
     <string name="mochy_eq_tab_graph">Graph</string>
     <string name="mochy_eq_tab_bands">Bands</string>
-    <string name="mochy_eq_tab_autoeq">AutoEQ</string>
+    <string name="mochy_eq_tab_autoeq">Correction</string>
     <string name="mochy_eq_mode">Mode</string>
     <string name="mochy_eq_presets">Presets</string>
     <string name="mochy_eq_reset">Reset</string>
@@ -53,10 +53,10 @@
     <string name="mochy_eq_autoeq_khz">%1$d kHz</string>
     <string name="mochy_eq_autoeq_bass">Bass</string>
     <string name="mochy_eq_autoeq_tilt">Tilt</string>
-    <string name="mochy_eq_autoeq_use_fit">Use AutoEq’s fit</string>
+    <string name="mochy_eq_autoeq_use_fit">Use the database fit</string>
     <string name="mochy_eq_autoeq_remove">Remove</string>
     <string name="mochy_eq_autoeq_database">Database</string>
-    <string name="mochy_eq_autoeq_database_sub">AutoEq · measured by reviewers</string>
+    <string name="mochy_eq_autoeq_database_sub">Headphone measurements by reviewers</string>
     <string name="mochy_eq_autoeq_models">%1$s models</string>
     <string name="mochy_eq_autoeq_search_hint">Search model (e.g. HD 600)</string>
     <string name="mochy_eq_autoeq_no_match">No headphones match “%1$s”</string>
@@ -64,5 +64,5 @@
     <string name="mochy_eq_autoeq_profiles">%1$d profiles</string>
     <string name="mochy_eq_autoeq_clear">Clear</string>
     <string name="mochy_eq_autoeq_load_failed">Couldn’t load %1$s. Check your connection.</string>
-    <string name="mochy_eq_autoeq_db_unreachable">Couldn’t reach the AutoEq database</string>
+    <string name="mochy_eq_autoeq_db_unreachable">Couldn’t reach the headphone database</string>
 </resources>

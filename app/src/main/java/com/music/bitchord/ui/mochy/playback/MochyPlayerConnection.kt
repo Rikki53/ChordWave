@@ -48,9 +48,20 @@
 // The Modern host (MochyApp) creates one instance, binds it to
 // rememberMediaController() inside a DisposableEffect, provides it via
 // LocalPlayerConnection, and calls dispose() when the host leaves.
+//
+// Round 1 fix (15 Nov 2026): playQueue used to return silently when a
+// queue resolved to nothing (YouTubeQueue was still a stub, so every Home
+// song tap did exactly that), and the Modern item builders put bare video
+// ids in as URIs, which the service resolver cannot answer. playQueue now
+// shows the tapped song + a loading state at once, starts with Classic's
+// sequence (clear bounded context, set, prepare, play), and reports a
+// failed start on playFailure instead of dropping it; the builders (see
+// extensions/MediaItemExt) delegate to CW's own toMediaItem(). Engine
+// errors still travel on `error` — the host debounces and shows those.
 package com.music.bitchord.ui.mochy.playback
 
 import android.content.Context
+import android.os.Bundle
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -58,6 +69,8 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
+import com.music.bitchord.R
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.LyricLine
@@ -65,6 +78,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song as CwSong
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.ACTION_CLEAR_BOUNDED_CONTEXT
 import com.music.bitchord.playback.fromAutoplay
 import com.music.bitchord.playback.toSong
 import com.music.bitchord.ui.mochy.constants.InfiniteQueueKey
@@ -92,9 +106,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -102,6 +119,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.time.LocalDateTime
@@ -252,6 +270,18 @@ class MochyPlayerConnection(context: Context) {
 
     val error = MutableStateFlow<PlaybackException?>(null)
     val isMuted = MutableStateFlow(false)
+
+    private val _playFailure = MutableSharedFlow<String>(extraBufferCapacity = 1)
+
+    /**
+     * One-shot, user-facing messages for a queue that failed to START
+     * (its fetch threw, or it resolved to nothing to play). The host shows
+     * each one once; without this a tap that loads nothing reads as a dead
+     * button. Engine errors mid-playback travel on [error] instead — a
+     * failed stream is the service's to report, a queue that never reached
+     * it is this connection's.
+     */
+    val playFailure: SharedFlow<String> = _playFailure.asSharedFlow()
 
     // ---- Phase 3 adapter members (the ported player UI reads these) ----
 
@@ -589,11 +619,19 @@ class MochyPlayerConnection(context: Context) {
         // The like flag is overlaid from LikeState: toMochyMetadata() never
         // sets it (CW keeps likes in LikeState, seeded from the server at
         // playback / library load), so without this the player heart would
-        // always read empty.
-        mediaMetadata.value = cwSong?.toMochyMetadata()?.let {
-            it.copy(liked = LikeState.overrides.value[it.id] == LikeStatus.LIKE)
+        // always read empty. The mapping is guarded like toSong() above: a
+        // row this cannot map must not take the queue sync below it down
+        // with it — the transport state above is already published, and a
+        // half-synced queue is worse than a stale song row.
+        try {
+            mediaMetadata.value = cwSong?.toMochyMetadata()?.let {
+                it.copy(liked = LikeState.overrides.value[it.id] == LikeStatus.LIKE)
+            }
+            currentSong.value = cwSong?.toMochySong()
+        } catch (_: Exception) {
+            mediaMetadata.value = null
+            currentSong.value = null
         }
-        currentSong.value = cwSong?.toMochySong()
 
         val timeline = player.currentTimeline
         val windows = (0 until timeline.windowCount).map { i ->
@@ -742,37 +780,90 @@ class MochyPlayerConnection(context: Context) {
         }
     }
 
-    // ---- queue methods (STUBBED — Phase 3 wires the Queue -> CW translation) ----
-
     // ---- queue methods (REAL — delegate to the controller) ----
     //
     // The controller talks to CW's own PlaybackService session, whose
-    // MediaSource factory resolves the bare video ids toMediaItem() puts
-    // on YouTube items — the same path the Classic UI plays through.
+    // MediaSource factory resolves the `bitchord://watch?v=…` URIs the
+    // Modern builders put on YouTube items — the same path the Classic UI
+    // plays through.
 
     /** Queue uids are Timeline.Window uid hashCodes (see toQueueItem). */
     private fun indexOfUid(uid: Int): Int =
         queueWindows.value.indexOfFirst { it.uid.hashCode() == uid }
 
+    // The queue start in flight, if any. A second tap cancels the first
+    // fetch rather than racing it: two setMediaItems landing in either
+    // order is how a tap plays the song from the tap before it.
+    private var playQueueJob: Job? = null
+
     fun playQueue(queue: Queue) {
         val p = controller ?: return
-        scope.launch {
+        playQueueJob?.cancel()
+        playQueueJob = scope.launch {
+            // Show the tapped song at once: the queue fetch is network, and
+            // without this the tap reads as dead until the items land. The
+            // preload row is the song itself (title, artist, artwork), and
+            // BUFFERING is what the slider draws its Loading state from;
+            // the controller's own events correct both the moment the
+            // items are set, and the failure branches below re-sync them
+            // if the fetch never lands.
+            queue.preloadItem?.let { preload ->
+                mediaMetadata.value = preload
+                playbackState.value = Player.STATE_BUFFERING
+            }
             val status = try {
                 queue.getInitialStatus()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Timber.w(e, "MochyPlayerConnection.playQueue: queue failed to load")
+                resyncFromController()
+                _playFailure.emit(context.getString(R.string.couldnt_load_queue))
                 return@launch
             }
-            if (status.items.isEmpty()) return@launch
+            if (status.items.isEmpty()) {
+                Timber.w("MochyPlayerConnection.playQueue: queue resolved to nothing to play")
+                resyncFromController()
+                _playFailure.emit(context.getString(R.string.couldnt_load_queue))
+                return@launch
+            }
             queueTitle.value = status.title
+            // Classic's start sequence (PlayerConnection.playSongs): drop
+            // any bounded context the service is holding for an album or
+            // playlist started from the Classic UI, so it cannot trim or
+            // refill this queue behind the player's back. Best-effort — a
+            // command that fails must not lose the tap.
+            runCatching {
+                p.sendCustomCommand(
+                    SessionCommand(ACTION_CLEAR_BOUNDED_CONTEXT, Bundle.EMPTY),
+                    Bundle.EMPTY,
+                ).await()
+            }.onFailure { Timber.w(it, "MochyPlayerConnection.playQueue: clear bounded context failed") }
             p.setMediaItems(
                 status.items,
                 status.mediaItemIndex.coerceIn(0, status.items.lastIndex),
                 status.position,
             )
+            p.prepare()
             p.play()
+        }
+    }
+
+    /**
+     * Puts the published state back to what the controller actually holds.
+     * The failure branches of [playQueue] call this after clearing the
+     * optimistic preload: without it a failed tap would leave the tapped
+     * song on screen, loading forever, over whatever was really playing.
+     */
+    private fun resyncFromController() {
+        val p = controller
+        if (p != null) {
+            sync(p)
+        } else {
+            playbackState.value = Player.STATE_IDLE
+            isPlaying.value = false
+            mediaMetadata.value = null
+            currentSong.value = null
         }
     }
 

@@ -8,7 +8,6 @@ package com.music.bitchord.ui.mochy.screens.update
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -79,14 +77,6 @@ private data class LeadDevEntry(
 )
 
 @Immutable
-private data class CreditEntry(
-    val name: String,
-    val subtitle: String,
-    val githubUser: String,
-    val url: String,
-)
-
-@Immutable
 private data class LicenseEntry(
     val tag: String,
     val title: String,
@@ -108,120 +98,14 @@ private val LeadDevs = listOf(
     ),
 )
 
-private val BaseCredits = listOf(
-    CreditEntry(
-        name = "kushagrasinghx",
-        subtitle = "BitChord dev, The base of this app",
-        githubUser = "kushagrasinghx",
-        url = "https://github.com/kushagrasinghx/BitChord",
-    ),
-    CreditEntry(
-        name = "Mostafa Alagamy",
-        subtitle = "Metrolist dev, The base of BitChord too",
-        githubUser = "mostafaalagamy",
-        url = "https://github.com/mostafaalagamy/Metrolist",
-    ),
-    CreditEntry(
-        name = "realidkroo",
-        subtitle = "Mochy Music dev, The Modern UI design",
-        githubUser = "realidkroo",
-        url = "https://github.com/realidkroo/Mochy-Music",
-    ),
-)
-
-private val MoreCredits = listOf(
-    CreditEntry(
-        name = "fast4x",
-        subtitle = "RiMusic · YouTube Music InnerTube service wrapper",
-        githubUser = "fast4x",
-        url = "https://github.com/fast4x/RiMusic",
-    ),
-    CreditEntry(
-        name = "maxrave-dev",
-        subtitle = "SimpMusic · lyrics API provider",
-        githubUser = "maxrave-dev",
-        url = "https://github.com/maxrave-dev/SimpMusic",
-    ),
-    CreditEntry(
-        name = "tranxuanthang",
-        subtitle = "LRCLIB · synchronized LRC lyrics provider",
-        githubUser = "tranxuanthang",
-        url = "https://github.com/tranxuanthang/lrclib",
-    ),
-    CreditEntry(
-        name = "Jaakko Pasanen",
-        subtitle = "AutoEq · headphone equalizer database",
-        githubUser = "jaakkopasanen",
-        url = "https://github.com/jaakkopasanen/AutoEq",
-    ),
-    CreditEntry(
-        name = "Rukamori",
-        subtitle = "ArchiveTune · design & architecture inspiration",
-        githubUser = "rukamori",
-        url = "https://github.com/rukamori/ArchiveTune",
-    ),
-    CreditEntry(
-        name = "Ibra Al Tabian",
-        subtitle = "LyricsPlus · open source lyrics server",
-        githubUser = "ibratabian17",
-        url = "https://github.com/ibratabian17/LyricsPlus",
-    ),
-    CreditEntry(
-        name = "Boidushya",
-        subtitle = "Better Lyrics API · synced syllable lyrics",
-        githubUser = "boidushya",
-        url = "https://github.com/better-lyrics/api",
-    ),
-)
-
+// ChordWave-only: upstream GPL attribution lives in the repo LICENSE/source,
+// not in the in-app license sheet.
 private val Licenses = listOf(
     LicenseEntry(
         tag = "GPL-3.0",
         title = "ChordWave · GNU General Public License v3.0",
         subtitle = "Free and open source software, source code on GitHub",
         url = "$ChordWaveRepoUrl/blob/main/LICENSE",
-    ),
-    LicenseEntry(
-        tag = "GPL-3.0",
-        title = "BitChord · GNU General Public License v3.0",
-        subtitle = "by kushagrasinghx · base project this app was forked from",
-        url = "https://github.com/kushagrasinghx/BitChord/blob/main/LICENSE",
-    ),
-    LicenseEntry(
-        tag = "GPL-3.0",
-        title = "Metrolist · GNU General Public License v3.0",
-        subtitle = "by Mostafa Alagamy · base framework",
-        url = "https://github.com/mostafaalagamy/Metrolist/blob/main/LICENSE",
-    ),
-    LicenseEntry(
-        tag = "GPL-3.0",
-        title = "RiMusic · GNU General Public License v3.0",
-        subtitle = "by fast4x · InnerTube API wrapper",
-        url = "https://github.com/fast4x/RiMusic/blob/master/LICENSE",
-    ),
-    LicenseEntry(
-        tag = "GPL-3.0",
-        title = "Mochy Music · GNU General Public License v3.0",
-        subtitle = "by realidkroo · Modern UI design",
-        url = "https://github.com/realidkroo/Mochy-Music/blob/main/LICENSE",
-    ),
-    LicenseEntry(
-        tag = "GPL-3.0",
-        title = "SimpMusic · GNU General Public License v3.0",
-        subtitle = "by maxrave-dev · lyrics provider integration",
-        url = "https://github.com/maxrave-dev/SimpMusic/blob/dev/LICENSE",
-    ),
-    LicenseEntry(
-        tag = "MIT",
-        title = "LRCLIB · MIT License",
-        subtitle = "by tranxuanthang · synchronized lyrics database",
-        url = "https://github.com/tranxuanthang/lrclib/blob/main/LICENSE",
-    ),
-    LicenseEntry(
-        tag = "MIT",
-        title = "AutoEq · MIT License",
-        subtitle = "by Jaakko Pasanen · headphone correction profiles",
-        url = "https://github.com/jaakkopasanen/AutoEq/blob/master/LICENSE",
     ),
 )
 
@@ -230,11 +114,6 @@ private val FallbackContributors = listOf(
         login = "Rikki53",
         avatarUrl = githubAvatarUrl("rikki53"),
         profileUrl = "https://github.com/rikki53",
-    ),
-    ContributorEntry(
-        login = "kushagrasinghx",
-        avatarUrl = githubAvatarUrl("kushagrasinghx"),
-        profileUrl = "https://github.com/kushagrasinghx",
     ),
 )
 
@@ -248,6 +127,13 @@ private fun githubAvatarUrl(githubUser: String): String =
 
 private suspend fun fetchContributors(): List<ContributorEntry> {
     cachedContributors?.let { return it }
+    // GitHub counts the fork's inherited history, so the upstream projects'
+    // authors would list as contributors; the row stays ChordWave-only.
+    val upstreamLogins = setOf(
+        "kushagrasinghx", "mostafaalagamy", "realidkroo", "fast4x",
+        "maxrave-dev", "tranxuanthang", "jaakkopasanen", "rukamori",
+        "ibratabian17", "boidushya",
+    )
     return withContext(Dispatchers.IO) {
         runCatching {
             val url = URL("https://api.github.com/repos/$ChordWaveOwner/$ChordWaveRepo/contributors?per_page=30")
@@ -266,6 +152,7 @@ private suspend fun fetchContributors(): List<ContributorEntry> {
                         if (type.equals("Bot", ignoreCase = true)) continue
                         val login = obj.optString("login").takeIf { it.isNotBlank() } ?: continue
                         if (login.endsWith("[bot]", ignoreCase = true)) continue
+                        if (login.lowercase() in upstreamLogins) continue
                         val avatar = obj.optString("avatar_url").ifBlank { githubAvatarUrl(login) }
                         val html = obj.optString("html_url").ifBlank { "https://github.com/$login" }
                         add(ContributorEntry(login = login, avatarUrl = avatar, profileUrl = html))
@@ -284,13 +171,6 @@ fun PopupSheetState.showAboutSheet() {
     val popup = this
     show(buttonBar = { SheetPrimaryButton(text = "Done", onClick = popup::dismiss) }) {
         AboutSheetContent(popup = popup)
-    }
-}
-
-private fun PopupSheetState.showCreditsSheet() {
-    val popup = this
-    show(buttonBar = { SheetPrimaryButton(text = "Done", onClick = popup::dismiss) }) {
-        CreditsSheetContent()
     }
 }
 
@@ -429,33 +309,6 @@ private fun ColumnScope.AboutSheetContent(
             }
 
             Spacer(Modifier.height(18.dp))
-            SectionHeader("we wont exist without these guys")
-            Spacer(Modifier.height(8.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MenuRowSurface)
-                    .padding(vertical = 6.dp),
-            ) {
-                BaseCredits.forEach { credit ->
-                    PersonRow(
-                        name = credit.name,
-                        subtitle = credit.subtitle,
-                        avatarUrl = githubAvatarUrl(credit.githubUser),
-                        showArrow = false,
-                        onClick = { context.openUrl(credit.url) },
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            AndMoreRow(
-                avatars = remember { MoreCredits.take(3).map { githubAvatarUrl(it.githubUser) } },
-                onClick = { popup.showCreditsSheet() },
-            )
-
-            Spacer(Modifier.height(18.dp))
             SectionHeader("License")
             Spacer(Modifier.height(8.dp))
             AboutCardButton(
@@ -485,44 +338,6 @@ private fun ColumnScope.AboutSheetContent(
             }
             Spacer(Modifier.height(8.dp))
         }
-    }
-}
-
-@Composable
-private fun ColumnScope.CreditsSheetContent() {
-    val context = LocalContext.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-    ) {
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Credits",
-            fontSize = 36.sp,
-            lineHeight = 38.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-1.4).sp,
-        )
-        Spacer(Modifier.height(16.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(MenuRowSurface)
-                .padding(vertical = 6.dp),
-        ) {
-            (BaseCredits + MoreCredits).forEach { credit ->
-                PersonRow(
-                    name = credit.name,
-                    subtitle = credit.subtitle,
-                    avatarUrl = githubAvatarUrl(credit.githubUser),
-                    showArrow = true,
-                    onClick = { context.openUrl(credit.url) },
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -665,50 +480,6 @@ private fun PersonRow(
             Spacer(Modifier.width(10.dp))
             ArrowBadge()
         }
-    }
-}
-
-@Composable
-private fun AndMoreRow(
-    avatars: List<String>,
-    onClick: () -> Unit,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val circleSize = 22.dp
-    val step = 13.dp
-    val stackWidth = circleSize + step * (avatars.size - 1).coerceAtLeast(0)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .pressBounce(interaction, pressedScale = 0.97f)
-            .fillMaxWidth()
-            .height(54.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(MenuRowSurface)
-            .clickable(interactionSource = interaction, indication = RemoteFocus, onClick = onClick)
-            .padding(horizontal = 16.dp),
-    ) {
-        Box(
-            contentAlignment = Alignment.CenterStart,
-            modifier = Modifier.width(stackWidth).height(circleSize),
-        ) {
-            avatars.forEachIndexed { index, url ->
-                GithubAvatar(
-                    url = url,
-                    size = circleSize,
-                    modifier = Modifier
-                        .offset(x = step * index)
-                        .border(1.5.dp, MenuRowSurface, CircleShape),
-                )
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = "And more \u2192",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.4).sp,
-        )
     }
 }
 

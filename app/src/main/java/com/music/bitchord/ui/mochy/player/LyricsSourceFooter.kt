@@ -14,10 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -33,7 +31,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -43,11 +40,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.lyrics.EmbeddedLyrics
 import com.music.bitchord.ui.mochy.lyrics.LyricsProviderRegistry
 import com.music.bitchord.ui.mochy.lyrics.UserEditedProvider
-import com.music.bitchord.ui.mochy.lyrics.getProject
 import com.music.bitchord.ui.mochy.lyrics.getWebsite
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.safeOpenUri
@@ -55,7 +50,6 @@ import com.music.bitchord.ui.mochy.component.RemoteFocus
 
 private val LabelColor = Color.White.copy(alpha = 0.55f)
 private val ValueColor = Color.White.copy(alpha = 0.38f)
-private val StarColor = Color(0xFFFFD60A)
 
 private val FooterTextStyle = TextStyle(
     fontFamily = InterFontFamily,
@@ -71,8 +65,8 @@ private val ButtonTextStyle = TextStyle(
 )
 
 /**
- * The end of the lyrics page: where these lyrics came from, a button to pick another source and,
- * when the source is open source, a button that opens its project on GitHub to star it.
+ * The end of the lyrics page: where these lyrics came from, and a button
+ * to pick another source.
  */
 @Composable
 internal fun LyricsSourceFooter(
@@ -82,7 +76,6 @@ internal fun LyricsSourceFooter(
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
-    val project = remember(provider) { LyricsProviderRegistry.getProject(provider) }
     val website = remember(provider) { LyricsProviderRegistry.getWebsite(provider) }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -95,13 +88,6 @@ internal fun LyricsSourceFooter(
             if (onSwitchSource != null) {
                 Spacer(modifier = Modifier.width(10.dp))
                 SwitchSourceButton(onClick = onSwitchSource)
-            }
-        }
-        if (project != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LabeledText(label = project.name, value = null)
-                Spacer(modifier = Modifier.width(10.dp))
-                StarOnGitHubButton(onClick = { uriHandler.safeOpenUri(context, project.repoUrl) })
             }
         }
     }
@@ -143,25 +129,6 @@ private fun SwitchSourceButton(onClick: () -> Unit) {
     ) {
         FooterIcon(Icons.Rounded.SwapVert, tint = LabelColor)
         Text(text = "Switch", style = ButtonTextStyle.copy(color = LabelColor))
-    }
-}
-
-// A pill with a gold star, so it reads as something to tap rather than a link.
-@Composable
-private fun StarOnGitHubButton(onClick: () -> Unit) {
-    FooterButton(
-        onClick = onClick,
-        shape = CircleShape,
-        background = Color.White.copy(alpha = 0.12f),
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.github),
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.85f),
-            modifier = Modifier.size(15.dp),
-        )
-        Text(text = "Star on GitHub", style = ButtonTextStyle.copy(color = Color.White.copy(alpha = 0.85f)))
-        FooterIcon(Icons.Rounded.Star, tint = StarColor)
     }
 }
 

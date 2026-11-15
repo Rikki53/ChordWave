@@ -548,6 +548,8 @@
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Mobile data</string>
     <string name="couldnt_load_tracks">Could not load these tracks</string>
+    <string name="couldnt_play_song">Couldn\'t play this song</string>
+    <string name="couldnt_load_queue">Couldn\'t load this queue</string>
     <string name="wifi_only_download_refusal">Downloads are limited to Wi-Fi. Turn that off in Settings to use mobile data.</string>
     <string name="download_mobile_data_title">Download over mobile data?</string>
     <string name="download_mobile_data_message">You\'re on mobile data, not Wi-Fi. This download will use your mobile data connection.</string>

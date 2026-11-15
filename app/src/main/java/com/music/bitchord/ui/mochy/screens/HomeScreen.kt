@@ -24,6 +24,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.Uri
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -1084,9 +1085,14 @@ fun HomeScreen(
         ArtistListCard(
             group = group,
             onClick = {
-                group.artistId?.let {
-                    ArtistPageCache.putPicks(it, group)
-                    navigator.navigate("artist/$it/similar")
+                val artistId = group.artistId
+                if (artistId != null) {
+                    ArtistPageCache.putPicks(artistId, group)
+                    navigator.navigate("artist/$artistId/similar")
+                } else {
+                    // no browse id (the seed artist came from a bare name):
+                    // search for the artist instead of leaving the tap dead
+                    navigator.navigate("search/${Uri.encode(group.artistName)}")
                 }
             },
             onItemClick = { item ->
@@ -1709,7 +1715,10 @@ fun HomeScreen(
                                             {
                                                 when {
                                                     endpoint.browseId == "FEmusic_moods_and_genres" ->
-                                                        navigator.navigate("mood_and_genres")
+                                                        // there is no mood_and_genres page (Mochy
+                                                        // never had one either): the moods &
+                                                        // genres grid lives on the Search tab
+                                                        navigator.navigateToTab("search")
                                                     endpoint.params != null ->
                                                         navigator.navigate("youtube_browse/${endpoint.browseId}?params=${endpoint.params}")
                                                     else ->

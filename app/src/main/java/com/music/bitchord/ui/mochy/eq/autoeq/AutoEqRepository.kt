@@ -88,7 +88,7 @@ class AutoEqRepository @Inject constructor(
                     .onSuccess { file.writeText(it) }
                     .onFailure { Timber.tag(Tag).w(it, "AutoEq index fetch failed") }
                     .getOrNull() ?: file.takeIf { it.exists() }?.readText()
-                    ?: throw IOException("Couldn't reach the AutoEq database")
+                    ?: throw IOException("Couldn't reach the headphone database")
             } else {
                 file.readText()
             }
@@ -114,8 +114,8 @@ class AutoEqRepository @Inject constructor(
     private fun download(url: String): String {
         val request = Request.Builder().url(url).header("User-Agent", "ChordWave").build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("AutoEq ${response.code} for $url")
-            return response.body?.string() ?: throw IOException("Empty AutoEq response")
+            if (!response.isSuccessful) throw IOException("Headphone database ${response.code} for $url")
+            return response.body?.string() ?: throw IOException("Empty headphone database response")
         }
     }
 
@@ -171,7 +171,7 @@ class AutoEqRepository @Inject constructor(
             val fi = header.indexOf("frequency")
             val ri = header.indexOf("raw")
             val ti = header.indexOf("target")
-            if (fi < 0 || ri < 0) throw IOException("Unreadable AutoEq measurement")
+            if (fi < 0 || ri < 0) throw IOException("Unreadable headphone measurement")
             val rows = lines.drop(1).mapNotNull { row ->
                 val cells = row.split(',')
                 val f = cells.getOrNull(fi)?.toDoubleOrNull() ?: return@mapNotNull null

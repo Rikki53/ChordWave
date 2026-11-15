@@ -42,9 +42,9 @@
     <string name="experimental_unlock_landscape_desc">Let the app turn sideways into its wide layout</string>
     <string name="experimental_unlock_landscape_detail">Off, the whole app stays upright however you hold your phone. On, it turns with your phone and lays pages out side by side. Still being worked on, so some screens may look off</string>
     <string name="experimental_stream_backend">Stream backend</string>
-    <string name="experimental_stream_backend_innertubex">InnerTubeX, then classic</string>
+    <string name="experimental_stream_backend_innertubex">New finder, then classic</string>
     <string name="experimental_stream_backend_classic">Classic only</string>
-    <string name="experimental_stream_backend_detail">How YouTube songs find their stream. InnerTubeX tries first, and anything it can\'t play goes to the classic finder, so songs keep playing either way. Classic only skips InnerTubeX. Tap to switch</string>
+    <string name="experimental_stream_backend_detail">How YouTube songs find their stream. The new finder tries first, and anything it can\'t play goes to the classic finder, so songs keep playing either way. Classic only skips the new finder. Tap to switch</string>
     <!-- Proxy -->
     <string name="proxy_intro">Send ChordWave\'s YouTube traffic through another server. It helps when YouTube blocks your network, or when YouTube Music isn\'t available where you live.</string>
     <string name="proxy_use">Use a proxy</string>

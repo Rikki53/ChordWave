@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.media3.exoplayer.offline.Download
+import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.Song as CwSong
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
@@ -92,8 +93,26 @@ fun MediaMetadata.toCwSong(): CwSong = CwSong(
     videoId = id,
     title = title,
     artist = artists.joinToString { it.name },
+    artists = artists.map { ArtistRef(name = it.name, browseId = it.id) },
     thumbnailUrl = thumbnailUrl,
+    durationText = duration.toDurationText(),
+    artistId = artists.firstOrNull()?.id,
     albumId = album?.id,
     albumName = album?.title,
     isVideo = isVideoSong,
+    setVideoId = setVideoId,
+    isExplicit = explicit,
+    localUri = localUri,
 )
+
+/**
+ * Mochy seconds ("-1 when unstated") as ChordWave's "M:SS" duration text —
+ * the `&d=` the playback URI carries for cross-source matching, and the
+ * duration the player shows before the stream reports its own. Null when
+ * the catalogue never stated one, so the match is made on title and artist
+ * alone rather than on a made-up length.
+ */
+private fun Int.toDurationText(): String? {
+    if (this <= 0) return null
+    return "${this / 60}:${(this % 60).toString().padStart(2, '0')}"
+}

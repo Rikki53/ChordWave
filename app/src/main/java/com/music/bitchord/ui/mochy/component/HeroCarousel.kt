@@ -871,7 +871,19 @@ private fun HeroPage(
 ) {
     val peek = LocalHeroPeek.current
     val tv = isTvLayout()
-    PageWipe(pageOffset = pageOffset, curve = wipeCurve, blur = edgeBlur, peek = peek) {
+    // the whole card is the tap target, not just the pill: tapping the
+    // artwork or the title plays (or opens) it, the same as the pill
+    PageWipe(
+        pageOffset = pageOffset,
+        curve = wipeCurve,
+        blur = edgeBlur,
+        peek = peek,
+        modifier = Modifier.clickable(
+            interactionSource = null,
+            indication = null,
+            onClick = onPrimaryClick,
+        ),
+    ) {
         HeroMedia(
             item = item,
             modifier = Modifier.pageMediaDrift(pageOffset, peek),
@@ -1815,7 +1827,20 @@ private fun GachaPage(
     }
 
     val peek = LocalHeroPeek.current
-    PageWipe(pageOffset = pageOffset, curve = wipeCurve, blur = transitionBlur, peek = peek) {
+    // the whole card rolls, not just the big cover and the pill: tapping
+    // the wash or the title does the same as the roll button
+    PageWipe(
+        pageOffset = pageOffset,
+        curve = wipeCurve,
+        blur = transitionBlur,
+        peek = peek,
+        modifier = Modifier.clickable(
+            interactionSource = null,
+            indication = null,
+            enabled = !rolling,
+            onClick = onRoll,
+        ),
+    ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize().pageMediaDrift(pageOffset, peek)) {
             val unit = maxHeight / GachaDesignHeight
             val focus = unit * GachaFocusSize

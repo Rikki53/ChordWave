@@ -1,30 +1,17 @@
 // Ported from Mochy Music (GPL-3.0): lyrics/LyricsProviderRegistry.kt (attribution half)
-// STATIC DATA ONLY: the open-source project behind a source (for the lyrics page's
-// "Star on GitHub" button) and the attribution website a source asks to be linked to.
+// STATIC DATA ONLY: the attribution website a source asks to be linked to.
 //
 // These live as extensions on the LyricsProviderRegistry object staged by
 // phase3-player-menus (which carries getDisplayName / getDefaultProviderOrder), so the
-// footer can call LyricsProviderRegistry.getProject(provider) exactly as in Mochy without
-// a second registry object. If the coordinator merges the two files, move these three
+// footer can call LyricsProviderRegistry.getWebsite(provider) exactly as in Mochy without
+// a second registry object. If the coordinator merges the two files, move these two
 // declarations into the object as members and drop the extension imports at the call site.
+//
+// NOTE: Mochy's getProject / "Star on GitHub" button was removed in the round-1 brand
+// audit (15 Nov 2026): the lyrics footer is ChordWave-only and no longer links out to
+// other projects' repos.
 
 package com.music.bitchord.ui.mochy.lyrics
-
-data class LyricsProject(val name: String, val repoUrl: String)
-
-/**
- * The open-source project behind a source, for the lyrics page's "Star on GitHub" button.
- * Only sources whose code is public: KuGou, NetEase, QQ Music, Deezer and YouTube are the
- * companies' own services, and Paxsenix hasn't published its server. SimpMusic's lyrics
- * server has no public repo of its own, so its star goes to the SimpMusic app.
- */
-fun LyricsProviderRegistry.getProject(name: String): LyricsProject? = when (name) {
-    "YouLyPlus"    -> LyricsProject("LyricsPlus", "https://github.com/ibratabian17/LyricsPlus")
-    "BetterLyrics" -> LyricsProject("Better Lyrics", "https://github.com/better-lyrics/better-lyrics")
-    "LrcLib"       -> LyricsProject("LRCLIB", "https://github.com/tranxuanthang/lrclib")
-    "SimpMusic"    -> LyricsProject("SimpMusic", "https://github.com/maxrave-dev/SimpMusic")
-    else           -> null
-}
 
 // lrc.red lets anyone use its lyrics as long as the app links back to it wherever they show.
 // (Mochy read this from com.music.directlyrics.LrcRed.BaseUrl; inlined here — verify the URL

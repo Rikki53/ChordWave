@@ -8,10 +8,9 @@
 // in-memory for the session).
 package com.music.bitchord.ui.mochy.extensions
 
-import android.os.Bundle
-import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC
+import com.music.bitchord.playback.toMediaItem
+import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.songedit.SongEdits
 
@@ -20,26 +19,27 @@ val MediaItem.metadata: MediaMetadata?
 
 fun MediaMetadata.toMediaItem(): MediaItem = SongEdits.applyTo(this).buildMediaItem()
 
-private fun MediaMetadata.buildMediaItem() = MediaItem.Builder()
-    .setMediaId(id)
-    .setUri(localUri ?: id)
-    .setCustomCacheKey(id)
-    .setTag(this)
-    .setMediaMetadata(
-        androidx.media3.common.MediaMetadata.Builder()
-            .setTitle(title)
-            .setSubtitle(artists.joinToString { it.name })
-            .setArtist(artists.joinToString { it.name })
-            .setArtworkUri(thumbnailUrl?.toUri())
-            .setAlbumTitle(album?.title)
-            .setAlbumArtist(artists.firstOrNull()?.name)
-            .setDisplayTitle(title)
-            .setMediaType(MEDIA_TYPE_MUSIC)
-            .setIsBrowsable(false)
-            .setIsPlayable(true)
-            .setExtras(Bundle().apply {
-                thumbnailUrl?.let { putString("artwork_uri", it) }
-            })
-            .build()
-    )
-    .build()
+/**
+ * The item ChordWave's engine actually plays: CW's own `Song.toMediaItem`
+ * (the `bitchord://watch?v=…` URI the service's stream resolver answers, the
+ * title/artist/runtime match tail, the download substitution and the full
+ * metadata + extras round-trip), tagged with this Mochy metadata so the
+ * queue filters ([com.music.bitchord.ui.mochy.playback.queues.filterExplicit],
+ * `filterVideoSongs`) and the swipe actions keep reading it.
+ *
+ * The old builder put the bare video id in as the URI. The resolver only
+ * answers URIs carrying a `v` query parameter (PlaybackService's
+ * streamResolver returns anything else unresolved), so an uncached track
+ * built that way errored on every attempt and only a cache hit played —
+ * until the cached bytes ran out, after which the same error left the
+ * player stuck with nothing on screen saying why. (Round 1, 15 Nov 2026.)
+ */
+private fun MediaMetadata.buildMediaItem(): MediaItem {
+    val metadata = this
+    return toCwSong()
+        .toMediaItem()
+        .buildUpon()
+        .setTag(metadata)
+        .setCustomCacheKey(id)
+        .build()
+}

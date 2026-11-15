@@ -3,10 +3,12 @@
 //
 // ADAPTATIONS: package + imports only (LocalPlayerAwareWindowInsets,
 // stableStatusBarsPadding, DESKTOP_USER_AGENT / WEB_PLAYER_QUERY_HEADER from
-// the CW ports). The bridge name "MochyCapture" and the page-side
-// __mochyHooked / __mochyQueries identifiers are kept verbatim: they live in
-// the web page, never shown to the user, and the adapter's account connectors
-// match on them.
+// the CW ports). The bridge name comes from the BRIDGE_NAME constant —
+// both injection sites (this file's HOOK_JS and AccountImportScreen's
+// finder script) interpolate it, so the page and the app always agree.
+// The page-side __mochyHooked / __mochyQueries identifiers are kept
+// verbatim: they live in the web page, never shown to the user, and the
+// adapter's account connectors match on them.
 //
 // DEPENDENCY: needs androidx.webkit:webkit 1.12.1 (Mochy's version) in BOTH
 // :app and :tv — CW does not declare it yet. See NEEDS.md.
@@ -73,7 +75,7 @@ import kotlinx.coroutines.delay
 import timber.log.Timber
 
 /** the page-side name of CaptureBridge, scripts the app runs in the page report through it too */
-internal const val BRIDGE_NAME = "MochyCapture"
+internal const val BRIDGE_NAME = "ChordWaveCapture"
 
 /** headers the web players send with their session: the token itself and spotify's client details */
 private val SESSION_HEADERS = setOf("authorization", "media-user-token", "client-token", "app-platform", "spotify-app-version")

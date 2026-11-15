@@ -167,6 +167,8 @@ import com.music.bitchord.ui.mochy.screens.update.rememberUpdateState
 import com.music.bitchord.ui.mochy.screens.update.showUpdateSheet
 import com.music.bitchord.ui.mochy.utils.dataStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -427,6 +429,11 @@ private fun MochyArtworkColorHost(
     }
 }
 
+/** How long an engine error must stand before the host shows it — long
+ *  enough for the service's retries (two recoveries, 350 ms apart) to clear
+ *  a hiccup, short enough that a stuck track is reported promptly. */
+private const val PlaybackErrorDebounceMs = 2_000L
+
 @Composable
 private fun MochyContent(
     navigator: MochyNavigator,
@@ -464,6 +471,32 @@ private fun MochyContent(
             if (!playerSheetState.isDismissed) playerSheetState.dismiss()
         } else if (playerSheetState.isDismissed) {
             playerSheetState.collapseSoft()
+        }
+    }
+
+    // Playback failures surface here, over the tab bar, through the same
+    // SnackbarHost the screens use. Engine errors are debounced: the
+    // service retries a failed stream (up to two recoveries, 350 ms apart),
+    // and each retry clears the error first — so a hiccup it recovers from
+    // never reaches the snackbar, and only an error still standing after
+    // the delay is a track that is actually stuck. Queue starts that fail
+    // outright (fetch threw, nothing to play) arrive on playFailure
+    // already worded, and show at once.
+    val hostContext = LocalContext.current
+    LaunchedEffect(connection, snackbarHostState) {
+        launch {
+            connection.error.collectLatest { err ->
+                if (err == null) return@collectLatest
+                delay(PlaybackErrorDebounceMs)
+                if (connection.error.value === err) {
+                    snackbarHostState.showSnackbar(hostContext.getString(R.string.couldnt_play_song))
+                }
+            }
+        }
+        launch {
+            connection.playFailure.collect { message ->
+                snackbarHostState.showSnackbar(message)
+            }
         }
     }
 
