@@ -78,6 +78,12 @@ fun LibraryGridScreen(
     onShuffle: () -> Unit,
     modifier: Modifier = Modifier,
     pureBlack: Boolean = false,
+    // the account library's load state (library pages only — shelf pages
+    // leave these at their defaults): a spinner while loading, the error +
+    // Retry after a failed load, instead of a bare empty state.
+    isLoading: Boolean = false,
+    loadFailed: Boolean = false,
+    onRetry: (() -> Unit)? = null,
 ) {
     var query by remember { mutableStateOf(TextFieldValue()) }
     val listState = rememberLazyListState()
@@ -113,7 +119,13 @@ fun LibraryGridScreen(
         }
 
         if (rows.isEmpty()) {
-            item(key = "empty") { LibraryEmptyState() }
+            item(key = "empty") {
+                when {
+                    isLoading -> LibraryLoadingState()
+                    loadFailed && onRetry != null -> LibraryErrorState(onRetry = onRetry)
+                    else -> LibraryEmptyState()
+                }
+            }
             return@LibraryScaffold
         }
 

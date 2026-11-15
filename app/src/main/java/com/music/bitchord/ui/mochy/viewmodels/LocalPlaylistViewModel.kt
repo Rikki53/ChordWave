@@ -37,8 +37,11 @@
 //   (menu-driven, not automatic — an automatic sync on every open would
 //   re-fetch a playlist the user may be offline for), and positions are
 //   re-numbered in memory after every mutation.
-// - The cover-refresh half (PlaylistCovers.refreshIfStale) is dropped:
-//   covers here come from the store / the server header, never generated.
+// - The cover-refresh half (PlaylistCovers.refreshIfStale) runs on the
+//   offline watch: a generated cover is redrawn when its top song or
+//   title has moved on, stored back via OfflinePlaylists.setCover, and
+//   the stale file removed. It is a no-op for picked pictures, server
+//   playlists and playlists with no cover.
 // - recordPlay() is a no-op: ChordWave has no playlist-event store.
 
 package com.music.bitchord.ui.mochy.viewmodels
@@ -49,6 +52,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.music.bitchord.data.OfflinePlaylist
 import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.download.Downloads
@@ -62,6 +66,8 @@ import com.music.bitchord.ui.mochy.models.PlaylistEntity
 import com.music.bitchord.ui.mochy.models.PlaylistSong
 import com.music.bitchord.ui.mochy.models.PlaylistSongMap
 import com.music.bitchord.ui.mochy.models.toMochyPlaylist
+import com.music.bitchord.ui.mochy.playlistcover.PlaylistCoverStore
+import com.music.bitchord.ui.mochy.playlistcover.PlaylistCovers
 import com.music.bitchord.ui.mochy.utils.dataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -207,6 +213,7 @@ class LocalPlaylistViewModel @Inject constructor(
                         _rawSongs.value = current.songs.mapIndexed { index, song ->
                             song.toPlaylistSong(id, index)
                         }.also { nextMapId = it.size }
+                        refreshCoverIfStale(current)
                     }
                 }
             }
@@ -269,6 +276,29 @@ class LocalPlaylistViewModel @Inject constructor(
     }
 
     /**
+     * Mochy's cover refresh: a generated cover is redrawn when its top song
+     * or title has moved on since it was made. Cheap when nothing changed -
+     * a filename parse, no artwork load - and it terminates: the redrawn
+     * cover carries the new keys, so the next watch emission finds nothing
+     * stale. Picked pictures and coverless playlists are left alone.
+     */
+    private fun refreshCoverIfStale(playlist: OfflinePlaylist) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val top = playlist.songs.firstOrNull()
+            val fresh = PlaylistCovers.refreshIfStale(
+                context = context,
+                playlistId = playlist.id,
+                thumbnailUrl = playlist.coverUrl,
+                title = playlist.title,
+                topSongId = top?.videoId,
+                artworkUrl = top?.thumbnailUrl,
+            ) ?: return@launch
+            OfflinePlaylists.setCover(playlist.browseId, fresh)
+            PlaylistCoverStore.deleteStale(context, playlist.id, fresh)
+        }
+    }
+
+    /**
      * REQUIRED ADDITION — Mochy's related row: every playlist except this
      * one. Local-file playlists from the store plus the account's own
      * YouTube playlists; the screen still does the shuffled().take(5).
@@ -296,6 +326,7 @@ class LocalPlaylistViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             if (isOfflinePlaylist) {
                 OfflinePlaylists.delete(OfflinePlaylists.PREFIX + id)
+                PlaylistCoverStore.deleteStale(context, id, null)
                 return@launch
             }
             val serverId = serverPlaylistId ?: return@launch

@@ -11,7 +11,15 @@
 //   Sources (Phase 5 restyle).
 // - Scrobble/Discord search entries link to settings/integrations (the root);
 //   sub-routes belong to the integrations worker.
-// - Profile page is out of scope, so the avatar is visual only for now.
+// - Profile page is out of scope, so the avatar opens the YouTube account
+//   page (youtube_sync) instead of a profile — Mochy's own placement for
+//   account access, and the account card below it is the visible sign-in
+//   entry point (round 2, item 2): signed out it goes straight to
+//   youtube_login, signed in it shows the account and opens youtube_sync.
+//   Both routes are registered in MochyApp; the login itself runs through
+//   CW's YtMusicLoginScreen + MainViewModel.onWebSession (see
+//   importsync/YouTubeLoginScreen.kt), and the signed-in state reads back
+//   from MainViewModel.account + auth.SignedIn — no dead wiring.
 // - ADDED: the Classic/Modern UiMode switch (Riki's dual-mode decision) as a
 //   card under the categories, using the same AppSettings.setUiMode mechanism
 //   as the classic settings sheet.
@@ -67,9 +75,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.UiMode
+import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.SettingsHighlight
@@ -83,6 +93,7 @@ import com.music.bitchord.ui.mochy.screens.search.rememberScrollCollapseProgress
 import com.music.bitchord.ui.mochy.screens.search.searchTopBarHeight
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.rememberPreference
+import com.music.bitchord.ui.mochy.utils.rememberYouTubeSignedIn
 
 private data class SettingsEntry(
     val title: String,
@@ -240,6 +251,7 @@ private val SettingsIndex = listOf(
     SettingsEntry("Now Playing", "Integrations", "integrations_settings", "scrobble now playing status profile lastfm librefm"),
     SettingsEntry("Send likes", "Integrations", "integrations_settings", "love loved songs lastfm librefm scrobble"),
     SettingsEntry("YouTube Music", "Integrations", "import_sync", "youtube ytm sync account sign in likes library playlists history"),
+    SettingsEntry("YouTube account", "Integrations", "youtube_sync", "account sign in login google youtube profile sync"),
 
     // Storage
     SettingsEntry("Storage", "Storage", "storage_settings", "space disk size cache downloads clear free junk delete"),
@@ -312,7 +324,11 @@ private val SettingsMarkSize = 32.dp
 private val IconBgColor = Color(0xFF333338)
 
 @Composable
-fun MochySettingsScreen(navigator: MochyNavigator, pane: SettingsPane? = null) {
+fun MochySettingsScreen(
+    navigator: MochyNavigator,
+    pane: SettingsPane? = null,
+    mainViewModel: MainViewModel = viewModel(),
+) {
     val focusManager = LocalFocusManager.current
     // on a wide screen the list stays put and its pages open beside it
     val open: (String) -> Unit = { route ->
@@ -323,6 +339,15 @@ fun MochySettingsScreen(navigator: MochyNavigator, pane: SettingsPane? = null) {
     val glassState = remember { GlassState() }
 
     val (profilePicUri) = rememberPreference(ProfilePicUriKey, "")
+
+    // The account card's state: SignedIn is the same process-wide flow
+    // MainViewModel.onWebSession writes after a successful login, and
+    // account carries the name/email it loaded — both update live, so the
+    // card shows the signed-in account as soon as the login screen pops.
+    val signedIn = rememberYouTubeSignedIn()
+    val account by mainViewModel.account.collectAsState()
+    val accountName = account?.name.orEmpty()
+    val accountEmail = account?.email.orEmpty()
 
     var query by remember { mutableStateOf(TextFieldValue()) }
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -462,6 +487,20 @@ fun MochySettingsScreen(navigator: MochyNavigator, pane: SettingsPane? = null) {
                         .fillMaxWidth()
                         .graphicsLayer { alpha = contentAlpha }
                 ) {
+                    // The account card: the visible sign-in entry point. Signed out
+                    // it goes straight to the login screen; signed in it shows
+                    // the account and opens the account/sync page.
+                    AccountCard(
+                        signedIn = signedIn,
+                        accountName = accountName,
+                        accountEmail = accountEmail,
+                        onClick = {
+                            if (signedIn) open("youtube_sync") else open("youtube_login")
+                        },
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
                     // Recommended Item Card
                     Box(
                         modifier = Modifier
@@ -658,9 +697,10 @@ fun MochySettingsScreen(navigator: MochyNavigator, pane: SettingsPane? = null) {
                         translationY = -(1f - collapseProgress) * lift
                     },
                     imageUrl = profilePicUri.ifBlank { null },
-                    // Profile is out of scope (MAPPING.md), so the avatar is visual
-                    // only until a profile page exists to open.
-                    onClick = {},
+                    // Profile is out of scope (MAPPING.md), so the avatar opens
+                    // the YouTube account page — Mochy's own placement for
+                    // account access, and the sign-in lives one tap from there.
+                    onClick = { open("youtube_sync") },
                 )
             },
         ) {
@@ -735,6 +775,76 @@ internal fun CategoryBubble(
                 fontSize = 17.sp,
                 color = Color.White,
             )
+        }
+    }
+}
+
+// the YouTube account card, in the same bubble style as the recommended
+// card above the categories: the signed-in name/email, or the sign-in
+// prompt when no account is connected.
+@Composable
+private fun AccountCard(
+    signedIn: Boolean,
+    accountName: String,
+    accountEmail: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(BubbleColor)
+            .clickable(onClick = onClick)
+            .padding(18.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(IconBgColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(if (signedIn) R.drawable.account else R.drawable.login),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = if (signedIn) {
+                        accountName.ifBlank { "Signed in" }
+                    } else {
+                        stringResource(R.string.settings_account_sign_in)
+                    },
+                    fontFamily = InterFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.White
+                )
+                Text(
+                    text = if (signedIn) {
+                        accountEmail.ifBlank { "YouTube Music" }
+                    } else {
+                        stringResource(R.string.settings_account_sign_in_desc)
+                    },
+                    fontFamily = InterFontFamily,
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.55f)
+                )
+            }
         }
     }
 }

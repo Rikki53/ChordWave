@@ -29,6 +29,8 @@ fun LibrarySongsScreen(
 ) {
     val viewModel: LibraryHomeViewModel = hiltViewModel()
     val songs by viewModel.songs.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val loadFailed by viewModel.loadFailed.collectAsState()
     val playerConnection = LocalPlayerConnection.current ?: return
     val menuState = LocalMenuState.current
 
@@ -66,6 +68,9 @@ fun LibrarySongsScreen(
         },
         modifier = modifier,
         pureBlack = pureBlack,
+        isLoading = isLoading,
+        loadFailed = loadFailed,
+        onRetry = viewModel::load,
         // left queues the song, right takes it out of the library (it's already in it)
         rowWrapper = { song, row ->
             SongSwipeBox(

@@ -34,6 +34,10 @@ fun LibraryRecentlyAddedScreen(
     val viewModel: LibraryHomeViewModel = hiltViewModel()
     // with the lifecycle: the Cached shelf looks at the cache every couple of seconds while watched
     val songs by (shelf?.let(viewModel::shelf)?.songs ?: viewModel.songs).collectAsStateWithLifecycle()
+    // the account load state only drives the library page — a shelf's
+    // songs come from its own source, not from the account fetch.
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
     val queueTitle = shelf?.label ?: "Recently added"
     val playerConnection = LocalPlayerConnection.current ?: return
 
@@ -70,5 +74,8 @@ fun LibraryRecentlyAddedScreen(
         onShuffle = { play(0, shuffle = true) },
         modifier = modifier,
         pureBlack = pureBlack,
+        isLoading = shelf == null && isLoading,
+        loadFailed = shelf == null && loadFailed,
+        onRetry = if (shelf == null) viewModel::load else null,
     )
 }

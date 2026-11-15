@@ -48,6 +48,8 @@ fun LibraryAlbumsScreen(
 
     val viewModel: LibraryHomeViewModel = hiltViewModel()
     val albums by viewModel.albums.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val loadFailed by viewModel.loadFailed.collectAsState()
     val entries = remember(albums) { albums.toGridEntries() }
 
     LibraryGridScreen(
@@ -63,6 +65,9 @@ fun LibraryAlbumsScreen(
         onShuffle = { albums.randomOrNull()?.let { navigator.navigate("album/${it.id}") } },
         modifier = modifier,
         pureBlack = pureBlack,
+        isLoading = isLoading,
+        loadFailed = loadFailed,
+        onRetry = viewModel::load,
     )
 }
 

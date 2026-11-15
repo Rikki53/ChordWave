@@ -62,6 +62,13 @@ fun <T> LibraryEntityListScreen(
     rowWrapper: @Composable (item: T, row: @Composable () -> Unit) -> Unit = { _, row -> row() },
     // shown at the end of the header, where the Library home has its avatar
     trailing: (@Composable () -> Unit)? = null,
+    // the account library's load state (library pages only — shelf and
+    // imported pages leave these at their defaults): while the library is
+    // still loading, a spinner instead of the empty state; after a failed
+    // load, the error + Retry instead of a bare "nothing to show here".
+    isLoading: Boolean = false,
+    loadFailed: Boolean = false,
+    onRetry: (() -> Unit)? = null,
 ) {
     var query by remember { mutableStateOf(TextFieldValue()) }
     val listState = rememberLazyListState()
@@ -129,7 +136,13 @@ fun <T> LibraryEntityListScreen(
             }
 
             if (rows.isEmpty()) {
-                item(key = "empty") { LibraryEmptyState() }
+                item(key = "empty") {
+                    when {
+                        isLoading -> LibraryLoadingState()
+                        loadFailed && onRetry != null -> LibraryErrorState(onRetry = onRetry)
+                        else -> LibraryEmptyState()
+                    }
+                }
                 return@LibraryScaffold
             }
 

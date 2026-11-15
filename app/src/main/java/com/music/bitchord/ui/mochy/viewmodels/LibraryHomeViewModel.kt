@@ -11,7 +11,10 @@
 // a manual refresh — the Library screens never call load(), and NEEDS.md
 // names no load args, so "inert until load()" would leave the tab empty
 // forever. Signed-out state clears the account-backed flows; signing in
-// later reloads them.
+// later reloads them. A failed load is surfaced, not swallowed: [isLoading]
+// and [loadFailed] let the screens tell loading, failed, signed-out and
+// genuinely-empty apart, and [refreshIfNeeded] retries a failed load when
+// the tab is opened again.
 
 package com.music.bitchord.ui.mochy.viewmodels
 
@@ -29,6 +32,7 @@ import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.SavedCollection
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.mochy.importer.ImportProgress
 import com.music.bitchord.ui.mochy.importer.ImportSource
@@ -44,8 +48,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -79,6 +83,25 @@ class LibraryHomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     // --- Library (account) --------------------------------------------------
+
+    /** Whether a YouTube account is signed in — the All tab's empty state depends on it. */
+    val signedIn: StateFlow<Boolean> = SignedIn.state(context)
+
+    private val _isLoading = MutableStateFlow(false)
+    /**
+     * True while an account load is in flight. The screens show a spinner
+     * instead of the empty state while this is true, so a slow first load
+     * never flashes "nothing here yet".
+     */
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _loadFailed = MutableStateFlow(false)
+    /**
+     * True when the last account load failed AND left no account data on
+     * screen. A failed reload over data already shown doesn't set it — the
+     * old lists stay, and the next tab visit retries quietly.
+     */
+    val loadFailed: StateFlow<Boolean> = _loadFailed.asStateFlow()
 
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
     /** Liked + added library songs, in feed order (CW rows carry no add date to sort by). */
@@ -147,6 +170,19 @@ class LibraryHomeViewModel @Inject constructor(
     // --- Shelves ------------------------------------------------------------
 
     private val _downloadedSongs = MutableStateFlow<List<Song>>(emptyList())
+
+    /** Every downloaded track, newest first — the Downloads card's count and covers. */
+    val downloadedSongs: StateFlow<List<Song>> = _downloadedSongs.asStateFlow()
+
+    /**
+     * Whole albums/playlists downloaded, still with tracks on disk —
+     * Classic's "On device" shelf (MainViewModel's downloadedReleases, same
+     * call). Recomputed whenever the collection record or the saved files
+     * change, so deleting the last track of a release drops its row.
+     */
+    val downloadedReleases: StateFlow<List<SavedCollection>> =
+        combine(Downloads.collections, Downloads.saved) { _, _ -> Downloads.savedReleases() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
      * Everything that plays from this device: songs downloaded for offline, audio files imported
@@ -282,28 +318,57 @@ class LibraryHomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Reloads only when the last account load failed — called when the
+     * Library tab is opened, so one failed cold start doesn't leave the tab
+     * empty until the app is killed. A healthy load is never repeated here.
+     */
+    fun refreshIfNeeded() {
+        if (_loadFailed.value) load()
+    }
+
     private suspend fun loadOnce() {
-        libraryResult = null
-        rebuildOfflinePlaylists(OfflinePlaylists.playlists.value)
-        refreshDownloadedSongs()
-        if (!SignedIn.state(context).value) {
-            clearAccountData()
-            return
+        _isLoading.value = true
+        try {
+            libraryResult = null
+            rebuildOfflinePlaylists(OfflinePlaylists.playlists.value)
+            refreshDownloadedSongs()
+            if (!SignedIn.state(context).value) {
+                clearAccountData()
+                _loadFailed.value = false
+                return
+            }
+            _loadFailed.value = false
+            val libraryLoaded = supervisorScope {
+                val libraryJob = async(Dispatchers.IO) { runLoader(::loadLibrary) }
+                val playlistsJob = async(Dispatchers.IO) { runLoader(::loadAccountPlaylists) }
+                val loaded = libraryJob.await()
+                playlistsJob.await()
+                loaded
+            }
+            // Failed only matters when it leaves the tab with nothing to
+            // show: a failed reload over data already on screen keeps the
+            // old lists, and the next tab visit retries quietly.
+            _loadFailed.value = !libraryLoaded &&
+                _songs.value.isEmpty() && _accountPlaylists.value.isEmpty()
+        } finally {
+            _isLoading.value = false
         }
-        supervisorScope {
-            launchSafely { loadLibrary() }
-            launchSafely { loadAccountPlaylists() }
-        }
+        // Artist pictures fill in after the lists are already on screen —
+        // up to 25 artist pages, one per artist, must never hold the
+        // loading spinner up.
         refreshArtistImages(_artistsBase.value)
     }
 
-    private fun CoroutineScope.launchSafely(block: suspend () -> Unit) = launch(Dispatchers.IO) {
-        try {
+    /** Runs one account loader, logging (not throwing) on failure so one feed failing doesn't take the other down. */
+    private suspend fun runLoader(block: suspend () -> Boolean): Boolean {
+        return try {
             block()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Timber.w(e, "Library: loader failed")
+            false
         }
     }
 
@@ -323,10 +388,10 @@ class LibraryHomeViewModel @Inject constructor(
         _accountPlaylists.value = emptyList()
     }
 
-    private suspend fun loadLibrary() {
+    private suspend fun loadLibrary(): Boolean {
         val page = libraryPage().getOrNull() ?: run {
             Timber.w("Library: library() failed, keeping previous")
-            return
+            return false
         }
         val liked = page.likedSongs.map { cw ->
             cw.toMochySong().let { song -> song.copy(song = song.song.copy(liked = true)) }
@@ -385,10 +450,31 @@ class LibraryHomeViewModel @Inject constructor(
             .map { entity -> Artist(artist = entity, songCount = counts[entity.id] ?: 0) }
             .sortedByDescending { it.songCount }
         _artistsBase.value = (shelfArtists + songArtists).distinctBy { it.id }
+
+        // Liked Music past the first page still reads as liked (Classic
+        // parity: MainViewModel.syncLikedMusic) — ids only, so syncing a
+        // long list stays cheap. Guarded per page: a sign-out mid-sync
+        // must stop rather than seed the old account's likes into the
+        // new session (sign-out clears LikeState).
+        page.likedContinuation?.let { token ->
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    YtMusicRepository.syncLikedMusic(token) { next ->
+                        if (!SignedIn.state(context).value) null
+                        else YtMusicRepository.moreSongs(next).getOrNull()
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.w(e, "Library: liked sync failed")
+                }
+            }
+        }
+        return true
     }
 
-    private suspend fun loadAccountPlaylists() {
-        YtMusicRepository.libraryPlaylists()
+    private suspend fun loadAccountPlaylists(): Boolean {
+        return YtMusicRepository.libraryPlaylists()
             .onSuccess { items ->
                 _accountPlaylists.value = items
                     .filterNot { it.browseId == YtMusicRepository.LIKED_MUSIC }
@@ -396,6 +482,7 @@ class LibraryHomeViewModel @Inject constructor(
                     .distinctBy { it.id }
             }
             .onFailure { Timber.w(it, "Library: libraryPlaylists() failed, keeping previous") }
+            .isSuccess
     }
 
     private fun rebuildOfflinePlaylists(all: List<OfflinePlaylist>) {

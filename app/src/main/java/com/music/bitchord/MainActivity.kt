@@ -69,6 +69,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudOff
@@ -4238,6 +4239,19 @@ private fun BitChordApp(
                                     Icon(
                                         Icons.Rounded.IosShare,
                                         contentDescription = stringResource(R.string.share),
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                            // One tap to the Modern interface, on Home at rest —
+                            // the visible switch Riki asked for (the full control
+                            // lives in Settings). Same mechanism as the settings
+                            // toggle; Modern settings switches back the same way.
+                            if (route == null && detail == null && selectedMoodGenre == null && selectedTab == TAB_HOME) {
+                                IconButton(onClick = { AppSettings.setUiMode(UiMode.MODERN) }) {
+                                    Icon(
+                                        Icons.Rounded.AutoAwesome,
+                                        contentDescription = stringResource(R.string.switch_to_modern),
                                         tint = MaterialTheme.colorScheme.onSurface,
                                     )
                                 }

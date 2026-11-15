@@ -78,6 +78,7 @@ import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
+import com.music.bitchord.ui.mochy.playlistcover.PlaylistCoverStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -188,8 +189,11 @@ fun PlaylistMenu(
                         onDismiss()
                         val browseId = playlist.playlist.browseId
                         when {
-                            browseId != null && OfflinePlaylists.isOfflinePlaylist(browseId) ->
+                            browseId != null && OfflinePlaylists.isOfflinePlaylist(browseId) -> {
                                 OfflinePlaylists.delete(browseId)
+                                // Its generated or picked cover is no use to anyone now.
+                                PlaylistCoverStore.deleteStale(context.applicationContext, playlist.playlist.id, null)
+                            }
                             browseId != null -> coroutineScope.launch {
                                 YtMusicRepository.deletePlaylist(browseId)
                             }

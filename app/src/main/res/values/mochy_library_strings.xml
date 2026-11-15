@@ -10,7 +10,11 @@
     <string name="library_albums_subtitle">Albums you saved, and the ones the songs you added come from.</string>
     <string name="library_all_search">Search your library</string>
     <string name="library_cached_search">Search your cached music</string>
+    <string name="library_downloaded">Downloaded</string>
     <string name="library_empty_import">Nothing here yet. Import your music above to fill your library.</string>
+    <string name="library_load_failed">Couldn\'t load your library. Check your connection and try again.</string>
+    <string name="library_sign_in_body">Your liked songs, playlists, artists and albums live in your YouTube account.</string>
+    <string name="library_sign_in_title">Sign in to see your library</string>
     <string name="library_imported_albums_subtitle">Albums with songs you imported from %1$s.</string>
     <string name="library_local_search">Search your local music</string>
     <string name="library_pinned">Pinned</string>

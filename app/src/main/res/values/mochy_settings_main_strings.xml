@@ -156,5 +156,7 @@
     <string name="video_quality_settings_desc">How sharp YouTube videos look</string>
     <string name="settings_ui_mode">Interface</string>
     <string name="settings_ui_mode_desc">Switch between the Classic look and the Modern look anytime.</string>
+    <string name="settings_account_sign_in">Sign in to YouTube</string>
+    <string name="settings_account_sign_in_desc">Playlists, likes and history stay in step</string>
     <string name="settings_floating_lyrics_unavailable">Floating lyrics aren’t available in ChordWave yet.</string>
 </resources>

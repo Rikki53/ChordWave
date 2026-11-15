@@ -14,8 +14,12 @@
 //   only (no privacy field), PRIVATE is the closest default. The
 //   local<->online link is LOST: no CW store holds the online browseId
 //   against the local playlist.
-// - Cover generation is skipped (the carousel engine is not ported); the
-//   success toast uses the top song's artwork as its thumbnail.
+// - Cover: the carousel's choice (or Gradient, Mochy's default) is drawn
+//   by PlaylistCovers.create and stored on the playlist via
+//   OfflinePlaylists.setCover; the success toast uses the new cover. The
+//   store mints the playlist id at create time, so the cover is made
+//   AFTER the create, with the carousel's pre-decided id passed as the
+//   palette seed so the stored cover matches the preview exactly.
 
 package com.music.bitchord.ui.mochy.component
 
@@ -36,6 +40,9 @@ import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.ui.mochy.constants.YtSyncNewPlaylistsKey
 import com.music.bitchord.ui.mochy.constants.YtmSyncKey
 import com.music.bitchord.ui.mochy.models.PlaylistEntity
+import com.music.bitchord.ui.mochy.playlistcover.CoverChoice
+import com.music.bitchord.ui.mochy.playlistcover.PlaylistCoverStyle
+import com.music.bitchord.ui.mochy.playlistcover.PlaylistCovers
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.utils.rememberYouTubeSignedIn
 import kotlinx.coroutines.Dispatchers
@@ -44,10 +51,10 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 /**
- * Creating a playlist, as a sheet (the "Create playlist" mock): a cover preview, then the title
- * and description. The name is kept for the old dialog this replaces; it is shown through the
- * app's popup system like every other sheet, and [onDismiss] is called once it has closed,
- * however it was closed.
+ * Creating a playlist, as a sheet (the "Create playlist" mock): a carousel of generated covers -
+ * or a picture of the user's own - then the title and description. The name is kept for the old
+ * dialog this replaces; it is shown through the app's popup system like every other sheet, and
+ * [onDismiss] is called once it has closed, however it was closed.
  *
  * @param topSongId the song the playlist is being made for, if there is one. It becomes the top
  *   song, so the covers take their colours from its [topSongArtworkUrl]; without one they take a
@@ -64,6 +71,7 @@ fun CreatePlaylistDialog(
 ) {
     val menuState = LocalMenuState.current
     val context = LocalContext.current
+    val appContext = context.applicationContext
 
     val isSignedIn = rememberYouTubeSignedIn()
     val syncNewPlaylists by rememberPreference(YtSyncNewPlaylistsKey, false)
@@ -119,10 +127,26 @@ fun CreatePlaylistDialog(
 
                                 val created = OfflinePlaylists.create(name)
 
+                                // The carousel's choice, or Mochy's default style; a failed
+                                // draw still leaves the user a playlist, just without a cover.
+                                val choice = form.choice ?: CoverChoice.Generated(PlaylistCoverStyle.GRADIENT_TOP)
+                                val cover = PlaylistCovers.create(
+                                    context = appContext,
+                                    playlistId = created.id,
+                                    title = name,
+                                    choice = choice,
+                                    topSongId = topSongId,
+                                    artworkUrl = topSongArtworkUrl,
+                                    seed = playlistId,
+                                )
+                                if (cover != null) {
+                                    OfflinePlaylists.setCover(created.browseId, cover)
+                                }
+
                                 withContext(Dispatchers.Main) {
                                     currentOnCreated?.invoke(created.id)
                                     sheet?.dismiss()
-                                    TopToaster.show("Successfully created the playlist", thumbnail = topSongArtworkUrl, iconRes = R.drawable.playlist_add)
+                                    TopToaster.show("Successfully created the playlist", thumbnail = cover ?: topSongArtworkUrl, iconRes = R.drawable.playlist_add)
                                 }
                             } catch (e: kotlinx.coroutines.CancellationException) {
                                 throw e

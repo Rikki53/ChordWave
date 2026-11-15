@@ -177,10 +177,11 @@ import kotlinx.coroutines.launch
  * (BitChordApp) is untouched and stays available through the Settings
  * toggle; this host grows screen by screen as the clone lands.
  *
- * Phase 2: the real tab host — MochyNavigator state drives Home, Search
- * and Library (all ported) + the Settings placeholder, the ported
- * AppNavigationBar, the menu sheet host, and the full detail routing
- * (album/artist/playlist/library/history/browse).
+ * Phase 2: the real tab host — MochyNavigator state drives the five
+ * Classic-parity tabs (Home, Explore, Library, Search, Radio), the
+ * ported AppNavigationBar, the menu sheet host, and the full detail
+ * routing (album/artist/playlist/library/history/browse). Settings is
+ * not a tab: it opens as a detail from the profile avatar.
  *
  * Phase 3 (adapter-host): the player joins. The host creates the
  * [BottomSheetState] (Mochy's bounds: dismissed 0, collapsed at the nav bar
@@ -534,15 +535,25 @@ private fun MochyContent(
                         navigator = navigator,
                         snackbarHostState = snackbarHostState,
                     )
-                    currentTab == 1 -> SearchScreen(
-                        navigator = navigator,
-                        pureBlack = pureBlack,
-                    )
+                    // Classic's set and order (round 2, item 7): Home,
+                    // Explore, Library, Search, Radio. Settings is not a
+                    // tab — it opens as a detail from the profile avatar.
+                    currentTab == 1 -> ExploreScreen(navigator = navigator)
                     currentTab == 2 -> LibraryHomeScreen(
                         navigator = navigator,
                         pureBlack = pureBlack,
                     )
-                    else -> MochySettingsScreen(navigator = navigator)
+                    currentTab == 3 -> SearchScreen(
+                        navigator = navigator,
+                        pureBlack = pureBlack,
+                    )
+                    currentTab == 4 -> RadioScreen(navigator = navigator)
+                    // No tab at that index (should not happen): Home, the
+                    // first tab, rather than a blank page.
+                    else -> HomeScreen(
+                        navigator = navigator,
+                        snackbarHostState = snackbarHostState,
+                    )
                 }
             }
         }
@@ -640,9 +651,9 @@ private fun DetailContent(
                 pureBlack = pureBlack,
             )
         }
-        // No entry point navigates here yet (Mochy has an Explore tab;
-        // Modern has none) — the route is wired so a future entry (a Home
-        // section or Search tile) only needs to navigate to "explore".
+        // Explore is a tab now (round 2, item 7 — Classic parity), so
+        // navigate("explore") switches to it instead of pushing; this
+        // branch stays as the safety net for a stacked "explore" route.
         route == "explore" -> ExploreScreen(navigator = navigator)
         route.startsWith("library/imported/") -> {
             val rest = route.removePrefix("library/imported/")
@@ -840,6 +851,9 @@ private fun DetailContent(
         // ---- ChordWave-only restyles (Phase 5) ----
         route == "listen_together" -> ListenTogetherScreen(navigator = navigator)
         route == "sources" -> SourcesScreen(navigator = navigator)
+        // Radio is a tab now (round 2, item 7 — Classic parity), so
+        // navigate("radio") switches to it instead of pushing; this branch
+        // stays as the safety net for a stacked "radio" route.
         route == "radio" -> RadioScreen(navigator = navigator)
         route == "replay" -> ReplayScreen(navigator = navigator)
         route == "karaoke_remote" -> KaraokeRemoteScreen(navigator = navigator)

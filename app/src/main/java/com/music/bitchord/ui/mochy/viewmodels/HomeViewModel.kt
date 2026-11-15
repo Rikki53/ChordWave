@@ -9,6 +9,13 @@
 // and speedDialItems is built from keepListening + stats quick picks with no
 // pin store.
 //
+// Round 2 item 6 (15 Nov 2026, Classic Home parity): the home feed ALSO
+// merges ChordWave's supplements (New releases + Explore) the way Classic's
+// loadHome() does; Top Picks for You is built here via TopPicks.build with
+// an hourly file cache; and Recently Played / last-played fall back to the
+// signed-in server history when this install has no local plays yet (a
+// fresh install's local chart is empty, but YouTube still knows).
+//
 // Every member HomeScreen reads (phase2-home-screen NEEDS.md §(a) A1) is
 // exposed here with the declared name and type; the checklist in this dir's
 // NEEDS.md ticks them off one by one.
@@ -20,12 +27,16 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.auth.SignedIn
+import com.music.bitchord.data.AppleArtistPhotos
 import com.music.bitchord.data.OfflinePlaylists
+import com.music.bitchord.data.TopPicks
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.ArtistPage
+import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.HomeFeed
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LibraryPage
+import com.music.bitchord.data.model.TopPick
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.stats.RankedEntry
 import com.music.bitchord.data.stats.ReplayPeriod
@@ -71,7 +82,9 @@ import com.music.bitchord.ui.mochy.utils.VideoShelf
 import com.music.bitchord.ui.mochy.utils.dataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -95,6 +108,12 @@ import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
+
+/** Top Picks' hourly cache. A separate file from Classic's top_picks_v4.json:
+ * the listener key there is MainViewModel's private accountId:profileId,
+ * which this adapter cannot compute, so sharing the file would fail the
+ * listener check on every read. Same format, same hour-slot rule. */
+private const val TOP_PICKS_MODERN_FILE = "top_picks_modern_v4.json"
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -285,6 +304,16 @@ class HomeViewModel @Inject constructor(
 
     val accountName = MutableStateFlow("Guest")
     val accountImageUrl = MutableStateFlow<String?>(null)
+
+    // --- Top Picks for You (round 2 item 6: Classic Home parity) -------------
+    // Null while no row has ever been built; empty when there is nothing to
+    // pick from. A row lasts one hour of the clock, like Classic's.
+    val topPicks = MutableStateFlow<List<TopPick>?>(null)
+    private val _topPicksLoading = MutableStateFlow(false)
+    val topPicksLoading: StateFlow<Boolean> = _topPicksLoading
+
+    /** The signed-in account's email, or null signed out — the cache's listener key. */
+    private var accountEmail: String? = null
 
     // --- Per-load stats snapshots (local phase fills, network phase reuses) ---
     private var monthSummary: ReplaySummary? = null
@@ -769,13 +798,123 @@ class HomeViewModel @Inject constructor(
             continuation = continuation,
         )
 
-    private suspend fun loadHomeFeed() {
-        // No supplements merge, no recents-prepend (§7.7): Mochy fidelity,
-        // the raw FEmusic_home feed. No songVersionsOf in v1 (per-song
-        // resolveAudio is too expensive across a whole feed).
-        YtMusicRepository.home()
-            .onSuccess { feed -> homePage.value = feed.toHomePage() }
-            .onFailure { Timber.w(it, "Home: home() failed, keeping previous feed") }
+    private suspend fun loadHomeFeed(): List<HomeShelf> = coroutineScope {
+        // Classic's loadHome() merges the supplements (New releases +
+        // Explore) into the feed; Modern does the same since round 2 item 6,
+        // so no Classic shelf is missing here. No songVersionsOf in v1
+        // (per-song resolveAudio is too expensive across a whole feed).
+        // Returns the core feed's shelves: TopPicks reads its mixes off them.
+        val homeAsync = async { YtMusicRepository.home().getOrNull() }
+        val supplementAsync = YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.map { browseId ->
+            async { YtMusicRepository.homeSupplement(browseId).getOrNull().orEmpty() }
+        }
+        val feed = homeAsync.await()
+        if (feed == null) {
+            Timber.w("Home: home() failed, keeping previous feed")
+            return@coroutineScope emptyList()
+        }
+        val core = feed.toHomePage()
+        val seenTitles = core.sections.mapTo(HashSet()) { it.title.lowercase() }
+        val extra = supplementAsync.awaitAll().flatten()
+            .mapNotNull { toFilteredSection(it) }
+            .filter { seenTitles.add(it.title.lowercase()) }
+        homePage.value = core.copy(sections = core.sections + extra)
+        feed.shelves
+    }
+
+    // --- Top Picks for You ----------------------------------------------------
+
+    /** This app's own Replay chart for the month — Top Picks' second opinion, and all it has signed out. */
+    private fun localTaste(): TopPicks.LocalTaste {
+        val month = monthSummary ?: return TopPicks.LocalTaste()
+        return TopPicks.LocalTaste(
+            artists = month.artists.take(10).map { ArtistRef(name = it.title, browseId = it.browseId) },
+            songs = month.songs.take(5).map { it.song },
+            genres = month.genres.take(3).map { it.title },
+        )
+    }
+
+    /** Which hour of the clock [now] falls in: the date and the hour, 00 to 23. */
+    private fun topPicksSlot(now: LocalDateTime = LocalDateTime.now()): String =
+        "${now.toLocalDate()}T%02d".format(now.hour)
+
+    /**
+     * Puts the Top Picks row on screen. A row lasts one hour of the clock —
+     * 3:00 to 4:00, not sixty minutes from whenever it was first built — and
+     * the first load in a new hour builds the next one. Until that's ready
+     * the last row stays up, so Home never waits on it; within the hour a
+     * load makes no requests for it at all. Mirrors MainViewModel's
+     * loadTopPicks, with this adapter's own cache file (see
+     * TOP_PICKS_MODERN_FILE).
+     */
+    private suspend fun loadTopPicks(homeShelves: List<HomeShelf>) {
+        loadAccount() // the listener key, before the cache is read
+        val listener = accountEmail
+        val slot = topPicksSlot()
+        val file = File(context.filesDir, TOP_PICKS_MODERN_FILE)
+        val stored = runCatching { file.takeIf { it.exists() }?.readText() }.getOrNull()
+            ?.let(TopPicks::decode)
+            ?.takeIf { it.listener == listener && it.picks.isNotEmpty() }
+        stored?.let { AppleArtistPhotos.seed(it.photos) }
+        if (stored != null) {
+            topPicks.value = stored.picks
+        } else {
+            topPicks.value = null
+        }
+        if (stored?.day == slot) {
+            _topPicksLoading.value = false
+            return
+        }
+        _topPicksLoading.value = topPicks.value == null
+        val picks = try {
+            TopPicks.build(homeShelves, localTaste())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "Home: topPicks build failed")
+            null
+        }?.takeIf { it.isNotEmpty() }
+        if (accountEmail != listener) {
+            // the account changed mid-build; the next load owns it
+            _topPicksLoading.value = false
+            return
+        }
+        _topPicksLoading.value = false
+        if (picks == null) {
+            if (topPicks.value == null) topPicks.value = emptyList()
+            return
+        }
+        topPicks.value = picks
+        runCatching {
+            file.writeText(
+                TopPicks.encode(
+                    TopPicks.Stored(listener, slot, picks, AppleArtistPhotos.snapshot()),
+                ),
+            )
+        }
+    }
+
+    // --- Server-history fallback ----------------------------------------------
+
+    /**
+     * Recently Played's fallback: a fresh install has no local plays, so the
+     * local phase leaves the section empty — but the signed-in server history
+     * still knows what the listener played, on this phone and elsewhere. Only
+     * fills what the local phase left empty; the local chart stays the source
+     * of truth once this install has played anything. Also seeds the hero's
+     * last-played song the same way. No-op signed out.
+     */
+    private suspend fun loadServerRecentsFallback() {
+        if (!SignedIn.state(context).value) return
+        if (!recentlyPlayed.value.isNullOrEmpty()) return
+        val recent = YtMusicRepository.recentHistory().getOrNull().orEmpty()
+        if (recent.isEmpty()) return
+        if (recentlyPlayed.value.isNullOrEmpty()) {
+            recentlyPlayed.value = recent.take(15).map { it.toMochySong() }
+        }
+        if (_lastPlayedSong.value == null) {
+            _lastPlayedSong.value = recent.firstOrNull()?.toMochyMetadata()
+        }
     }
 
     // --- Account ------------------------------------------------------------
@@ -784,6 +923,7 @@ class HomeViewModel @Inject constructor(
         YtMusicRepository.account()
             .onSuccess {
                 accountName.value = it.name
+                accountEmail = it.email
                 accountImageUrl.value = it.thumbnailUrl
             }
             .onFailure { Timber.w(it, "Home: account() failed") }
@@ -825,13 +965,19 @@ class HomeViewModel @Inject constructor(
         // (that took whole sections down with it), and an unexpected throw
         // shouldn't reach the crash handler
         supervisorScope {
-            launchSafely { loadHomeFeed() }
+            // Top Picks reads its mixes off the feed's shelves, so it runs
+            // right after the feed lands, in the same task.
+            launchSafely {
+                val shelves = loadHomeFeed()
+                loadTopPicks(shelves)
+            }
             launchSafely { getDailyDiscover() }
             launchSafely { getCommunityPlaylists() }
             launchSafely { loadSimilarRecommendations() }
             launchSafely { loadArtistVideos() }
             launchSafely { loadAccountPlaylists() }
             launchSafely { loadLibraryArtists() }
+            launchSafely { loadServerRecentsFallback() }
         }
 
         allYtItems.value = similarRecommendations.value?.flatMap { it.items }.orEmpty() +
@@ -1009,7 +1155,9 @@ class HomeViewModel @Inject constructor(
 
         // distinct, so any other state write no longer re-fetches the account.
         // the first load() fetches the account playlists itself; a later
-        // sign-in has to do it here.
+        // sign-in has to do it here. A sign-in/out after the first emission
+        // reloads Home outright: the feed, the recents fallback and Top
+        // Picks all depend on who is signed in.
         viewModelScope.launch(Dispatchers.IO) {
             var isFirstSignedIn = true
             SignedIn.state(context).collect { signedIn ->
@@ -1017,11 +1165,17 @@ class HomeViewModel @Inject constructor(
                 isFirstSignedIn = false
                 if (signedIn) {
                     loadAccount()
-                    if (signedInLater) loadAccountPlaylists()
+                    if (signedInLater) {
+                        loadAccountPlaylists()
+                        load()
+                    }
                 } else {
                     accountName.value = "Guest"
+                    accountEmail = null
                     accountImageUrl.value = null
                     accountPlaylists.value = null
+                    topPicks.value = null
+                    if (signedInLater) load()
                 }
             }
         }

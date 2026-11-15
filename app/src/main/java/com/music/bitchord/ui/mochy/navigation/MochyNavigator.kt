@@ -33,11 +33,13 @@ class MochyNavigator {
     val currentDetail: String? get() = _detailStack.value.lastOrNull()
 
     /** Opens a Mochy route over the current tab. Tab routes ("home",
-     *  "search"/"search_input", "library", "settings") switch tabs instead
-     *  of pushing. */
+     *  "explore", "search"/"search_input", "library", "radio") switch tabs
+     *  instead of pushing; "settings" also routes here, and [navigateToTab]
+     *  opens the settings page as a detail, since Classic parity leaves
+     *  the bar without a Settings tab. */
     fun navigate(route: String) {
         when (route) {
-            "home", "search", "search_input", "library", "settings" -> navigateToTab(route)
+            "home", "explore", "search", "search_input", "library", "radio", "settings" -> navigateToTab(route)
             else -> {
                 if (_detailStack.value.lastOrNull() == route) return
                 _detailStack.value = _detailStack.value + route
@@ -48,13 +50,26 @@ class MochyNavigator {
     /** Switches tab and clears any open detail pages (Mochy's
      *  AppNavigation.navigateToTab behavior). Takes a route string, like
      *  Mochy's — the nav bar passes Screens.*.route. Tab order follows
-     *  Screens.MainScreens: Home 0, Search 1, Library 2, Settings 3. */
+     *  Screens.MainScreens (Classic's set and order): Home 0, Explore 1,
+     *  Library 2, Search 3, Radio 4.
+     *
+     *  "settings" is not a tab — Classic has no Settings tab — but the
+     *  profile avatar in Home/Search/Library/Artist still calls
+     *  navigateToTab("settings"), so it opens the settings page as a
+     *  detail over the current tab instead: fresh, any open details
+     *  closed first, as a tab switch would have. Back from it returns
+     *  to the tab it was opened from. */
     fun navigateToTab(route: String) {
+        if (route == "settings") {
+            _detailStack.value = listOf("mochy_settings")
+            return
+        }
         val index = when (route) {
             "home" -> 0
-            "search", "search_input" -> 1
+            "explore" -> 1
             "library" -> 2
-            "settings" -> 3
+            "search", "search_input" -> 3
+            "radio" -> 4
             else -> return
         }
         navigateToTabIndex(index)

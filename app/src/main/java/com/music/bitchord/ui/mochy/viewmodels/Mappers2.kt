@@ -139,7 +139,9 @@ fun TrackEntry.toCwSong(): CwSong =
  * A local-file playlist as a Mochy Playlist. The id is the store's own id
  * (incl. "liked" for the built-in liked-songs list), which is what
  * HomeViewModel.playlistSongs() resolves it by. Editable stays true:
- * HomeScreen's hero picks only offer editable, non-empty playlists.
+ * HomeScreen's hero picks only offer editable, non-empty playlists. The
+ * thumbnail is the cover the user picked in the Modern cover picker, or
+ * the first song's artwork when there is none.
  */
 fun OfflinePlaylist.toMochyPlaylist(): Playlist =
     Playlist(
@@ -147,7 +149,7 @@ fun OfflinePlaylist.toMochyPlaylist(): Playlist =
             id = id,
             name = title,
             browseId = browseId,
-            thumbnailUrl = songs.firstOrNull()?.thumbnailUrl,
+            thumbnailUrl = coverUrl ?: songs.firstOrNull()?.thumbnailUrl,
         ),
         songCount = songs.size,
         songThumbnails = songs.take(4).map { it.thumbnailUrl },

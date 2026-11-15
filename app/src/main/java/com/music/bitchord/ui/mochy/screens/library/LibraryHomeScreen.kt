@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
+import com.music.bitchord.download.SavedCollection
 import com.music.bitchord.ui.mochy.player.menu.rememberResyncAll
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.R
@@ -76,12 +78,21 @@ fun LibraryHomeScreen(
     val albums by viewModel.albums.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val likedSongs by viewModel.likedSongs.collectAsState()
+    val downloadedSongs by viewModel.downloadedSongs.collectAsState()
+    val downloadedReleases by viewModel.downloadedReleases.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val loadFailed by viewModel.loadFailed.collectAsState()
+    val signedIn by viewModel.signedIn.collectAsState()
     val importedSources by viewModel.importedSources.collectAsState()
     val playlistSources by viewModel.playlistSources.collectAsState()
     val importedAlbums by viewModel.importedAlbums.collectAsState()
     val importProgress by viewModel.importProgress.collectAsState()
     val downloads by importViewModel.downloads.collectAsState()
     val localImports by importViewModel.localImports.collectAsState()
+
+    // A failed load retries when the tab is opened again — the one path
+    // that recovers a cold start whose first fetch never made it.
+    LaunchedEffect(Unit) { viewModel.refreshIfNeeded() }
 
     var tab by rememberSaveable { mutableStateOf(LibraryTab.All) }
     // only the open tab's shelf is collected; null while it is first read
@@ -119,6 +130,19 @@ fun LibraryHomeScreen(
     val openImportProgress = { navigator.navigate("import_progress") }
     val resyncAll = rememberResyncAll(navigator)
     val openTransfer = { kind: TransferKind -> menuState.showTransferSheet(kind, importViewModel) }
+
+    // A downloaded release plays its own tracks, in the order the page
+    // listed them — the release record is what says which songs are its.
+    // A release whose tracks were all deleted has no rows to begin with
+    // (downloadedReleases only keeps releases with tracks on disk).
+    val onPlayRelease: (SavedCollection) -> Unit = { release ->
+        val ordered = release.videoIds.mapNotNull { id -> downloadedSongs.firstOrNull { it.id == id } }
+        if (ordered.isNotEmpty()) {
+            playerConnection?.playQueue(
+                ListQueue(title = release.title, items = ordered.map { it.toMediaItem() }),
+            )
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LibraryScaffold(
@@ -180,6 +204,11 @@ fun LibraryHomeScreen(
                         playlists = playlists.size,
                         playlistCovers = playlists.take(2).flatMap { it.thumbnails },
                         likedSongs = likedSongs,
+                        downloadedSongs = downloadedSongs,
+                        downloadedReleases = downloadedReleases,
+                        isLoading = isLoading,
+                        loadFailed = loadFailed,
+                        signedIn = signedIn,
                         importBanner = {
                             LibraryImportBanner(
                                 progress = importProgress,
@@ -190,6 +219,9 @@ fun LibraryHomeScreen(
                         },
                         onOpen = { item -> openLibraryItem(item, navigator, playerConnection, songs) },
                         onUnpin = viewModel::unpin,
+                        onRetry = viewModel::load,
+                        onSignIn = { navigator.navigate("youtube_login") },
+                        onPlayRelease = onPlayRelease,
                         navigator = navigator,
                     )
                 }
@@ -282,9 +314,17 @@ private fun LazyListScope.libraryAllTab(
     playlists: Int,
     playlistCovers: List<String?>,
     likedSongs: List<Song>,
+    downloadedSongs: List<Song>,
+    downloadedReleases: List<SavedCollection>,
+    isLoading: Boolean,
+    loadFailed: Boolean,
+    signedIn: Boolean,
     importBanner: @Composable () -> Unit,
     onOpen: (YTItem) -> Unit,
     onUnpin: (String) -> Unit,
+    onRetry: () -> Unit,
+    onSignIn: () -> Unit,
+    onPlayRelease: (SavedCollection) -> Unit,
     navigator: MochyNavigator,
 ) {
     // Even in a library with nothing in it - that is when it matters most. Opens the import sheet,
@@ -294,9 +334,26 @@ private fun LazyListScope.libraryAllTab(
         Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // A completely empty library gets one honest message instead of four zero-count cards.
-    if (songs.isEmpty() && albums == 0 && artists == 0 && playlists == 0 && pinnedItems.isEmpty()) {
-        item(key = "empty") { LibraryEmptyState(text = stringResource(R.string.library_empty_import)) }
+    // Account data (liked songs, playlists, albums, artists) vs what's on
+    // this phone (downloads): the two arrive on different paths, so the
+    // tab's state is decided by both, not by either alone.
+    val hasAccountData = songs.isNotEmpty() || albums > 0 || artists > 0 || playlists > 0 || pinnedItems.isNotEmpty()
+    val hasLocalData = downloadedSongs.isNotEmpty() || downloadedReleases.isNotEmpty()
+
+    // Nothing at all yet: one honest state, not four zero-count cards.
+    // Loading, failed, signed-out and genuinely-empty are four different
+    // things, and the tab used to show the same "import your music" line
+    // for all of them — including while the first fetch was still running
+    // and after it had failed, with no way to retry.
+    if (!hasAccountData && !hasLocalData) {
+        item(key = "library_state") {
+            when {
+                isLoading -> LibraryLoadingState()
+                loadFailed -> LibraryErrorState(onRetry = onRetry)
+                !signedIn -> LibrarySignedOutState(onSignIn = onSignIn)
+                else -> LibraryEmptyState(text = stringResource(R.string.library_empty_import))
+            }
+        }
         return
     }
 
@@ -338,18 +395,30 @@ private fun LazyListScope.libraryAllTab(
         }
     }
 
-    item(key = "categories") {
-        LibraryCardGrid(
-            listOf(
-                LibraryCardEntry(stringResource(R.string.songs), songs.size, songs.take(4).map { it.song.thumbnailUrl }, {
-                    navigator.navigate("library/songs")
-                }),
-                LibraryCardEntry(stringResource(R.string.playlists), playlists, playlistCovers, { navigator.navigate("library/playlists") }),
-                LibraryCardEntry(stringResource(R.string.albums), albums, albumCovers, { navigator.navigate("library/albums") }),
-                LibraryCardEntry(stringResource(R.string.artists), artists, artistCovers, { navigator.navigate("library/artists") }, roundCovers = true),
-            ),
-        )
-        Spacer(modifier = Modifier.height(10.dp))
+    // The four category cards only once the account library has landed:
+    // while it is still loading, a spinner holds their place so four
+    // 0-count cards never flash — and a failed or signed-out load says so
+    // here instead, above the downloads that did arrive.
+    if (hasAccountData) {
+        item(key = "categories") {
+            LibraryCardGrid(
+                listOf(
+                    LibraryCardEntry(stringResource(R.string.songs), songs.size, songs.take(4).map { it.song.thumbnailUrl }, {
+                        navigator.navigate("library/songs")
+                    }),
+                    LibraryCardEntry(stringResource(R.string.playlists), playlists, playlistCovers, { navigator.navigate("library/playlists") }),
+                    LibraryCardEntry(stringResource(R.string.albums), albums, albumCovers, { navigator.navigate("library/albums") }),
+                    LibraryCardEntry(stringResource(R.string.artists), artists, artistCovers, { navigator.navigate("library/artists") }, roundCovers = true),
+                ),
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+    } else if (isLoading) {
+        item(key = "categories_loading") { LibraryLoadingState() }
+    } else if (loadFailed) {
+        item(key = "categories_failed") { LibraryErrorState(onRetry = onRetry) }
+    } else if (!signedIn) {
+        item(key = "categories_signed_out") { LibrarySignedOutState(onSignIn = onSignIn) }
     }
 
     if (songs.isNotEmpty()) {
@@ -376,6 +445,45 @@ private fun LazyListScope.libraryAllTab(
                 art = { LikedCover(it) },
                 modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
             )
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+    }
+
+    // Downloads: every downloaded track in one card (Classic's Downloads
+    // folder), then the releases downloaded whole (Classic's "On device"
+    // shelf) — each playing its own tracks. Downloads live on this phone,
+    // so they show with or without a signed-in account.
+    if (downloadedSongs.isNotEmpty()) {
+        item(key = "downloads") {
+            LibraryWideCard(
+                title = stringResource(R.string.downloads),
+                count = downloadedSongs.size,
+                covers = downloadedSongs.take(4).map { it.song.thumbnailUrl },
+                onClick = { navigator.navigate("auto_playlist/downloaded") },
+                sharedElementKey = "playlist-downloaded",
+                modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+    }
+
+    if (downloadedReleases.isNotEmpty()) {
+        item(key = "downloaded_releases") {
+            Spacer(modifier = Modifier.height(16.dp))
+            LibrarySectionTitle(stringResource(R.string.library_downloaded))
+            Spacer(modifier = Modifier.height(8.dp))
+            downloadedReleases.forEach { release ->
+                LibraryListRow(
+                    title = release.title,
+                    // The credit the release was downloaded with (Classic's
+                    // rule); a playlist with none still says what it is.
+                    subtitle = release.subtitle.takeIf { it.isNotBlank() }
+                        ?: if (release.playlist) stringResource(R.string.downloaded_playlist) else null,
+                    thumbnailUrl = release.thumbnailUrl,
+                    onClick = { onPlayRelease(release) },
+                    onLongClick = {},
+                )
+            }
         }
     }
 

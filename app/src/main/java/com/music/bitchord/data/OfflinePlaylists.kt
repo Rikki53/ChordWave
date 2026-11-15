@@ -31,6 +31,13 @@ data class OfflinePlaylist(
     val title: String,
     /** In the order they were added; the newest like first for [LIKED_ID]. */
     val songs: List<Song>,
+    /**
+     * The playlist's cover, as the Modern UI's generated-cover picker
+     * (ui/mochy/playlistcover) wrote it: a file:// URL under
+     * filesDir/playlist_covers, or null to fall back to the first song's
+     * artwork. Persisted as "cover" in the JSON document.
+     */
+    val coverUrl: String? = null,
 ) {
     val browseId: String get() = OfflinePlaylists.PREFIX + id
     val isLiked: Boolean get() = id == OfflinePlaylists.LIKED_ID
@@ -162,6 +169,13 @@ object OfflinePlaylists {
         mutate { list -> list.map { if (it.id == id) it.copy(title = title.trim()) else it } }
     }
 
+    /** Sets (or, with null, clears) the playlist's cover; Liked keeps its heart. */
+    fun setCover(browseId: String, coverUrl: String?) {
+        val id = browseId.removePrefix(PREFIX)
+        if (id == LIKED_ID) return
+        mutate { list -> list.map { if (it.id == id) it.copy(coverUrl = coverUrl) else it } }
+    }
+
     fun delete(browseId: String) {
         val id = browseId.removePrefix(PREFIX)
         if (id == LIKED_ID) return
@@ -212,6 +226,7 @@ object OfflinePlaylists {
                     id = obj.getString("id"),
                     title = obj.optString("title"),
                     songs = (0 until songs.length()).mapNotNull { songFrom(songs.getJSONObject(it)) },
+                    coverUrl = if (obj.isNull("cover")) null else obj.optString("cover").takeIf { it.isNotEmpty() },
                 )
             }
         }.getOrElse {
@@ -230,6 +245,7 @@ object OfflinePlaylists {
                     JSONObject()
                         .put("id", playlist.id)
                         .put("title", playlist.title)
+                        .putOpt("cover", playlist.coverUrl)
                         .put("songs", songs),
                 )
             }
@@ -283,7 +299,7 @@ fun OfflinePlaylist.toGroup(): LocalGroup = LocalGroup(
     browseId = browseId,
     title = title,
     subtitle = "",
-    thumbnailUrl = if (isLiked) null else songs.firstNotNullOfOrNull { it.thumbnailUrl },
+    thumbnailUrl = if (isLiked) null else coverUrl ?: songs.firstNotNullOfOrNull { it.thumbnailUrl },
     type = com.music.bitchord.data.model.BrowseType.PLAYLIST,
     songs = songs,
 )

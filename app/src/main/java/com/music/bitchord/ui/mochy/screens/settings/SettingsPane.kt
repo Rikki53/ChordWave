@@ -70,9 +70,11 @@ private fun settingsListWidth(windowWidth: Dp) = (windowWidth * 0.38f).coerceIn(
 @Immutable
 class SettingsPane(val selectedRoute: String?)
 
-// the list stays at the left while the Settings tab is up and the page in front is one of its own
+// the list stays at the left while the page in front is one of its own
+// (Settings is no longer a tab since round 2 — it opens as a detail over
+// any tab — so this is route-based, not tab-index-based)
 fun showsSettingsPane(currentTab: Int, currentRoute: String?): Boolean =
-    currentTab == 3 && currentRoute in SettingsPaneRoutes
+    currentRoute in SettingsPaneRoutes
 
 // the page the list opened, read off the stack so a page opened from inside it keeps its category lit
 fun settingsPaneSelection(detailStack: List<String>): String? =

@@ -30,6 +30,10 @@ fun LibraryArtistsScreen(
 ) {
     val viewModel: LibraryHomeViewModel = hiltViewModel()
     val artists by (shelf?.let(viewModel::shelf)?.artists ?: viewModel.artists).collectAsStateWithLifecycle()
+    // the account load state only drives the library page — a shelf's
+    // artists come from its own songs, not from the account fetch.
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
     val menuState = LocalMenuState.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -66,5 +70,8 @@ fun LibraryArtistsScreen(
         },
         modifier = modifier,
         pureBlack = pureBlack,
+        isLoading = shelf == null && isLoading,
+        loadFailed = shelf == null && loadFailed,
+        onRetry = if (shelf == null) viewModel::load else null,
     )
 }

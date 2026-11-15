@@ -35,6 +35,10 @@ fun LibraryPlaylistsScreen(
     val viewModel: LibraryHomeViewModel = hiltViewModel()
     val all by (shelf?.let(viewModel::shelf)?.playlists ?: viewModel.playlists).collectAsStateWithLifecycle()
     val playlistSources by viewModel.playlistSources.collectAsState()
+    // the account load state only drives the library page — a shelf's
+    // playlists and an imported source's come from their own stores.
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val loadFailed by viewModel.loadFailed.collectAsStateWithLifecycle()
     val playlists = remember(all, playlistSources, source) {
         if (source == null) all else all.filter { playlistSources[it.id] == source }
     }
@@ -70,5 +74,8 @@ fun LibraryPlaylistsScreen(
         },
         modifier = modifier,
         pureBlack = pureBlack,
+        isLoading = shelf == null && source == null && isLoading,
+        loadFailed = shelf == null && source == null && loadFailed,
+        onRetry = if (shelf == null && source == null) viewModel::load else null,
     )
 }

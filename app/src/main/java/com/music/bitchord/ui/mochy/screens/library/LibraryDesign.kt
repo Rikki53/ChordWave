@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +44,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -289,6 +292,77 @@ fun LibraryEmptyState(modifier: Modifier = Modifier, text: String = "Nothing to 
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
         )
+    }
+}
+
+/** Centred spinner while the library loads — the same 2dp stroke the sheets use. */
+@Composable
+fun LibraryLoadingState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxWidth().padding(vertical = 56.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(
+            color = SearchColors.Secondary,
+            strokeWidth = 2.dp,
+            modifier = Modifier.size(28.dp),
+        )
+    }
+}
+
+/**
+ * "Couldn't load your library" with a Retry pill, in the tab's own pill
+ * language ([LibraryManagePill]). Shown only when the failure leaves the
+ * screen with nothing to show — a failed reload over data already on
+ * screen keeps the old lists instead.
+ */
+@Composable
+fun LibraryErrorState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = SearchHorizontalPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.library_load_failed),
+            color = SearchColors.Secondary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        LibraryManagePill(text = stringResource(R.string.retry), onClick = onRetry)
+    }
+}
+
+/**
+ * Signed out: what signing in unlocks, and the button that opens YouTube
+ * login. The library's songs, playlists, artists and albums all come from
+ * the signed-in account — without it there is honestly nothing to show
+ * here, and the empty state must say so instead of pointing at import.
+ */
+@Composable
+fun LibrarySignedOutState(onSignIn: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = SearchHorizontalPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.library_sign_in_title),
+            color = SearchColors.Primary,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.library_sign_in_body),
+            color = SearchColors.Secondary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        LibraryManagePill(text = stringResource(R.string.sign_in_youtube_music), onClick = onSignIn)
     }
 }
 

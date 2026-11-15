@@ -28,6 +28,26 @@ sealed class Screens(
         route = "search_input"
     )
 
+    // Round 2, item 7 (Classic parity): Classic's bar is Home, Explore,
+    // Library, Search, Radio — Explore and Radio join the bar, in
+    // Classic's order, and Settings leaves it.
+    object Explore : Screens(
+        titleId = R.string.explore,
+        // Mochy ships only the outlined compass (no filled twin); the lit
+        // tab still reads through the highlight pill and full alpha.
+        iconIdInactive = R.drawable.explore_outlined,
+        iconIdActive = R.drawable.explore_outlined,
+        route = "explore"
+    )
+
+    object Radio : Screens(
+        titleId = R.string.radio_title,
+        // ChordWave's own broadcast icon; one drawing, both states, as Explore.
+        iconIdInactive = R.drawable.radio,
+        iconIdActive = R.drawable.radio,
+        route = "radio"
+    )
+
     object Library : Screens(
         titleId = R.string.your_library,
         iconIdInactive = R.raw.lib,
@@ -35,6 +55,11 @@ sealed class Screens(
         route = "library"
     )
 
+    // Not a tab any more (Classic has no Settings tab): kept so the
+    // settings route, title and icons stay defined in one place. Settings
+    // opens as a detail — the profile avatar in Home/Search/Library/
+    // Artist calls navigateToTab("settings"), which MochyNavigator
+    // answers by pushing the settings page over the current tab.
     object Settings : Screens(
         titleId = R.string.settings,
         iconIdInactive = R.drawable.nav_mochy_outline,
@@ -43,7 +68,8 @@ sealed class Screens(
     )
 
     companion object {
-        val MainScreens = listOf(Home, Search, Library, Settings)
+        // Classic's set, in Classic's order (MainActivity's tabs list).
+        val MainScreens = listOf(Home, Explore, Library, Search, Radio)
     }
 }
 

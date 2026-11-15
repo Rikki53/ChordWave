@@ -77,8 +77,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -110,6 +112,10 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.music.bitchord.R
+import com.music.bitchord.data.TopPicks
+import com.music.bitchord.data.model.TopPick
+import com.music.bitchord.data.model.TopPickKind
+import com.music.bitchord.data.model.TopPickMood
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.ArtistListCard
 import com.music.bitchord.ui.mochy.component.BlurDirection
@@ -118,6 +124,7 @@ import com.music.bitchord.ui.mochy.component.BonesHost
 import com.music.bitchord.ui.mochy.component.containerTransformSource
 import com.music.bitchord.ui.mochy.component.coverTintBackground
 import com.music.bitchord.ui.mochy.component.FlatBarScrimAlpha
+import com.music.bitchord.ui.mochy.component.FindYourMoodContent
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.glassRoot
 import com.music.bitchord.ui.mochy.component.HeroCarousel
@@ -148,6 +155,8 @@ import com.music.bitchord.ui.mochy.component.RevealSeenState
 import com.music.bitchord.ui.mochy.component.revealOnAppear
 import com.music.bitchord.ui.mochy.component.StarterItem
 import com.music.bitchord.ui.mochy.component.StarterSongItem
+import com.music.bitchord.ui.mochy.component.TopPickCard
+import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.constants.HomeStyle
 import com.music.bitchord.ui.mochy.constants.HomeStyleKey
 import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
@@ -164,6 +173,7 @@ import com.music.bitchord.ui.mochy.models.LocalItem
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
+import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
 import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
 import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
@@ -232,6 +242,13 @@ sealed class HomeSection(val id: String) {
     data object AllTimeHits : HomeSection("all_time_hits")
     data object LiveShows : HomeSection("live_shows")
     data object MusicVideos : HomeSection("music_videos")
+    // Round 2 item 6: Classic Home parity — the track playing right now, the
+    // Top Picks row, and the Find Your Mood shelf. (The name TopPicks is
+    // HomeSection-qualified everywhere; the TopPicks builder object is the
+    // com.music.bitchord.data import.)
+    data object NowPlaying : HomeSection("now_playing")
+    data object TopPicks : HomeSection("top_picks")
+    data object FindYourMood : HomeSection("find_your_mood")
     data class Category(val categoryId: String) : HomeSection("category_$categoryId")
 
     data class HomePageSection(val index: Int, val title: String) : HomeSection("home_page_section_${index}_$title")
@@ -713,6 +730,13 @@ fun HomeScreen(
     val feedVideoRows by viewModel.feedVideoRows.collectAsState()
     val homeCategories by viewModel.homeCategories.collectAsState()
 
+    // Round 2 item 6: Classic's Top Picks row (null = never built, empty =
+    // nothing to pick from) + the Find Your Mood expand state. The mood
+    // shelf is static — it never waits on data, so it always shows.
+    val topPicks by viewModel.topPicks.collectAsState()
+    val topPicksLoading by viewModel.topPicksLoading.collectAsState()
+    var moodsExpanded by remember { mutableStateOf(false) }
+
     val speedDialItems by viewModel.speedDialItems.collectAsState()
     val lastPlayedSong by viewModel.lastPlayedSong.collectAsState()
 
@@ -872,6 +896,37 @@ fun HomeScreen(
         } else {
             playerConnection.playQueue(YouTubeQueue.radio(song.toMediaMetadata()))
         }
+    }
+    // Round 2 item 6: the Top Picks + mood play paths, mirroring Classic's
+    // openTopPick/playMood in MainActivity. A release card opens the album;
+    // a station or mood card fetches its queue (TopPicks.queue) and plays it
+    // as a list. An empty queue is an honest toast, never a silent tap.
+    val topPickCouldntPlay = stringResource(R.string.top_pick_couldnt_play)
+    val playStationQueue: (TopPick, String) -> Unit = { pick, queueTitle ->
+        scope.launch(Dispatchers.IO) {
+            val songs = TopPicks.queue(pick).getOrNull().orEmpty()
+            if (songs.isEmpty()) {
+                withContext(Dispatchers.Main) { TopToaster.error(topPickCouldntPlay) }
+                return@launch
+            }
+            val items = songs.map { it.toMochySong().toMediaItem() }
+            withContext(Dispatchers.Main) {
+                playerConnection.playQueue(ListQueue(title = queueTitle, items = items))
+            }
+        }
+    }
+    val playTopPick: (TopPick, String) -> Unit = { pick, title ->
+        val browseId = pick.browseId
+        if (pick.kind == TopPickKind.LATEST_RELEASE && browseId != null) {
+            navigator.navigate("album/$browseId")
+        } else {
+            playStationQueue(pick, title)
+        }
+    }
+    val playMood: (TopPickMood, String) -> Unit = { mood, title ->
+        val hints = topPicks?.firstOrNull { it.kind == TopPickKind.MOOD }?.hints
+        val pick = if (hints != null) TopPicks.moodStation(mood, hints) else TopPicks.moodStation(mood)
+        playStationQueue(pick, title)
     }
     val showSongMenu: (Song) -> Unit = { song ->
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1182,7 +1237,16 @@ fun HomeScreen(
                 }
             }
 
+            // Round 2 item 6: Classic's order — Top Picks first, Recents the
+            // lead shelf, Find Your Mood right after it — with the track
+            // playing right now ahead of all three. Top Picks shows its
+            // bones while the row is still being built.
+            if (mediaMetadataState.value != null) list.add(HomeSection.NowPlaying)
+            if (topPicks?.isNotEmpty() == true || (topPicks == null && topPicksLoading)) {
+                list.add(HomeSection.TopPicks)
+            }
             if (recentlyPlayed?.isNotEmpty() == true) list.add(HomeSection.RecentlyPlayed)
+            list.add(HomeSection.FindYourMood)
             if (mostPlayedSongsForHome?.isNotEmpty() == true) list.add(HomeSection.MostPlayed)
             addCategories()
             if (communityPlaylists?.isNotEmpty() == true) list.add(HomeSection.FromTheCommunity)
@@ -1257,6 +1321,8 @@ fun HomeScreen(
             val trackColumnWidth = if (maxWidth * 0.475f >= 320.dp) maxWidth * 0.475f else maxWidth * 0.76f
             // a video banner is 314 of 402, so the next one peeks in the same way
             val videoCardWidth = minOf(maxWidth * 0.78f, 340.dp)
+            // a Top Picks card is 60% of the page, capped at 280dp — Classic's rule
+            val topPickCardWidth = minOf(maxWidth * 0.60f, 280.dp)
             val videoRowCard: @Composable (HomeVideo) -> Unit = { video -> videoCard(video, videoCardWidth) }
             val hopInColumns = if (maxWidth >= 600.dp) 3 else 2
 
@@ -1448,6 +1514,79 @@ fun HomeScreen(
                 // nothing but bones while the launch intro plays; the rows reveal once it lands
                 if (!launchHold) homeSections.forEach { section ->
                     when (section) {
+                        HomeSection.NowPlaying -> {
+                            val nowPlaying = mediaMetadataState.value
+                            if (nowPlaying != null) {
+                                homeItem("now_playing_title", revealSeen, "title") {
+                                    HomeSectionTitle(
+                                        title = stringResource(R.string.now_playing),
+                                        onClick = { playerBottomSheetState?.expandSoft() },
+                                    )
+                                }
+                                homeItem("now_playing_row", revealSeen, "trackRow") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = HomeContentInset),
+                                    ) {
+                                        HomeTrackRow(
+                                            thumbnailUrl = nowPlaying.thumbnailUrl,
+                                            title = nowPlaying.title,
+                                            subtitle = nowPlaying.artists.joinToString(", ") { it.name },
+                                            isActive = true,
+                                            isPlaying = isPlayingNow,
+                                            onClick = { playerBottomSheetState?.expandSoft() },
+                                            onLongClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                playerConnection.togglePlayPause()
+                                            },
+                                            onMoreClick = null,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        HomeSection.TopPicks -> {
+                            val picks = topPicks
+                            homeItem("top_picks_title", revealSeen, "title") {
+                                HomeSectionTitle(title = stringResource(R.string.top_picks_for_you))
+                            }
+                            if (!picks.isNullOrEmpty()) {
+                                homeItem("top_picks_list", revealSeen, "cardRow") {
+                                    HomeCardRow("top_picks", picks, revealSeen, key = { "${it.kind}:${it.title}" }) { pick ->
+                                        TopPickCard(
+                                            pick = pick,
+                                            // "Guest" is the adapter's signed-out
+                                            // default, not a name: a guest gets
+                                            // "Your Station", not "Guest's Station"
+                                            listenerName = accountName.takeUnless { it == "Guest" },
+                                            onClick = playTopPick,
+                                            onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                            modifier = Modifier.width(topPickCardWidth),
+                                        )
+                                    }
+                                }
+                            } else {
+                                homeItem("top_picks_bones", revealSeen, "bones") {
+                                    HomeSectionBones()
+                                }
+                            }
+                        }
+                        HomeSection.FindYourMood -> {
+                            homeItem("find_your_mood_title", revealSeen, "title") {
+                                HomeSectionTitle(
+                                    title = stringResource(R.string.find_your_mood),
+                                    onClick = { moodsExpanded = !moodsExpanded },
+                                )
+                            }
+                            homeItem("find_your_mood_list", revealSeen, "cardRow") {
+                                FindYourMoodContent(
+                                    expanded = moodsExpanded,
+                                    onMoodClick = playMood,
+                                )
+                            }
+                        }
                         HomeSection.SpeedDial -> {
                             speedDialItems.takeIf { it.isNotEmpty() }?.let { items ->
                                 homeItem("speed_dial_title", revealSeen, "title") {
