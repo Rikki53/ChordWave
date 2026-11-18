@@ -53,6 +53,12 @@ sealed interface LinkRequest {
  */
 object MusicLink {
 
+    /** The host ChordWave song links live on. */
+    const val SONG_LINK_HOST = "chordwave.rikinurjaman.my.id"
+
+    /** The shareable ChordWave link for a song: taps open the track in the app. */
+    fun songLink(videoId: String): String = "https://$SONG_LINK_HOST/song/${videoId.trim()}"
+
     /**
      * Marks an intent as already read.
      *
@@ -107,18 +113,38 @@ object MusicLink {
     }
 
     /**
-     * What a YouTube or YouTube Music URL points at, or null for one this app
-     * has nothing to show for.
+     * What a YouTube, YouTube Music or ChordWave URL points at, or null for
+     * one this app has nothing to show for.
      *
      * Deliberately forgiving about the host: `music.youtube.com`,
      * `www.youtube.com`, `m.youtube.com` and `youtu.be` all address the same
      * catalogue with the same ids, and a link is just as likely to arrive
      * through a share sheet — where the manifest's host list never applies —
      * as through the browser.
+     *
+     * ChordWave's own links name a bare video id in the path:
+     * `https://chordwave.rikinurjaman.my.id/song/<id>` and
+     * `chordwave://song/<id>`.
      */
     fun parse(uri: Uri): LinkRequest? {
+        // Custom scheme first: chordwave://song/<id> (host is the word "song").
+        // chordwave://party/... belongs to JamInviteLink and falls through null.
+        if (uri.scheme?.lowercase() == "chordwave") {
+            return if (uri.host?.lowercase() == "song") {
+                uri.pathSegments.firstOrNull()?.let(::track)
+            } else {
+                null
+            }
+        }
         val host = uri.host?.lowercase()?.removePrefix("www.") ?: return null
         val segments = uri.pathSegments.orEmpty()
+        if (host == SONG_LINK_HOST) {
+            return if (segments.firstOrNull() == "song") {
+                segments.getOrNull(1)?.let(::track)
+            } else {
+                null
+            }
+        }
         if (host == "youtu.be") {
             return segments.firstOrNull()?.let(::track)
         }

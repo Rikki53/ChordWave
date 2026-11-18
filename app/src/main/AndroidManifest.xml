@@ -243,6 +243,32 @@
                 <data android:host="youtu.be" />
             </intent-filter>
 
+            <!--
+              ChordWave song links: https://chordwave.rikinurjaman.my.id/song/<videoId>.
+              autoVerify makes a tap open ChordWave directly — this domain is
+              ours, and it publishes its assetlinks association for the
+              production signing certificate.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="chordwave.rikinurjaman.my.id"
+                    android:pathPrefix="/song/" />
+            </intent-filter>
+
+            <!-- Custom scheme for song links: chordwave://song/<videoId>. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="chordwave"
+                    android:host="song" />
+            </intent-filter>
+
             <!-- Public Listen Together invites. autoVerify makes a tap open
                  BitChord directly once the domain publishes its assetlinks
                  association for the production signing certificate. -->

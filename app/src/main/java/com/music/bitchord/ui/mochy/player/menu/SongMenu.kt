@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.ui.mochy.component.ListDialog
 import com.music.bitchord.ui.mochy.component.Material3MenuGroup
 import com.music.bitchord.ui.mochy.component.Material3MenuItemData
@@ -262,7 +263,7 @@ fun SongMenu(
                         },
                         onClick = {
                             onDismiss()
-                            context.shareText("https://music.youtube.com/watch?v=${song.id}")
+                            context.shareText(MusicLink.songLink(song.id))
                         }
                     ),
                     if (song.song.albumId != null) {

@@ -74,6 +74,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.music.bitchord.R
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.playback.SleepTimer
 import com.music.bitchord.karaoke.KaraokeFeature
 import com.music.bitchord.ui.mochy.component.AppSwitch
@@ -310,8 +311,8 @@ fun PlayerActionMenu(
                             currentMetadata?.let { metadata ->
                                 onDismiss()
                                 // Mochy's SongShare sheet is not ported; a plain
-                                // share intent with the watch link (SongMenu precedent).
-                                context.shareText("https://music.youtube.com/watch?v=${metadata.id}")
+                                // share intent with the ChordWave song link.
+                                context.shareText(MusicLink.songLink(metadata.id))
                             }
                         },
                         modifier = Modifier.weight(1f),
