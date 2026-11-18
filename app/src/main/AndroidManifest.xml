@@ -262,6 +262,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
+                    android:scheme="chordwave"
+                    android:host="party" />
+            </intent-filter>
+
+            <!-- Legacy bitchord:// scheme: still accepted, never generated. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
                     android:scheme="bitchord"
                     android:host="party" />
             </intent-filter>
