@@ -142,7 +142,6 @@ object EmbeddedLyrics {
             head.startsWith(FLAC_MAGIC) -> flac(head)
             head.startsWith(MATROSKA_MAGIC) -> matroska(head)
             head.isMp4() -> mp4(head)
-            head.startsWith(ID3_MAGIC) -> id3(head)
             else -> null
         }
         return found?.takeIf { it.isNotBlank() }
@@ -172,6 +171,7 @@ object EmbeddedLyrics {
     private fun id3(bytes: ByteArray): String? {
         if (bytes.size < 10) return null
         val major = bytes[3].toInt()
+        if (major == 2) return id3Legacy(bytes)
         if (major != 3 && major != 4) return null
         val tagSize = synchsafeInt(bytes, 6) ?: return null
         val end = minOf(10 + tagSize, bytes.size)
@@ -499,7 +499,7 @@ object EmbeddedLyrics {
      * ponytail: v2.4's per-frame unsynchronisation and compression flags are
      * not undone; such a frame reads as no lyrics, as every MP3 did before.
      */
-    private fun id3(head: ByteArray): String? {
+    private fun id3Legacy(head: ByteArray): String? {
         if (head.size < 10) return null
         val major = head[3].toInt()
         if (major !in 2..4) return null

@@ -145,7 +145,7 @@ fun ReplayScreen(
     mainViewModel: MainViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val (replayState, setPeriod) = rememberReplayState(active = true)
+    val (replayState, setPeriod) = rememberReplayState(active = true, pageOpen = true)
     val account by mainViewModel.account.collectAsState()
     val holder = account?.name.orEmpty()
     val playerConnection = LocalPlayerConnection.current ?: return

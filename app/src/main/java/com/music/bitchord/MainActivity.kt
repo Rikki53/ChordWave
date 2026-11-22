@@ -1361,6 +1361,7 @@ private fun BitChordApp(
         MainViewModel.Feed.EXPLORE -> explorePull
         MainViewModel.Feed.LIBRARY -> libraryPull
         null -> null
+        else -> null
     }
     val scrolled by remember(currentListState) {
         derivedStateOf {

@@ -36,6 +36,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.TimeUnit
@@ -173,7 +175,7 @@ object PlaylistSync {
      */
     private fun checkLikedSoon(context: Context) {
         val request = OneTimeWorkRequestBuilder<PlaylistSyncWorker>()
-            .setConstraints(constraints(AppSettings.wifiOnlyDownloads.value))
+            .setConstraints(constraints())
             .setInitialDelay(LIKED_SETTLE_SECONDS, TimeUnit.SECONDS)
             .setInputData(workDataOf(KEY_LIKED_ONLY to true))
             .build()
