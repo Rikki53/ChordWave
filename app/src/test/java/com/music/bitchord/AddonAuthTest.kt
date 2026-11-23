@@ -117,7 +117,7 @@ class AddonAuthTest {
     fun `a final refusal says why instead of looping`() = runBlocking {
         search = { challenge("invalid_proof") }
         val failure = client().search("song", AddonClient.TIER_LOSSLESS).exceptionOrNull()
-        assertEquals("This addon didn't accept BitChord's verification (invalid_proof)", failure?.message)
+        assertEquals("This addon didn't accept ChordWave's verification (invalid_proof)", failure?.message)
         assertEquals(2, searches().size)
     }
 
