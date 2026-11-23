@@ -101,6 +101,7 @@ import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.player.CarouselCrossfade
 import com.music.bitchord.ui.mochy.player.CarouselPictures
 import com.music.bitchord.ui.mochy.player.LocalSongCarousel
+import com.music.bitchord.ui.mochy.player.LyricsReadings
 import com.music.bitchord.ui.mochy.player.SongCarousel
 import com.music.bitchord.ui.mochy.player.TurntablePillWidth
 import com.music.bitchord.ui.mochy.player.TurntablePills
@@ -119,7 +120,6 @@ import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.utils.stableStatusBars
 import kotlinx.coroutines.flow.collectLatest
-import timber.log.Timber
 
 /** the player's alternate styles, drawn as they look on the player or, [preview], on a selector card */
 @Composable
@@ -650,28 +650,26 @@ private fun CreditLine(text: String, color: Color, style: TextStyle, modifier: M
  * translation filled in by the same code as the lyrics page when [readings] (the live player, not
  * a selector card). Lyrics without timings show nothing here: a style performs lines in time.
  *
- * STUBBED: the stored lyrics row comes from MochyPlayerConnection.currentLyrics
- * (data layer, NEEDS.md §b), which does not exist yet, so this returns no lines
- * until the adapter round wires it. The parse path below is kept intact: the
- * adapter round only has to replace the null stub with the connection's flow.
- * The readings branch (loader ViewModel + LyricsReadings) is likewise stubbed
- * — ViewModels are not ported and LyricsReadings needs the database.
+ * No loader ViewModel: unlike Mochy, the connection triggers the lyrics load
+ * itself on every track change, so currentLyrics is already fed by the time
+ * a style reads it — the readings branch only has to run LyricsReadings.
  */
 @Composable
 internal fun rememberStyleLyrics(readings: Boolean): StyleLyrics {
     val connection = LocalPlayerConnection.current
-    // TODO(adapter): val lyricsEntity = connection?.currentLyrics?.collectAsState(initial = null)?.value (NEEDS.md §b)
-    val lyricsEntity: LyricsEntity? = null
-    if (readings && connection != null) {
-        LaunchedEffect(connection) {
-            Timber.tag("StyleLyrics").w("Lyrics data layer stubbed: no currentLyrics on MochyPlayerConnection and no loader ViewModel; styles show no synced lyrics until the adapter round (see NEEDS.md §b).")
-        }
-    }
+    val lyricsEntity = connection?.currentLyrics?.collectAsState(initial = null)?.value
     val all = remember(lyricsEntity?.lyrics) {
         val raw = lyricsEntity?.lyrics
         if (raw.isNullOrBlank() || raw == LYRICS_NOT_FOUND) emptyList()
         else runCatching { LyricsUtils.parseLyricsCached(raw) }.getOrDefault(emptyList())
             .takeIf { it.isNotEmpty() && !LyricsUtils.isUnsynced(it) }.orEmpty()
+    }
+    if (readings && connection != null) {
+        val metadata by connection.mediaMetadata.collectAsState()
+        if (all.isNotEmpty()) {
+            // the whole song, background lines too, so a stored translation lines up with the lyrics page's
+            LyricsReadings(all, metadata?.id, lyricsEntity)
+        }
     }
     val lines = remember(all) { all.filter { !it.isBackground && it.text.isNotBlank() } }
     return remember(lyricsEntity?.songId, lines) { StyleLyrics(lyricsEntity?.songId, lines) }

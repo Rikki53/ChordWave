@@ -18,12 +18,18 @@
 //   (Phase 3 stubs) with the same queues Mochy built.
 // - Navigation goes through MochyNavigator (param renamed navController ->
 //   navigator, same route strings).
-// - Pin state comes in as a param; the toggle is a caller callback, and
-//   without one the row logs a Phase 3 TODO (CW has no pin store yet).
-// - STUBBED (log + row stays): Edit (SongEditSheet not ported), Refetch (no
-//   local store to refetch into), Remove from history / Remove from
-//   playlist (no local event/playlist store), Remove from cache (no
-//   CachePlaylistViewModel). Add to playlist opens AddToPlaylistDialog
+// - Pin state comes from SpeedDialStore (the Home speed dial's pins);
+//   the row toggles the song's pin and dismisses.
+// - Edit opens SongEditSheet (save, artist/cover/video search wired).
+//   Refetch is gone: it rewrote the local library record, and CW has no
+//   local library store — metadata is fetched fresh whenever a screen
+//   loads, so there is nothing stale to refresh. Remove from history is
+//   gone too: history is built from ListeningStats, which has no
+//   per-track delete, and no caller ever passed the event the row needed.
+//   Remove from playlist / Remove from cache run through caller
+//   callbacks (LocalPlaylistViewModel.removeSong /
+//   CachePlaylistViewModel.removeSongFromCache) and only appear where the
+//   caller supplies one. Add to playlist opens AddToPlaylistDialog
 //   (online add works; local playlists answer honestly in the dialog).
 //   Details opens CW's own SongInfoDialog (Classic) — Mochy's ShowMediaInfo
 //   was NOT ported: it needs Mochy's innertube fork (getMediaInfo) and a
@@ -33,14 +39,12 @@
 //   isPortrait/configuration dead reads.
 // - Share is a plain ACTION_SEND intent with the watch link (Mochy's
 //   SongShare sheet is not ported).
-// - `event` / `playlistSong` use the plain ported types Event /
-//   PlaylistSong (ui.mochy.models — no Room, no store behind them;
-//   callers pass null until a history/playlist store exists).
+// - `playlistSong` uses the plain ported type PlaylistSong
+//   (ui.mochy.models — no Room, no store behind it); removal runs through
+//   the onRemoveFromPlaylist callback the playlist screen supplies.
 
 package com.music.bitchord.ui.mochy.player.menu
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -59,8 +63,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,7 +74,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -97,12 +100,16 @@ import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.constants.ListItemHeight
 import com.music.bitchord.ui.mochy.constants.ListThumbnailSize
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
-import com.music.bitchord.ui.mochy.models.Event
+import com.music.bitchord.ui.mochy.menu.songedit.SongEditSheet
+import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.models.PlaylistSong
+import com.music.bitchord.ui.mochy.models.PlaylistSongMap
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
 import timber.log.Timber
@@ -110,27 +117,28 @@ import timber.log.Timber
 @Composable
 fun SongMenu(
     originalSong: Song,
-    event: Event? = null,
     navigator: MochyNavigator,
     playlistSong: PlaylistSong? = null,
     playlistBrowseId: String? = null,
     onDismiss: () -> Unit,
     isFromCache: Boolean = false,
-    isPinned: Boolean = false,
-    onTogglePin: (() -> Unit)? = null,
+    /** Removes the playlist entry; null = the row is hidden. */
+    onRemoveFromPlaylist: ((PlaylistSongMap) -> Unit)? = null,
+    /** Removes the song from the player cache; null = the row is hidden. */
+    onRemoveFromCache: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val song = originalSong
+    val pins by SpeedDialStore.all.collectAsState()
+    val isPinned = pins.any { it.id == song.id }
     val downloadState = downloadStateFor(originalSong.id)
     val coroutineScope = rememberCoroutineScope()
-    var refetchIconDegree by remember { mutableFloatStateOf(0f) }
 
-    val rotationAnimation by animateFloatAsState(
-        targetValue = refetchIconDegree,
-        animationSpec = tween(durationMillis = 800),
-        label = "",
-    )
+    var songToEdit by remember { mutableStateOf<MediaMetadata?>(null) }
+    songToEdit?.let { metadata ->
+        SongEditSheet(metadata = metadata, onDismiss = { songToEdit = null })
+    }
 
     var liked by rememberSaveable { mutableStateOf(song.song.liked) }
     var inLibrary by rememberSaveable { mutableStateOf(song.song.inLibrary != null) }
@@ -340,8 +348,7 @@ fun SongMenu(
                             )
                         },
                         onClick = {
-                            // TODO(Phase 3): SongEditSheet is not ported yet.
-                            Timber.w("SongMenu: edit needs Phase 3 (SongEditSheet)")
+                            songToEdit = song.toMediaMetadata()
                         }
                     ),
                     Material3MenuItemData(
@@ -417,7 +424,7 @@ fun SongMenu(
                         Material3MenuItemData(
                             title = {
                                 Text(
-                                    text = if (isPinned) "Unpin from library" else "Pin to library"
+                                    text = stringResource(if (isPinned) R.string.unpin_from_speed_dial else R.string.pin_to_speed_dial)
                                 )
                             },
                             icon = {
@@ -427,13 +434,17 @@ fun SongMenu(
                                 )
                             },
                             onClick = {
-                                if (onTogglePin != null) {
-                                    onTogglePin()
-                                    onDismiss()
-                                } else {
-                                    // TODO(Phase 3): CW has no pin store yet.
-                                    Timber.w("SongMenu: pin needs Phase 3 (pin store)")
-                                }
+                                SpeedDialStore.toggle(
+                                    SpeedDialItem(
+                                        id = song.id,
+                                        title = song.title,
+                                        subtitle = song.artists.joinToString(", ") { it.name },
+                                        thumbnailUrl = song.thumbnailUrl,
+                                        type = SpeedDialItem.TYPE_SONG,
+                                        explicit = song.song.explicit,
+                                    )
+                                )
+                                onDismiss()
                             }
                         )
                     )
@@ -468,26 +479,7 @@ fun SongMenu(
                             }
                         )
                     )
-                    if (event != null) {
-                        add(
-                            Material3MenuItemData(
-                                title = { Text(text = stringResource(R.string.remove_from_history)) },
-                                icon = {
-                                    Icon(
-                                        painter = painterResource(R.drawable.delete),
-                                        contentDescription = null,
-                                    )
-                                },
-                                onClick = {
-                                    // TODO(Phase 3): CW has no local play-event store; the
-                                    // server-side removal needs the row's feedback token,
-                                    // which Event does not carry.
-                                    Timber.w("SongMenu: remove-from-history needs Phase 3 (no local event store)")
-                                }
-                            )
-                        )
-                    }
-                    if (playlistSong != null) {
+                    if (playlistSong != null && onRemoveFromPlaylist != null) {
                         add(
                             Material3MenuItemData(
                                 title = { Text(text = stringResource(R.string.remove_from_playlist)) },
@@ -498,16 +490,13 @@ fun SongMenu(
                                     )
                                 },
                                 onClick = {
-                                    // TODO(Phase 3): CW has no local playlists; the server
-                                    // call (YtMusicRepository.removeFromPlaylist) needs the
-                                    // entry's setVideoId, which PlaylistSong does not expose
-                                    // until it is ported.
-                                    Timber.w("SongMenu: remove-from-playlist needs Phase 3 (no local playlist store)")
+                                    onRemoveFromPlaylist(playlistSong.map)
+                                    onDismiss()
                                 }
                             )
                         )
                     }
-                    if (isFromCache) {
+                    if (isFromCache && onRemoveFromCache != null) {
                         add(
                             Material3MenuItemData(
                                 title = { Text(text = stringResource(R.string.remove_from_cache)) },
@@ -518,8 +507,8 @@ fun SongMenu(
                                     )
                                 },
                                 onClick = {
-                                    // TODO(Phase 3): CachePlaylistViewModel does not exist in CW.
-                                    Timber.w("SongMenu: remove-from-cache needs Phase 3 (CachePlaylistViewModel)")
+                                    onRemoveFromCache(song.id)
+                                    onDismiss()
                                 }
                             )
                         )
@@ -533,25 +522,6 @@ fun SongMenu(
         item {
             Material3MenuGroup(
                 items = buildList {
-                    add(
-                        Material3MenuItemData(
-                            title = { Text(text = stringResource(R.string.refetch)) },
-                            description = { Text(text = stringResource(R.string.refetch_desc)) },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.sync),
-                                    contentDescription = null,
-                                    modifier = Modifier.graphicsLayer(rotationZ = rotationAnimation),
-                                )
-                            },
-                            onClick = {
-                                refetchIconDegree -= 360
-                                // TODO(Phase 3): refetching rewrites the local library
-                                // record, and CW has no local library store to rewrite.
-                                Timber.w("SongMenu: refetch needs Phase 3 (no local library store)")
-                            }
-                        )
-                    )
                     add(
                         Material3MenuItemData(
                             title = { Text(text = stringResource(R.string.details)) },

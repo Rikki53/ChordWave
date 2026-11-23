@@ -8,6 +8,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.preferences.core.Preferences
+import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsTranslation
 import com.music.bitchord.ui.mochy.constants.AiProviderKey
 import com.music.bitchord.ui.mochy.constants.DeeplApiKey
 import com.music.bitchord.ui.mochy.constants.DeeplFormalityKey
@@ -51,8 +53,8 @@ import kotlinx.coroutines.withContext
  * Shared by the lyrics page and the player styles that perform the lyrics, so both read the same.
  *
  * ChordWave signature: Mochy also took a `database: MusicDatabase`, which ChordWave has no
- * equivalent of — the translation/romanisation engines are stubs (see NEEDS.md §(b)), so no
- * database is needed. If the coordinator wires a real engine, it owns this signature.
+ * equivalent of — translation and romanisation run on LyricsTranslation (Google, no API key,
+ * disk-cached), so no database is needed. No per-word ruby: that needs kuromoji.
  */
 @Composable
 fun LyricsReadings(
@@ -67,7 +69,7 @@ fun LyricsReadings(
 
     LaunchedEffect(lines, switches) {
         val allowed = RomanizeLanguageKeys.zip(switches).toMap()
-        readSong(lines, allowed = { allowed[it] != false }) { index, reading ->
+        readSong(lines, allowed = { allowed[it] != false }, trackId = songId.orEmpty()) { index, reading ->
             val entry = lines[index]
             // the pieces first, so whoever sees the reading land finds its timing already there
             entry.romanizedWordsFlow.value = reading?.words
@@ -222,45 +224,54 @@ suspend fun readSong(
     lines: List<LyricsEntry>,
     allowed: (Preferences.Key<Boolean>) -> Boolean,
     onLine: (index: Int, reading: LineReading?) -> Unit,
+    trackId: String = "",
 ) = withContext(Dispatchers.Default) {
     // the whole song decides the language: a kanji line alone looks chinese, and an english verse alone looks like nothing
     val body = lines.joinToString(" ") { it.text }
     val script = LyricsUtils.romanizableScript(body)
     val switch = switchFor(body, script)
-    if (switch == null || !allowed(switch)) {
+    val punjabi = LyricsUtils.isPunjabi(body) && allowed(LyricsRomanizePunjabiKey)
+    if ((switch == null || !allowed(switch)) && !punjabi) {
         lines.indices.forEach { onLine(it, null) }
         return@withContext
     }
-    val punjabi = LyricsUtils.isPunjabi(body) && allowed(LyricsRomanizePunjabiKey)
-
-    suspend fun romanizeOne(text: String): String? = when {
-        punjabi -> LyricsUtils.romanizePunjabi(text)
-        script == LyricsUtils.Script.KANA -> LyricsUtils.romanizeJapanese(text)
-        script == LyricsUtils.Script.HANGUL -> LyricsUtils.romanizeKorean(text)
-        script == LyricsUtils.Script.HAN -> LyricsUtils.romanizeChinese(text)
-        script == LyricsUtils.Script.DEVANAGARI -> LyricsUtils.romanizeHindi(text)
-        script == LyricsUtils.Script.CYRILLIC -> LyricsUtils.romanizeCyrillic(text)
-        else -> null
-    }
-
-    // one line after another, never a coroutine each: sixty kuromoji runs at once stalled the player opening a japanese song
+    // One romanization call for the whole song. Mochy romanized locally
+    // (kuromoji et al.); ChordWave has no such libraries, so the lines go
+    // through LyricsTranslation.romanize (Google transliteration, no API
+    // key, disk-cached) in a single batch — one network call per line, and
+    // one per word after that, would stall every foreign song's opening.
+    val romanized = romanizeLines(
+        trackId.ifBlank { "romanize-song:" + body.hashCode().toString() },
+        lines.map { it.text },
+    )
     lines.forEachIndexed { index, entry ->
         if (entry.text.isBlank()) {
             onLine(index, null)
         } else {
-            // japanese and chinese get ruby over each word like furigana; alphabets only get a line underneath
-            val ruby = LyricsUtils.rubyFor(entry.text, script)
-            // the whole line's reading too, ruby or not: it's what the line says when the romanisation is shown as the line itself
-            val romanized = if (ruby != null) LyricsUtils.readingLine(entry.text, ruby) else romanizeOne(entry.text)
-            val reading = romanized?.takeIf { it.isNotBlank() && it != entry.text }
-            val pieces = entry.syllables ?: entry.words
-            val words = if (reading != null && !pieces.isNullOrEmpty()) {
-                LyricsUtils.romanizedWords(entry.text, pieces, ruby) { romanizeOne(it) }
-            } else {
-                null
-            }
-            onLine(index, LineReading(reading, words, ruby))
+            // No ruby (needs kuromoji) and no per-word pieces (one network
+            // call per word): the whole-line reading is what shows, and
+            // "romanisation as main" rises whole instead of sweeping.
+            val reading = romanized[index]?.takeIf { it.isNotBlank() && it != entry.text }
+            onLine(index, reading?.let { LineReading(it, null, null) })
         }
+    }
+}
+
+/** [texts] romanized in one engine call, by line index (blank lines skipped). */
+private suspend fun romanizeLines(trackId: String, texts: List<String>): Map<Int, String> {
+    val nonBlank = texts.mapIndexedNotNull { index, text -> if (text.isBlank()) null else index to text }
+    if (nonBlank.isEmpty()) return emptyMap()
+    return when (val result = LyricsTranslation.romanize(
+        trackId = trackId,
+        lines = nonBlank.map { LyricLine(0L, it.second) },
+        targetLanguageTag = "en",
+    )) {
+        is LyricsTranslation.RomanizationResult.Romanized ->
+            // rebuild keeps the lines 1:1 with the request, in order
+            result.lines.mapIndexedNotNull { i, line ->
+                line.text.takeIf { it.isNotBlank() }?.let { nonBlank[i].first to it }
+            }.toMap()
+        else -> emptyMap()
     }
 }
 

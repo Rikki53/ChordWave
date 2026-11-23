@@ -15,8 +15,10 @@
 //   OfflinePlaylists.setCover for a LOCAL playlist; a server playlist has
 //   no local mirror store in ChordWave, so a cover picked there is told
 //   honestly via a toast instead of being silently dropped.
-// - Description changes are still DROPPED (no store holds them): Done
-//   saves the rename + the cover only.
+// - Description: saved to OfflinePlaylists.setDescription for a LOCAL
+//   playlist; a server playlist has no store for one (Innertube exposes
+//   no description write), so the field is hidden there instead of being
+//   silently dropped.
 
 package com.music.bitchord.ui.mochy.component
 
@@ -54,6 +56,7 @@ fun PopupSheetState.showEditPlaylistSheet(
     val appContext = context.applicationContext
     var sheet: PopupSheetHandle? = null
     val form = PlaylistFormState(playlist.name, playlist.description.orEmpty())
+    val isOffline = playlist.browseId?.let { OfflinePlaylists.isOfflinePlaylist(it) } ?: false
 
     // Which card the carousel opens on: the style this cover was drawn in, or the picture card for
     // one of the user's own pictures; anything else (song collage, YouTube's image) has no card.
@@ -79,11 +82,10 @@ fun PopupSheetState.showEditPlaylistSheet(
                     scope.launch(Dispatchers.IO) {
                         try {
                             val browseId = playlist.browseId
-                            val isOffline = browseId != null && OfflinePlaylists.isOfflinePlaylist(browseId)
                             // the playlist as it is now: a cover redrawn while the sheet was open would otherwise be pointed back at a file that's gone
                             val current = if (isOffline) {
                                 OfflinePlaylists.get(browseId)?.let {
-                                    playlist.copy(name = it.title, thumbnailUrl = it.coverUrl)
+                                    playlist.copy(name = it.title, thumbnailUrl = it.coverUrl, description = it.description)
                                 } ?: playlist
                             } else {
                                 playlist
@@ -127,7 +129,16 @@ fun PopupSheetState.showEditPlaylistSheet(
                                         Timber.w("EditPlaylistSheet: cannot rename playlist ${playlist.id} — no browseId and no store")
                                 }
                             }
-                            // Description edits are dropped: no store holds them.
+                            // A server playlist has no description store
+                            // (Innertube exposes no description write), so
+                            // the field is hidden there; only a local one
+                            // reaches this save.
+                            if (isOffline) {
+                                val description = form.description.trim().ifBlank { null }
+                                if (description != current.description) {
+                                    OfflinePlaylists.setDescription(browseId!!, description)
+                                }
+                            }
 
                             if (isOffline && thumbnail != current.thumbnailUrl) {
                                 OfflinePlaylists.setCover(browseId!!, thumbnail)
@@ -159,6 +170,7 @@ fun PopupSheetState.showEditPlaylistSheet(
             startPage = startPage,
             existingImage = ownImage,
             keepAllowed = true,
+            showDescription = isOffline,
         )
     }
 }

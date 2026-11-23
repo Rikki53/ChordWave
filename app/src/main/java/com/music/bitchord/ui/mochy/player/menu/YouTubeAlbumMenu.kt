@@ -23,8 +23,8 @@
 //   album's artists); artists without an id are skipped.
 // - Navigation goes through MochyNavigator (param renamed navController ->
 //   navigator, same route strings).
-// - Pin state comes in as a param; the toggle is a caller callback, and
-//   without one the row logs a Phase 3 TODO (CW has no pin store yet).
+// - Pin state comes from SpeedDialStore (the Home speed dial's pins);
+//   the row toggles the album's pin and dismisses.
 // - Add to playlist opens AddToPlaylistDialog (online add works; local
 //   playlists answer honestly in the dialog).
 // - DROPPED: the isPortrait/configuration dead reads.
@@ -51,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,6 +90,8 @@ import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeAlbumRadio
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -99,12 +102,12 @@ fun YouTubeAlbumMenu(
     navigator: MochyNavigator,
     onDismiss: () -> Unit,
     isSaved: Boolean = false,
-    isPinned: Boolean = false,
-    onTogglePin: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val coroutineScope = rememberCoroutineScope()
+    val pins by SpeedDialStore.all.collectAsState()
+    val isPinned = pins.any { it.id == albumItem.id }
     var songs by remember {
         mutableStateOf(emptyList<Song>())
     }
@@ -355,7 +358,7 @@ fun YouTubeAlbumMenu(
                     Material3MenuItemData(
                         title = {
                             Text(
-                                text = if (isPinned) "Unpin from library" else "Pin to library"
+                                text = stringResource(if (isPinned) R.string.unpin_from_speed_dial else R.string.pin_to_speed_dial)
                             )
                         },
                         icon = {
@@ -365,13 +368,18 @@ fun YouTubeAlbumMenu(
                             )
                         },
                         onClick = {
-                            if (onTogglePin != null) {
-                                onTogglePin()
-                                onDismiss()
-                            } else {
-                                // TODO(Phase 3): CW has no pin store yet.
-                                Timber.w("YouTubeAlbumMenu: pin needs Phase 3 (pin store)")
-                            }
+                            SpeedDialStore.toggle(
+                                SpeedDialItem(
+                                    id = albumItem.id,
+                                    secondaryId = albumItem.playlistId,
+                                    title = albumItem.title,
+                                    subtitle = albumItem.artists?.joinToString(", ") { it.name },
+                                    thumbnailUrl = albumItem.thumbnail,
+                                    type = SpeedDialItem.TYPE_ALBUM,
+                                    explicit = albumItem.explicit,
+                                )
+                            )
+                            onDismiss()
                         }
                     )
                 )

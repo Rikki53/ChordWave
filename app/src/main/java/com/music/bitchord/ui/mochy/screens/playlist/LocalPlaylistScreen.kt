@@ -452,6 +452,7 @@ fun LocalPlaylistScreen(
                         SelectionSongMenu(
                             songSelection = selection.mapNotNull { mapId -> songs.find { it.map.id == mapId }?.song },
                             songPosition = selection.mapNotNull { mapId -> songs.find { it.map.id == mapId }?.map },
+                            onDeleteFromPlaylist = { maps -> maps.forEach { viewModel.removeSong(it) } },
                             onDismiss = menuState::dismiss,
                             clearAction = onExitSelectionMode
                         )
@@ -608,6 +609,7 @@ fun LocalPlaylistScreen(
                                     playlistBrowseId = playlist?.playlist?.browseId,
                                     navigator = navigator,
                                     onDismiss = menuState::dismiss,
+                                    onRemoveFromPlaylist = { viewModel.removeSong(it) },
                                 )
                             }
                         },

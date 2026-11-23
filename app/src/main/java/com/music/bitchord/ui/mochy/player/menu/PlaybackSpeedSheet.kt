@@ -3,14 +3,12 @@
 // - SPEED (global) is WIRED: ChordWave already has a global playback speed
 //   (AppSettings.playbackSpeed, persisted via setPlaybackSpeed); the Speed
 //   slider reads/writes it, and the service applies it to the player.
-// - PITCH has no CW engine: the Pitch slider moves locally and apply() logs
-//   a Timber warning + TODO instead of faking a pitch change. (Mochy drove
-//   pitch through its AudioLabStore + SongTuning, which are not ported.)
-// - "Save for this song only" has no CW store (no per-song tuning): the row
-//   is rendered DISABLED so it cannot promise what it can't do, and the
-//   contract is recorded in NEEDS.md §(b) P1. Mochy's toggle also restored
-//   the global speed when switched on; with no per-song store there is
-//   nothing to restore from.
+// - PITCH has no CW engine (Mochy drove pitch through its AudioLabStore +
+//   SongTuning, which are not ported), so the Pitch slider is GONE — a
+//   slider that moves and does nothing is worse than no slider. Per-song
+//   speed/pitch needs a tuning store + playback-engine work first; until
+//   then the "Save for this song only" row is gone too, for the same
+//   reason. Both are open questions for the user, not silent stubs.
 // - The AudioLabEntryPoint / Hilt wiring Mochy used to reach its store is
 //   gone with the engine; this file takes no ViewModel and no entry point.
 
@@ -52,7 +50,6 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.detail.PlaylistSelectTick
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
-import timber.log.Timber
 
 private val CardSurface = MenuRowSurface
 
@@ -64,20 +61,12 @@ fun PlaybackSpeedSheet(onDismiss: () -> Unit) {
     val metadata by connection.mediaMetadata.collectAsState()
     val songId = metadata?.id
 
-    // No per-song tuning store in CW, so there is never a per-song override:
-    // the sliders always show the global values, and "this song only" stays off.
-    val onlyThisSong = false
+    // No per-song tuning store in CW, so the slider always shows the global
+    // speed — there is no per-song override to show or save.
     val speed = remember(songId) { mutableFloatStateOf(globalSpeed) }
-    val pitch = remember(songId) { mutableFloatStateOf(1f) }
 
     fun apply() {
-        val s = speed.floatValue.coerceIn(0.25f, 3f)
-        AppSettings.setPlaybackSpeed(s)
-        val p = pitch.floatValue.coerceIn(0.25f, 3f)
-        if (p != 1f) {
-            // TODO(phase3-adapter): pitch has no CW engine (NEEDS.md §(b) P1).
-            Timber.w("PlaybackSpeedSheet: pitch %.2f ignored — no pitch engine in ChordWave yet", p)
-        }
+        AppSettings.setPlaybackSpeed(speed.floatValue.coerceIn(0.25f, 3f))
     }
 
     MenuSheetSurface(onDismiss = onDismiss, halfDetent = 0.64f, fullDetent = 0.64f) { _ ->
@@ -104,12 +93,6 @@ fun PlaybackSpeedSheet(onDismiss: () -> Unit) {
                 value = speed.floatValue,
                 onValueChange = { speed.floatValue = it; apply() },
             )
-            Spacer(modifier = Modifier.height(14.dp))
-            ValueSlider(
-                label = "Pitch",
-                value = pitch.floatValue,
-                onValueChange = { pitch.floatValue = it; apply() },
-            )
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -124,7 +107,6 @@ fun PlaybackSpeedSheet(onDismiss: () -> Unit) {
                         indication = RemoteFocus,
                         onClick = {
                             speed.floatValue = 1f
-                            pitch.floatValue = 1f
                             apply()
                         },
                     )
@@ -139,18 +121,6 @@ fun PlaybackSpeedSheet(onDismiss: () -> Unit) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-            OnlyThisSongRow(
-                checked = onlyThisSong,
-                songTitle = metadata?.title,
-                // Disabled: no per-song tuning store in CW (NEEDS.md §(b) P1).
-                // Mochy enabled this whenever a song was playing.
-                enabled = false,
-                onToggle = {
-                    // TODO(phase3-adapter): per-song speed/pitch store (NEEDS.md §(b) P1).
-                    Timber.w("PlaybackSpeedSheet: per-song tuning not available (no store yet)")
-                },
-            )
             Spacer(modifier = Modifier.height(10.dp))
             Box(
                 contentAlignment = Alignment.Center,
@@ -174,45 +144,6 @@ fun PlaybackSpeedSheet(onDismiss: () -> Unit) {
                 )
             }
         }
-    }
-}
-
-// the tick over ok: on, the speed and pitch above stay with this song and every other song plays as usual
-@Composable
-private fun OnlyThisSongRow(checked: Boolean, songTitle: String?, enabled: Boolean, onToggle: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(CardSurface)
-            .clickable(
-                enabled = enabled,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = RemoteFocus,
-                onClick = onToggle,
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.speed_only_this_song),
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            if (!songTitle.isNullOrBlank()) {
-                Text(
-                    text = stringResource(R.string.speed_only_this_song_detail, songTitle),
-                    color = Color(0xFFB3B3B3),
-                    fontSize = 12.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        PlaylistSelectTick(checked = checked)
     }
 }
 

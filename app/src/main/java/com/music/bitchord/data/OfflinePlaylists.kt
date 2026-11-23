@@ -38,6 +38,8 @@ data class OfflinePlaylist(
      * artwork. Persisted as "cover" in the JSON document.
      */
     val coverUrl: String? = null,
+    /** The playlist's own description, as the edit form wrote it. */
+    val description: String? = null,
 ) {
     val browseId: String get() = OfflinePlaylists.PREFIX + id
     val isLiked: Boolean get() = id == OfflinePlaylists.LIKED_ID
@@ -117,11 +119,12 @@ object OfflinePlaylists {
     }
 
     /** A new, empty playlist — or one holding [songs], when it was made to take them. */
-    fun create(title: String, songs: List<Song> = emptyList()): OfflinePlaylist {
+    fun create(title: String, songs: List<Song> = emptyList(), description: String? = null): OfflinePlaylist {
         val playlist = OfflinePlaylist(
             id = "p" + System.currentTimeMillis().toString(36),
             title = title.trim(),
             songs = songs.filter { it.localUri != null }.distinctBy { it.localUri }.map { it.stored() },
+            description = description?.trim()?.ifBlank { null },
         )
         mutate { it + playlist }
         return playlist
@@ -174,6 +177,13 @@ object OfflinePlaylists {
         val id = browseId.removePrefix(PREFIX)
         if (id == LIKED_ID) return
         mutate { list -> list.map { if (it.id == id) it.copy(coverUrl = coverUrl) else it } }
+    }
+
+    /** Sets (or, with null, clears) the playlist's description; Liked has none. */
+    fun setDescription(browseId: String, description: String?) {
+        val id = browseId.removePrefix(PREFIX)
+        if (id == LIKED_ID) return
+        mutate { list -> list.map { if (it.id == id) it.copy(description = description?.trim()?.ifBlank { null }) else it } }
     }
 
     fun delete(browseId: String) {

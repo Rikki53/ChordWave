@@ -1,12 +1,11 @@
 // Ported from Mochy Music (GPL-3.0): ui/component/SongSwipeBox.kt
 // SongSwipeBox.kt
 //
-// ADAPTATION: the AddToPlaylistDialog branch is dropped — the dialog is not
-// ported (CW has no local playlists yet; see NEEDS.md). Choosing "Add to
-// playlist" as a swipe action now logs a Phase 3 TODO instead of opening
-// the picker. "Details" opens CW's own SongInfoDialog (Classic) instead:
-// the swiped MediaItem's tagged Mochy metadata converts straight to the CW
-// Song the dialog needs. Everything else is verbatim.
+// ADAPTATION: "Add to playlist" opens AddToPlaylistDialog (online add
+// works; a local playlist answers honestly — see the dialog), and
+// "Details" opens CW's own SongInfoDialog (Classic) instead of Mochy's
+// media-info screen: the swiped MediaItem's tagged Mochy metadata converts
+// straight to the CW Song the dialog needs. Everything else is verbatim.
 
 package com.music.bitchord.ui.mochy.component
 
@@ -27,8 +26,8 @@ import com.music.bitchord.ui.components.SongInfoDialog
 import com.music.bitchord.ui.mochy.constants.SwipeLeftActionKey
 import com.music.bitchord.ui.mochy.constants.SwipeRightActionKey
 import com.music.bitchord.ui.mochy.models.MediaMetadata
+import com.music.bitchord.ui.mochy.player.menu.AddToPlaylistDialog
 import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
-import timber.log.Timber
 
 // what sliding a song row can do, picked per side in Settings > Customisation
 enum class SongSwipeAction(
@@ -61,6 +60,16 @@ fun SongSwipeBox(
     infoSong?.let { song ->
         SongInfoDialog(song) { infoSong = null }
     }
+    var playlistSong by remember { mutableStateOf<CwSong?>(null) }
+    playlistSong?.let { song ->
+        AddToPlaylistDialog(
+            isVisible = true,
+            onGetSong = { listOf(song.videoId) },
+            onDismiss = { playlistSong = null },
+            topSongId = song.videoId,
+            topSongArtworkUrl = song.thumbnailUrl,
+        )
+    }
     SwipeActionsBox(
         modifier = modifier,
         enabled = enabled,
@@ -71,10 +80,7 @@ fun SongSwipeBox(
                 default = DefaultSwipeRight,
                 library = library,
                 queue = queue,
-                onOpenPlaylistDialog = {
-                    // TODO(Phase 3): AddToPlaylistDialog is not ported yet.
-                    Timber.w("SongSwipeBox: add-to-playlist swipe needs Phase 3 (AddToPlaylistDialog)")
-                },
+                onOpenPlaylistDialog = { playlistSong = it.toInfoSong() },
                 onOpenDetailsDialog = { infoSong = it.toInfoSong() },
             )
         },
@@ -84,10 +90,7 @@ fun SongSwipeBox(
                 default = DefaultSwipeLeft,
                 library = library,
                 queue = queue,
-                onOpenPlaylistDialog = {
-                    // TODO(Phase 3): AddToPlaylistDialog is not ported yet.
-                    Timber.w("SongSwipeBox: add-to-playlist swipe needs Phase 3 (AddToPlaylistDialog)")
-                },
+                onOpenPlaylistDialog = { playlistSong = it.toInfoSong() },
                 onOpenDetailsDialog = { infoSong = it.toInfoSong() },
             )
         },

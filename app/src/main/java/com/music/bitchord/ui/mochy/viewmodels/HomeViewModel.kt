@@ -6,8 +6,8 @@
 // homeCategories and allTimeHits stay empty lists, starterSongs stays empty,
 // attachPlayer records the connection and follows mediaMetadata/isPlaying but
 // skip/play-through signals are not counted (onListeningBreak is stale-only),
-// and speedDialItems is built from keepListening + stats quick picks with no
-// pin store.
+// and speedDialItems is built from pins + keepListening + stats quick
+// picks (the pin store landed in the Nov 2026 merge).
 //
 // Round 2 item 6 (15 Nov 2026, Classic Home parity): the home feed ALSO
 // merges ChordWave's supplements (New releases + Explore) the way Classic's
@@ -76,6 +76,7 @@ import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
 import com.music.bitchord.ui.mochy.models.innertube.filterYoutubeShorts
 import com.music.bitchord.ui.mochy.models.innertube.looksAiGenerated
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import com.music.bitchord.ui.mochy.utils.ArtistVideos
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.VideoShelf
@@ -243,11 +244,13 @@ class HomeViewModel @Inject constructor(
     private val _lastPlayedSong = MutableStateFlow<MediaMetadata?>(null)
     val lastPlayedSong: StateFlow<MediaMetadata?> = _lastPlayedSong
 
-    // No pin store in v1 (Phase D item 22): the dial fills from keepListening
-    // then quickPicks only, capped at 27 like Mochy's.
+    // Your pins first, then what you play — the dial fills from
+    // keepListening then quickPicks only when the pins leave room, capped
+    // at 27 like Mochy's. (CW has no youTubeSpeedDial feed, so the pins
+    // sit straight ahead of the local top-up.)
     val speedDialItems: StateFlow<List<YTItem>> =
-        combine(keepListening, quickPicks) { keep, quick ->
-            val filled = mutableListOf<YTItem>()
+        combine(SpeedDialStore.all, keepListening, quickPicks) { pins, keep, quick ->
+            val filled = pins.mapNotNull { it.toYTItem() }.distinctBy { it.id }.toMutableList()
             val targetSize = 27
             keep?.let { items ->
                 val needed = targetSize - filled.size

@@ -107,7 +107,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import kotlin.math.abs
 import kotlin.math.exp
 
@@ -221,13 +220,8 @@ class LivePosition internal constructor(private val read: () -> Long, private va
 /** The playback clock the lyrics follow: [this] plus the song's own lyrics offset. */
 @Composable
 fun LivePosition.withLyricsOffset(): LivePosition {
-    // TODO(adapter): the per-song lyrics offset has no source in this clone yet
-    // (Mochy reads PlayerConnection.lyricsOffsetMs, from the song's stored
-    // lyricsOffset; see NEEDS.md §b). Until it lands the lyrics run unshifted.
-    LaunchedEffect(Unit) {
-        Timber.tag("StyleKit").w("Lyrics offset stubbed: no lyricsOffsetMs on MochyPlayerConnection; lyrics run unshifted (see NEEDS.md §b).")
-    }
-    return this
+    val connection = LocalPlayerConnection.current ?: return this
+    return remember(this, connection) { shifted { connection.lyricsOffsetMs.value.toLong() } }
 }
 
 // further apart than this (ms) and the clock jumps straight to the player, because that was a seek

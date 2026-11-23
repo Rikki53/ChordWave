@@ -4,8 +4,9 @@
 // membership in a playlist: the map row carries the playlist position and
 // the setVideoId YouTube needs to remove the entry
 // (YtMusicRepository.removeFromPlaylist takes (setVideoId, videoId)
-// pairs). SongMenu only null-checks it today; the remove row is a Phase 3
-// stub until a playlist store exists.
+// pairs). LocalPlaylistViewModel.removeSong acts on these maps (offline
+// via OfflinePlaylists, online via the repository); SelectionSongMenu's
+// delete row calls it through the playlist screen.
 package com.music.bitchord.ui.mochy.models
 
 data class PlaylistSongMap(

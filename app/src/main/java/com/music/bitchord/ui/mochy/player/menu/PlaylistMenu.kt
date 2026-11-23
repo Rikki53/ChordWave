@@ -12,7 +12,8 @@
 //   next/Add to queue/Download all run off that list.
 // - Save toggle: local rememberSaveable state + YtMusicRepository.setSaved
 //   when the playlist has a browseId (YouTubePlaylistMenu pattern).
-// - Pin: isPinned=false; tapping logs a Phase 3 TODO (no speed-dial store).
+// - Pin: from SpeedDialStore (the Home speed dial's pins); the row toggles
+//   the playlist's pin and dismisses.
 // - Delete: offline browseId -> OfflinePlaylists.delete; YouTube browseId
 //   -> YtMusicRepository.deletePlaylist; anything else -> Timber.w TODO.
 // - Radio: builds the innertube radio-for-playlist endpoint directly
@@ -42,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,6 +82,8 @@ import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
 import com.music.bitchord.ui.mochy.playlistcover.PlaylistCoverStore
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -133,8 +137,8 @@ fun PlaylistMenu(
 
     val editable: Boolean = playlist.playlist.isEditable == true
 
-    // TODO(Phase 3): no speed-dial store in CW.
-    val isPinned = false
+    val pins by SpeedDialStore.all.collectAsState()
+    val isPinned = pins.any { it.id == playlist.id }
     val resync = rememberPlaylistResync(playlist.id, playlist.playlist.browseId, navigator, onDismiss)
 
     var saved by rememberSaveable { mutableStateOf(playlist.playlist.bookmarkedAt != null) }
@@ -417,7 +421,7 @@ fun PlaylistMenu(
                         Material3MenuItemData(
                             title = {
                                 Text(
-                                    text = if (isPinned) "Unpin from library" else "Pin to library"
+                                    text = stringResource(if (isPinned) R.string.unpin_from_speed_dial else R.string.pin_to_speed_dial)
                                 )
                             },
                             icon = {
@@ -427,8 +431,20 @@ fun PlaylistMenu(
                                 )
                             },
                             onClick = {
-                                // TODO(Phase 3): no speed-dial store in CW.
-                                Timber.w("PlaylistMenu: pin to library is not wired yet")
+                                // "Local Playlist" is the author the dial
+                                // card routes on: it opens local_playlist/
+                                // for these, online_playlist/ otherwise
+                                // (see HomeScreen.ytItemCard, and the same
+                                // literal in toSpeedDialYTItem)
+                                SpeedDialStore.toggle(
+                                    SpeedDialItem(
+                                        id = playlist.id,
+                                        title = playlist.title,
+                                        subtitle = "Local Playlist",
+                                        thumbnailUrl = playlist.songThumbnails.firstOrNull(),
+                                        type = SpeedDialItem.TYPE_PLAYLIST,
+                                    )
+                                )
                                 onDismiss()
                             }
                         )

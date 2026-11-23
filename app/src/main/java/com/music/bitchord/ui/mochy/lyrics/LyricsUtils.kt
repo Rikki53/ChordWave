@@ -13,14 +13,22 @@
 // MERGED BY COORDINATOR (15 Nov): the line-index helpers are now here,
 // verbatim from Mochy :762-800 (LineLeadInMs/findCurrentLineIndex/
 // lineEndMs/lyricsEndMs/UntimedLineDurationMs), and the romanisation
-// surface moved in from the lyrics chunk's stub (stubs returning
-// input/null/false, except readingLine which is verbatim) so
-// LyricsReadings.kt compiles. The lyrics chunk's LyricsUtils stub file
-// was deleted — this file is the single home of LyricsUtils.
+// surface moved in from the lyrics chunk's stub so LyricsReadings.kt
+// compiles. The lyrics chunk's LyricsUtils stub file was deleted — this
+// file is the single home of LyricsUtils.
+// ROMANISATION (merge, Nov 2026): romanizableScript and the Cyrillic /
+// Punjabi detectors are verbatim from Mochy; the romanize* functions run
+// on ChordWave's own LyricsTranslation.romanize (Google transliteration,
+// no API key, disk-cached) instead of Mochy's local libraries (kuromoji
+// et al., not in this app). rubyFor stays a stub: per-word furigana
+// needs kuromoji's morphological analysis, which no network call
+// reproduces — callers fall back to the whole-line reading.
 
 package com.music.bitchord.ui.mochy.lyrics
 
 import android.text.format.DateUtils
+import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsTranslation
 import kotlinx.coroutines.flow.MutableStateFlow
 import timber.log.Timber
 
@@ -646,52 +654,200 @@ object LyricsUtils {
         if (warned.add(name)) Timber.w("LyricsUtils: $name not available (no lyrics engine yet)")
     }
 
-    /** Which script [text] is written in, for picking a romaniser. TODO(lyrics-engine). */
+    // The Cyrillic letter sets the language detectors below read —
+    // verbatim from Mochy (lyrics/LyricsUtils.kt :250-328).
+    private val UKRAINIAN_CYRILLIC_LETTERS = setOf(
+       "А", "Б", "В", "Г", "Ґ", "Д", "Е", "Є", "Ж", "З", "И", "І", "Ї", "Й",
+        "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч",
+        "Ш", "Щ", "Ь", "Ю", "Я",
+
+        "а", "б", "в", "г", "ґ", "д", "е", "є", "ж", "з", "и", "і", "ї", "й",
+        "к", "л", "м", "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч",
+        "ш", "щ", "ь", "ю", "я"
+    )
+
+    private val SERBIAN_CYRILLIC_LETTERS = setOf(
+        "А", "Б", "В", "Г", "Д", "Ђ", "Е", "Ж", "З", "И", "Ј", "К", "Л", "Љ", "М",
+        "Н", "Њ", "О", "П", "Р", "С", "Т", "Ћ", "У", "Ф", "Х", "Ц", "Ч", "Џ", "Ш",
+
+        "а", "б", "в", "г", "д", "ђ", "е", "ж", "з", "и", "ј", "к", "л", "љ", "м",
+        "н", "њ", "о", "п", "р", "с", "т", "ћ", "у", "ф", "х", "ц", "ч", "џ", "ш"
+    )
+
+    private val BULGARIAN_CYRILLIC_LETTERS = setOf(
+        "А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "Й", "К", "Л", "М",
+        "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ",
+        "Ъ", "Ь", "Ю", "Я",
+
+        "а", "б", "в", "г", "д", "е", "ж", "з", "и", "й", "к", "л", "м",
+        "н", "о", "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ",
+        "ъ", "ь", "ю", "я"
+    )
+
+    private val BELARUSIAN_CYRILLIC_LETTERS = setOf(
+        "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "І", "Й", "К", "Л", "М", "Н",
+        "О", "П", "Р", "С", "Т", "У", "Ў", "Ф", "Х", "Ц", "Ч", "Ш", "Ь", "Ю", "Я",
+        "Ы", "Э",
+
+        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "і", "й", "к", "л", "м", "н",
+        "о", "п", "р", "с", "т", "у", "ў", "ф", "х", "ц", "ч", "ш", "ь", "ю", "я",
+        "ы", "э"
+    )
+
+    private val KYRGYZ_CYRILLIC_LETTERS = setOf(
+        "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н",
+        "Ң", "О", "Ө", "П", "Р", "С", "Т", "У", "Ү", "Ф", "Х", "Ц", "Ч", "Ш", "Щ",
+        "Ъ", "Ы", "Ь", "Э", "Ю", "Я",
+
+        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н",
+        "ң", "о", "ө", "п", "р", "с", "т", "у", "ү", "ф", "х", "ц", "ч", "ш", "щ",
+        "ъ", "ы", "ь", "э", "ю", "я"
+    )
+
+    private val MACEDONIAN_CYRILLIC_LETTERS = setOf(
+        "А", "Б", "В", "Г", "Д", "Ѓ", "Е", "Ж", "З", "Ѕ", "И", "Ј", "К", "Л",
+        "Љ", "М", "Н", "Њ", "О", "П", "Р", "С", "Т", "Ќ", "У", "Ф", "Х",
+        "Ц", "Ч", "Џ", "Ш",
+
+        "а", "б", "в", "г", "д", "ѓ", "е", "ж", "з", "ѕ", "и", "ј", "к", "л",
+        "љ", "м", "н", "њ", "о", "п", "р", "с", "т", "ќ", "у", "ф", "х",
+        "ц", "ч", "џ", "ш"
+    )
+
+    private val UKRAINIAN_SPECIFIC_CYRILLIC_LETTERS = setOf(
+        "Ґ", "ґ", "Є", "є", "І", "і", "Ї", "ї"
+    )
+
+    private val SERBIAN_SPECIFIC_CYRILLIC_LETTERS = setOf(
+        "Ђ", "ђ", "Ј", "ј", "Љ", "љ", "Њ", "њ", "Ћ", "ћ", "Џ", "џ"
+    )
+
+    private val BELARUSIAN_SPECIFIC_CYRILLIC_LETTERS = setOf(
+        "Ў", "ў", "І", "і"
+    )
+
+    private val KYRGYZ_SPECIFIC_CYRILLIC_LETTERS = setOf(
+        "Ң", "ң", "Ө", "ө", "Ү", "ү"
+    )
+
+    private val MACEDONIAN_SPECIFIC_CYRILLIC_LETTERS = setOf(
+        "Ѓ", "ѓ", "Ѕ", "ѕ", "Ќ", "ќ"
+    )
+
+    // built on demand and dropped on memory trims so the japanese ipadic tables (~20 mb) don't stay pinned in ram
+
+    /** Which script [text] is written in, for picking a romaniser — verbatim from Mochy. */
     fun romanizableScript(text: String): Script {
-        warnOnce("romanizableScript")
-        return Script.UNKNOWN
+        val counts = HashMap<Script, Int>()
+        var total = 0
+        for (ch in text) {
+            val s = scriptOf(ch) ?: continue
+            counts[s] = (counts[s] ?: 0) + 1
+            total++
+        }
+        if (total == 0) return Script.UNKNOWN
+        if ((counts[Script.KANA] ?: 0) > 0) return Script.KANA
+        val (script, count) = counts.filterKeys { it != Script.LATIN }.maxByOrNull { it.value } ?: return Script.UNKNOWN
+        return if (count * 10 >= total) script else Script.UNKNOWN
     }
 
-    fun isUkrainian(text: String): Boolean = false
-    fun isSerbian(text: String): Boolean = false
-    fun isBulgarian(text: String): Boolean = false
-    fun isBelarusian(text: String): Boolean = false
-    fun isKyrgyz(text: String): Boolean = false
-    fun isMacedonian(text: String): Boolean = false
-    fun isPunjabi(text: String): Boolean = false
-
-    /** Romanise [text]; returns the input unchanged until the engine lands. TODO(lyrics-engine). */
-    suspend fun romanizeJapanese(text: String): String {
-        warnOnce("romanizeJapanese")
-        return text
+    fun isUkrainian(text: String): Boolean {
+        return text.any { char ->
+            UKRAINIAN_CYRILLIC_LETTERS.contains(char.toString()) || UKRAINIAN_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString())
+        } && text.all { char ->
+            UKRAINIAN_CYRILLIC_LETTERS.contains(char.toString()) || UKRAINIAN_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString()) || !char.toString().matches("[\\u0400-\\u04FF]".toRegex())
+        }
     }
 
-    suspend fun romanizeKorean(text: String): String {
-        warnOnce("romanizeKorean")
-        return text
+    fun isSerbian(text: String): Boolean {
+        return text.any { char ->
+            SERBIAN_CYRILLIC_LETTERS.contains(char.toString()) || SERBIAN_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString())
+        } && text.all { char ->
+            SERBIAN_CYRILLIC_LETTERS.contains(char.toString()) || SERBIAN_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString()) || !char.toString().matches("[\\u0400-\\u04FF]".toRegex())
+        }
     }
 
-    suspend fun romanizeChinese(text: String): String {
-        warnOnce("romanizeChinese")
-        return text
+    fun isBulgarian(text: String): Boolean {
+        return text.any { char ->
+            BULGARIAN_CYRILLIC_LETTERS.contains(char.toString())
+        } && text.all { char ->
+            BULGARIAN_CYRILLIC_LETTERS.contains(char.toString()) || !char.toString().matches("[\\u0400-\\u04FF]".toRegex())
+        }
     }
 
-    suspend fun romanizeCyrillic(text: String): String? {
-        warnOnce("romanizeCyrillic")
-        return null
+    fun isBelarusian(text: String): Boolean {
+        return text.any { char ->
+            BELARUSIAN_CYRILLIC_LETTERS.contains(char.toString()) || BELARUSIAN_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString())
+        } && text.all { char ->
+            BELARUSIAN_CYRILLIC_LETTERS.contains(char.toString()) || BELARUSIAN_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString()) || !char.toString().matches("[\\u0400-\\u04FF]".toRegex())
+        }
     }
 
-    suspend fun romanizeHindi(text: String): String {
-        warnOnce("romanizeHindi")
-        return text
+    fun isKyrgyz(text: String): Boolean {
+        return text.any { char ->
+            KYRGYZ_CYRILLIC_LETTERS.contains(char.toString()) || KYRGYZ_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString())
+        } && text.all { char ->
+            KYRGYZ_CYRILLIC_LETTERS.contains(char.toString()) || KYRGYZ_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString()) || !char.toString().matches("[\\u0400-\\u04FF]".toRegex())
+        }
     }
 
-    suspend fun romanizePunjabi(text: String): String {
-        warnOnce("romanizePunjabi")
-        return text
+    fun isMacedonian(text: String): Boolean {
+        return text.any { char ->
+            MACEDONIAN_CYRILLIC_LETTERS.contains(char.toString()) || MACEDONIAN_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString())
+        } && text.all { char ->
+            MACEDONIAN_CYRILLIC_LETTERS.contains(char.toString()) || MACEDONIAN_SPECIFIC_CYRILLIC_LETTERS.contains(char.toString()) || !char.toString().matches("[\\u0400-\\u04FF]".toRegex())
+        }
     }
 
-    /** Per-word readings over [text], furigana style. TODO(lyrics-engine). */
+    fun isPunjabi(text: String): Boolean {
+        return text.any { char ->
+            char in '\u0A00'..'\u0A7F'
+        }
+    }
+
+
+    /**
+     * One text through ChordWave's romanizer: [LyricsTranslation.romanize]
+     * (Google transliteration, no API key, disk-cached). The engine
+     * auto-detects the source language, so every language below shares
+     * this one call — Mochy's per-language local libraries (kuromoji et
+     * al.) are not in this app. Returns the romanized text, or null when
+     * the engine has nothing (already Latin, or the call failed). Prefer
+     * the batched song-level call in readSong for whole songs: one call
+     * per text here means one network round trip per line.
+     */
+    private suspend fun romanizeOneText(text: String): String? {
+        if (text.isBlank()) return null
+        return when (val result = LyricsTranslation.romanize(
+            trackId = "romanize-text:" + text.hashCode().toString(),
+            lines = listOf(LyricLine(0L, text)),
+            targetLanguageTag = "en",
+        )) {
+            is LyricsTranslation.RomanizationResult.Romanized ->
+                result.lines.firstOrNull()?.text?.takeIf { it.isNotBlank() && !it.equals(text, ignoreCase = true) }
+            else -> null
+        }
+    }
+
+    /** Romanise [text]; the input unchanged when the engine has nothing. */
+    suspend fun romanizeJapanese(text: String): String = romanizeOneText(text) ?: text
+
+    suspend fun romanizeKorean(text: String): String = romanizeOneText(text) ?: text
+
+    suspend fun romanizeChinese(text: String): String = romanizeOneText(text) ?: text
+
+    suspend fun romanizeCyrillic(text: String): String? = romanizeOneText(text)
+
+    suspend fun romanizeHindi(text: String): String = romanizeOneText(text) ?: text
+
+    suspend fun romanizePunjabi(text: String): String = romanizeOneText(text) ?: text
+
+    /**
+     * Per-word readings over [text], furigana style. STAYS A STUB: Mochy
+     * built these with kuromoji's morphological analysis, which no
+     * network call reproduces — callers fall back to the whole-line
+     * reading (see the file header).
+     */
     suspend fun rubyFor(text: String, script: Script): List<RubyToken>? {
         warnOnce("rubyFor")
         return null

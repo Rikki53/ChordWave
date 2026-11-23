@@ -149,6 +149,7 @@ fun OfflinePlaylist.toMochyPlaylist(): Playlist =
             id = id,
             name = title,
             browseId = browseId,
+            description = description,
             thumbnailUrl = coverUrl ?: songs.firstOrNull()?.thumbnailUrl,
         ),
         songCount = songs.size,

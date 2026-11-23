@@ -133,10 +133,10 @@ private fun SongShareDialog(
         }
         LaunchedEffect(session) {
             launch { loadShareArt(context, session) }
-            launch { loadAnimatedCover(session) }
+            launch { loadAnimatedCover(context, session) }
             launch { findMusicVideo(session) }
             if (heldLyrics == null) {
-                loadShareLyrics(session)
+                loadShareLyrics(context, session)
             } else {
                 loadLyricsOffset(session)
             }

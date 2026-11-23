@@ -14,9 +14,9 @@
 //   the lyrics sheets read the stubs themselves.
 // - Share is a plain ACTION_SEND intent with the watch link (Mochy's
 //   SongShare sheet is not ported) — same as SongMenu.
-// - "Wrong video? / Find video": hasFoundVideo always returns false (no
-//   video-lookup cache in CW yet — NEEDS.md §(b) E6), so the row reads
-//   "Find video" until the lookup exists.
+// - "Wrong video? / Find video": hasFoundVideo (ui.mochy.player) reads
+//   the video-lookup cache + SongEdits, so the row reads "Wrong video?"
+//   once a video was found for the song.
 // - ModuleMenuRows call DROPPED: the file is skipped (modules system out of
 //   scope, NEEDS.md §(c) D3). The skin-customise sheet block is kept so a
 //   future caller can wire it.
@@ -92,6 +92,7 @@ import com.music.bitchord.ui.mochy.menu.songedit.SongEditSheet
 import com.music.bitchord.ui.mochy.menu.songedit.VideoPickerSheet
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.player.hasFoundVideo
 import com.music.bitchord.ui.mochy.player.models.TrackInfo
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.utils.resize
@@ -511,19 +512,6 @@ private fun trackInfoFromMetadata(metadata: MediaMetadata?): TrackInfo = TrackIn
     thumbnailUrl = metadata?.thumbnailUrl,
     liked = metadata?.liked == true,
 )
-
-/**
- * Whether a video was already found for this song (Mochy: ui.player
- * .hasFoundVideo, backed by the video-lookup cache + SongEdits).
- *
- * STUB: CW has no video-lookup cache yet, so this always returns false and
- * the row reads "Find video". NEEDS.md §(b) E6.
- */
-private fun hasFoundVideo(mediaId: String, isVideoSong: Boolean): Boolean {
-    // TODO(phase3-adapter): video lookup cache (NEEDS.md §(b) E6).
-    Timber.w("PlayerActionMenu: no video-lookup cache yet; treating %s as unfound", mediaId)
-    return false
-}
 
 @Composable
 internal fun MenuRow(

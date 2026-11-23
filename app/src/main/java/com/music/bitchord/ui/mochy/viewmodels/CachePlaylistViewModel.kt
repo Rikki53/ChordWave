@@ -58,9 +58,8 @@ class CachePlaylistViewModel @Inject constructor() : ViewModel() {
     }
 
     /**
-     * Removes the song from ChordWave's player cache. The screen never calls
-     * it today; kept for later use (Mochy's Cache screen had a per-row
-     * remove action).
+     * Removes the song from ChordWave's player cache. Called from the
+     * song menu's "Remove from cache" row on the Cache screen.
      */
     fun removeSongFromCache(songId: String) {
         viewModelScope.launch(Dispatchers.IO) {

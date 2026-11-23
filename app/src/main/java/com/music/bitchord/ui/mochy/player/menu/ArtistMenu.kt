@@ -14,10 +14,10 @@
 // - Subscribe state is local rememberSaveable state; the write is
 //   YtMusicRepository.setSubscribed(channelId, subscribed), with the
 //   channel id from the entity or, failing that, the artist id when it
-//   looks like a channel (UC…). A local artist has neither, so subscribing
-//   to one logs a TODO instead.
-// - Pin state comes in as a param; the toggle is a caller callback, and
-//   without one the action logs a Phase 3 TODO (CW has no pin store yet).
+//   looks like a channel (UC…). A local artist has neither, so it shows
+//   no Subscribe row.
+// - Pin state comes from SpeedDialStore (the Home speed dial's pins);
+//   the action toggles the artist's pin and dismisses.
 // - Share is a plain ACTION_SEND intent with the channel link.
 // - DROPPED: the isPortrait/configuration dead reads.
 
@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -58,21 +59,22 @@ import com.music.bitchord.ui.mochy.models.Artist
 import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 @Composable
 fun ArtistMenu(
     originalArtist: Artist,
     coroutineScope: CoroutineScope,
     onDismiss: () -> Unit,
-    isPinned: Boolean = false,
-    onTogglePin: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val artist = originalArtist
+    val pins by SpeedDialStore.all.collectAsState()
+    val isPinned = pins.any { it.id == artist.id }
     var subscribed by rememberSaveable { mutableStateOf(artist.artist.bookmarkedAt != null) }
 
     SheetHeader(
@@ -171,13 +173,16 @@ fun ArtistMenu(
                             },
                             text = if (isPinned) "Unpin" else "Pin",
                             onClick = {
-                                if (onTogglePin != null) {
-                                    onTogglePin()
-                                    onDismiss()
-                                } else {
-                                    // TODO(Phase 3): CW has no pin store yet.
-                                    Timber.w("ArtistMenu: pin needs Phase 3 (pin store)")
-                                }
+                                SpeedDialStore.toggle(
+                                    SpeedDialItem(
+                                        id = artist.id,
+                                        title = artist.artist.name,
+                                        subtitle = null,
+                                        thumbnailUrl = artist.artist.thumbnailUrl,
+                                        type = SpeedDialItem.TYPE_ARTIST,
+                                    )
+                                )
+                                onDismiss()
                             }
                         )
                     )
@@ -207,37 +212,35 @@ fun ArtistMenu(
             )
         }
 
-        item {
-            Material3MenuGroup(
-                items = listOf(
-                    Material3MenuItemData(
-                        title = {
-                            Text(text = if (subscribed) stringResource(R.string.subscribed) else stringResource(R.string.subscribe))
-                        },
-                        icon = {
-                            Icon(
-                                painter = painterResource(if (subscribed) R.drawable.subscribed else R.drawable.subscribe),
-                                contentDescription = null,
-                            )
-                        },
-                        onClick = {
-                            val channelId = artist.artist.channelId
-                                ?: artist.id.takeIf { it.startsWith("UC") }
-                            if (channelId == null) {
-                                // TODO(Phase 3): a local artist has no channel
-                                // to subscribe to, and CW has no local
-                                // bookmark store for one.
-                                Timber.w("ArtistMenu: cannot subscribe to a local artist (no channel id)")
-                            } else {
+        // A local artist has no channel to subscribe to, and CW has no
+        // local bookmark store for one — so a local artist shows no
+        // Subscribe row at all instead of a button that does nothing.
+        val channelId = artist.artist.channelId
+            ?: artist.id.takeIf { it.startsWith("UC") }
+        if (channelId != null) {
+            item {
+                Material3MenuGroup(
+                    items = listOf(
+                        Material3MenuItemData(
+                            title = {
+                                Text(text = if (subscribed) stringResource(R.string.subscribed) else stringResource(R.string.subscribe))
+                            },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(if (subscribed) R.drawable.subscribed else R.drawable.subscribe),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
                                 subscribed = !subscribed
                                 coroutineScope.launch {
                                     YtMusicRepository.setSubscribed(channelId, subscribed)
                                 }
                             }
-                        }
+                        )
                     )
                 )
-            )
+            }
         }
     }
 }

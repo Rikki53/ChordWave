@@ -19,8 +19,8 @@
 //   with the item's own token, then the onHistoryRemoved callback.
 // - Navigation goes through MochyNavigator (param renamed navController ->
 //   navigator, same route strings).
-// - Pin state comes in as a param; the toggle is a caller callback, and
-//   without one the row logs a Phase 3 TODO (CW has no pin store yet).
+// - Pin state comes from SpeedDialStore (the Home speed dial's pins);
+//   the row toggles the song's pin and dismisses.
 // - Add to playlist opens AddToPlaylistDialog (online add works; local
 //   playlists answer honestly in the dialog). Details opens CW's own
 //   SongInfoDialog (Classic) — Mochy's ShowMediaInfo was NOT ported: it
@@ -48,6 +48,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +88,8 @@ import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import com.music.bitchord.ui.mochy.utils.joinByBullet
 import com.music.bitchord.ui.mochy.utils.makeTimeString
 import com.music.bitchord.ui.mochy.utils.resize
@@ -102,11 +105,11 @@ fun YouTubeSongMenu(
     onHistoryRemoved: () -> Unit = {},
     isLiked: Boolean = false,
     isInLibrary: Boolean = false,
-    isPinned: Boolean = false,
-    onTogglePin: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val pins by SpeedDialStore.all.collectAsState()
+    val isPinned = pins.any { it.id == song.id }
     val downloadState = downloadStateFor(song.id)
     val coroutineScope = rememberCoroutineScope()
     val artists = remember {
@@ -393,13 +396,17 @@ fun YouTubeSongMenu(
                                 )
                             },
                             onClick = {
-                                if (onTogglePin != null) {
-                                    onTogglePin()
-                                    onDismiss()
-                                } else {
-                                    // TODO(Phase 3): CW has no pin store yet.
-                                    Timber.w("YouTubeSongMenu: pin needs Phase 3 (pin store)")
-                                }
+                                SpeedDialStore.toggle(
+                                    SpeedDialItem(
+                                        id = song.id,
+                                        title = song.title,
+                                        subtitle = song.artists.joinToString(", ") { it.name },
+                                        thumbnailUrl = song.thumbnail,
+                                        type = SpeedDialItem.TYPE_SONG,
+                                        explicit = song.explicit,
+                                    )
+                                )
+                                onDismiss()
                             }
                         )
                     )

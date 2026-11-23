@@ -4,19 +4,34 @@
 package com.music.bitchord.ui.mochy.player.share.song
 
 import android.content.Context
+import android.net.ConnectivityManager
 import android.net.Uri
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.content.getSystemService
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.request.transformations
 import coil3.toBitmap
+import com.music.bitchord.data.canvas.CanvasRepository
+import com.music.bitchord.data.lyrics.EmbeddedLyrics
+import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsRepository
+import com.music.bitchord.data.model.Song as CwSong
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.mochy.constants.CanvasThumbnailAnimationKey
+import com.music.bitchord.ui.mochy.constants.CanvasWifiOnlyKey
+import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
+import com.music.bitchord.ui.mochy.lyrics.serializeLyricLines
 import com.music.bitchord.ui.mochy.player.lookUpVideo
 import com.music.bitchord.ui.mochy.player.share.coverPalette
 import com.music.bitchord.ui.mochy.player.video.matchSongToVideo
 import com.music.bitchord.ui.mochy.player.video.resolveVideoStreams
+import com.music.bitchord.ui.mochy.utils.DataSaver
+import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.SoftBlurTransformation
+import com.music.bitchord.ui.mochy.utils.dataStore
 import com.music.bitchord.ui.mochy.utils.resize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,45 +72,89 @@ private suspend fun loadBitmap(context: Context, data: Any?, size: Int, blur: So
 
 // the song's lyrics from the library, or fetched and kept there the same way the lyrics page does
 //
-// STUB (phase3-adapter, NEEDS.md §(b) L1): Mochy read the stored lyrics row
-// from its database and otherwise fetched them through its LyricsHelper engine
-// and stored the result. ChordWave has neither a lyrics store nor a lyrics
-// fetcher wired yet, so a share opened from a menu reports no lyrics and the
-// Lyrics tile stays disabled. A share opened by holding a line on the lyrics
-// page is unaffected: it is handed its lyrics directly (see SongShareDialog).
-internal suspend fun loadShareLyrics(session: SongShareSession) {
-    // TODO(phase3-adapter): load the stored lyrics for session.song.id, fetch
-    // through the lyrics engine when missing, parse with
-    // LyricsUtils.parseLyricsCached, and set session.lyrics to
-    // Fetched.Found(lines) — see NEEDS.md §(b) L1.
-    Timber.w("SongShare: no lyrics store yet; lyrics share unavailable from menus for %s", session.song.id)
+// The same order MainViewModel.loadLyrics uses: the user's own override
+// first, then the file's embedded lyrics (synced ones win outright, plain
+// ones stand in until a provider answers with timing), then the providers
+// in the user's order. Lines go through serializeLyricLines +
+// parseLyricsCached — the same path the player connection takes.
+internal suspend fun loadShareLyrics(context: Context, session: SongShareSession) {
+    val song = session.song
+    val artist = song.artists.joinToString { it.name }
+    val override = AppSettings.lyricsOverride(song.id)
+    val localUri = song.localUri
+    var embeddedPlain: List<LyricLine>? = null
+    val embedded = if (override == null && localUri != null) {
+        EmbeddedLyrics.forUri(context, localUri)?.also { lines ->
+            if (!EmbeddedLyrics.isSynced(lines)) embeddedPlain = lines
+        }
+    } else {
+        null
+    }
+    val found = if (override != null || (embedded != null && EmbeddedLyrics.isSynced(embedded))) {
+        null // decided below without contacting the providers
+    } else {
+        LyricsRepository.lyrics(
+            videoId = song.id,
+            title = song.title,
+            artist = artist,
+            durationMs = song.duration * 1000L,
+            album = song.album?.title,
+            sources = AppSettings.lyricsSources.value,
+            order = AppSettings.lyricsSourceOrder.value,
+            prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+        )
+    }
+    val raw = override
+        ?: embedded?.takeIf { EmbeddedLyrics.isSynced(it) }?.let { serializeLyricLines(it) }
+        ?: found?.lines?.takeIf { embeddedPlain == null || EmbeddedLyrics.isSynced(it) }?.let { serializeLyricLines(it) }
+        ?: embeddedPlain?.let { serializeLyricLines(it) }
     loadLyricsOffset(session)
-    session.lyrics = Fetched.Missing
+    val lines = raw?.let { LyricsUtils.parseLyricsCached(it) }.orEmpty()
+    session.lyrics = if (lines.isNotEmpty()) Fetched.Found(lines) else Fetched.Missing
 }
 
 // how far this song's lyrics were nudged on the lyrics page, so the share lines them up the same way
 //
-// STUB (phase3-adapter, NEEDS.md §(b) L2): Mochy read the song row's
-// lyricsOffset from its database. Until the adapter wires it the offset is 0,
-// which is also what an un-nudged song has, so nothing visibly changes.
+// The per-song offset when one was set, else the global offset — the same
+// effective value the player connection reads.
 internal suspend fun loadLyricsOffset(session: SongShareSession) {
-    // TODO(phase3-adapter): read the stored lyrics offset for session.song.id
-    // (NEEDS.md §(b) L2).
-    Timber.w("SongShare: no lyrics offset store yet; using 0")
-    session.lyricsOffsetMs = 0L
+    session.lyricsOffsetMs = (AppSettings.lyricsOffsetForSong(session.song.id)
+        ?: AppSettings.lyricsOffsetMs.value).toLong()
 }
 
 // the album's looping cover from the same places the player finds it
 //
-// STUB (phase3-adapter, NEEDS.md §(b) C1): Mochy looked the animated cover up
-// through its canvas providers (Monochrome API, then Apple Music). Canvas
-// fetch/playback is out of scope for this port, so the moving-cover background
-// is never offered; the background pager simply omits its page.
-internal suspend fun loadAnimatedCover(session: SongShareSession) {
-    // TODO(phase3-adapter): resolve the animated cover URL for the song (see
-    // NEEDS.md §(b) C1) and set session.animatedCover to Fetched.Found(url).
-    Timber.w("SongShare: animated covers not available yet (no canvas engine)")
-    session.animatedCover = Fetched.Missing
+// CanvasRepository, behind the same guards the player uses: the canvas
+// switch, Wi-Fi-only on a metered network, and Data Saver.
+internal suspend fun loadAnimatedCover(context: Context, session: SongShareSession) {
+    val prefs = PreferencesCache.current(context.dataStore)
+    val canvasEnabled = prefs[CanvasThumbnailAnimationKey] ?: true
+    val canvasWifiOnly = prefs[CanvasWifiOnlyKey] ?: true
+    val song = session.song
+    val artist = song.artists.joinToString { it.name }
+    if (!canvasEnabled || song.id.isBlank() || song.title.isBlank() || artist.isBlank()) {
+        session.animatedCover = Fetched.Missing
+        return
+    }
+    val connectivityManager = context.getSystemService<ConnectivityManager>()
+    if (canvasWifiOnly && connectivityManager?.isActiveNetworkMetered == true) {
+        session.animatedCover = Fetched.Missing
+        return
+    }
+    if (DataSaver.isActive(context)) {
+        session.animatedCover = Fetched.Missing
+        return
+    }
+    val artwork = CanvasRepository.canvasFor(
+        CwSong(
+            videoId = song.id,
+            title = song.title,
+            artist = artist,
+            thumbnailUrl = song.thumbnailUrl,
+            albumName = song.album?.title,
+        )
+    )
+    session.animatedCover = artwork?.url?.let { Fetched.Found(it) } ?: Fetched.Missing
 }
 
 // the song's music video, its own picture when the song is a video; lined up as-is until matchMusicVideo has listened to both

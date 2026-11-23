@@ -7,13 +7,13 @@
 // - The sync-enabled check is YtmSyncKey + signed-in. Mochy also checked
 //   internet connectivity (isSyncEnabled); that check is skipped — CW has
 //   no equivalent helper, and the create itself fails loudly offline.
-// - Create: OfflinePlaylists.create(name) for the local playlist (real;
-//   its id goes to onPlaylistCreated). If sync is on, a YouTube playlist
-//   is ALSO created via YtMusicRepository.createPlaylist(name,
-//   PlaylistPrivacy.PRIVATE, ...) — Mochy's innertube create sends title
-//   only (no privacy field), PRIVATE is the closest default. The
-//   local<->online link is LOST: no CW store holds the online browseId
-//   against the local playlist.
+// - Create: OfflinePlaylists.create(name, description = form.description)
+//   for the local playlist (real; its id goes to onPlaylistCreated). If
+//   sync is on, a YouTube playlist is ALSO created via
+//   YtMusicRepository.createPlaylist(name, PlaylistPrivacy.PRIVATE, ...)
+//   — Mochy's innertube create sends title only (no privacy field),
+//   PRIVATE is the closest default. The local<->online link is LOST: no
+//   CW store holds the online browseId against the local playlist.
 // - Cover: the carousel's choice (or Gradient, Mochy's default) is drawn
 //   by PlaylistCovers.create and stored on the playlist via
 //   OfflinePlaylists.setCover; the success toast uses the new cover. The
@@ -125,7 +125,7 @@ fun CreatePlaylistDialog(
                                         }
                                 }
 
-                                val created = OfflinePlaylists.create(name)
+                                val created = OfflinePlaylists.create(name, description = form.description)
 
                                 // The carousel's choice, or Mochy's default style; a failed
                                 // draw still leaves the user a playlist, just without a cover.

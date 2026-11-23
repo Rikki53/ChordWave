@@ -70,6 +70,8 @@ internal fun PlaylistFormContent(
     existingImage: String?,
     keepAllowed: Boolean,
     extra: (@Composable ColumnScope.() -> Unit)? = null,
+    /** False where no store holds a description (online playlists): the field is hidden, not dropped. */
+    showDescription: Boolean = true,
 ) {
     Column(
         modifier = Modifier
@@ -102,18 +104,20 @@ internal fun PlaylistFormContent(
             ),
         )
 
-        Spacer(Modifier.height(18.dp))
+        if (showDescription) {
+            Spacer(Modifier.height(18.dp))
 
-        SheetLabel("Playlist desc")
-        Spacer(Modifier.height(8.dp))
-        SheetTextField(
-            value = form.description,
-            onValueChange = { form.description = it.take(MaxDescriptionLength) },
-            placeholder = "What is it about?",
-            singleLine = false,
-            maxLines = 4,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-        )
+            SheetLabel("Playlist desc")
+            Spacer(Modifier.height(8.dp))
+            SheetTextField(
+                value = form.description,
+                onValueChange = { form.description = it.take(MaxDescriptionLength) },
+                placeholder = "What is it about?",
+                singleLine = false,
+                maxLines = 4,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            )
+        }
 
         if (extra != null) {
             Spacer(Modifier.height(18.dp))

@@ -22,8 +22,8 @@
 // - Download state is the aggregate over the passed-in songs
 //   (downloadStateForAll); download/remove go through Downloads. The
 //   remove-download confirmation dialog is kept (DefaultDialog).
-// - Pin state comes in as a param; the toggle is a caller callback, and
-//   without one the row logs a Phase 3 TODO (CW has no pin store yet).
+// - Pin state comes from SpeedDialStore (the Home speed dial's pins);
+//   the row toggles the playlist's pin and dismisses.
 // - Add to playlist opens AddToPlaylistDialog (online add works; local
 //   playlists answer honestly in the dialog).
 // - DROPPED: the ImportPlaylistDialog (its show state was never set to true
@@ -50,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,6 +83,8 @@ import com.music.bitchord.ui.mochy.models.innertube.SongItem
 import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import com.music.bitchord.ui.mochy.utils.resize
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -98,11 +101,11 @@ fun YouTubePlaylistMenu(
     canSelect: Boolean = false,
     onImportedPlaylist: (String) -> Unit = {},
     isSaved: Boolean = false,
-    isPinned: Boolean = false,
-    onTogglePin: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val pins by SpeedDialStore.all.collectAsState()
+    val isPinned = pins.any { it.id == playlist.id }
     var saved by rememberSaveable { mutableStateOf(isSaved) }
 
     var showAddToPlaylist by remember { mutableStateOf(false) }
@@ -332,7 +335,7 @@ fun YouTubePlaylistMenu(
                     Material3MenuItemData(
                         title = {
                             Text(
-                                text = if (isPinned) "Unpin from library" else "Pin to library"
+                                text = stringResource(if (isPinned) R.string.unpin_from_speed_dial else R.string.pin_to_speed_dial)
                             )
                         },
                         icon = {
@@ -342,13 +345,16 @@ fun YouTubePlaylistMenu(
                             )
                         },
                         onClick = {
-                            if (onTogglePin != null) {
-                                onTogglePin()
-                                onDismiss()
-                            } else {
-                                // TODO(Phase 3): CW has no pin store yet.
-                                Timber.w("YouTubePlaylistMenu: pin needs Phase 3 (pin store)")
-                            }
+                            SpeedDialStore.toggle(
+                                SpeedDialItem(
+                                    id = playlist.id,
+                                    title = playlist.title,
+                                    subtitle = playlist.author?.name,
+                                    thumbnailUrl = playlist.thumbnail,
+                                    type = SpeedDialItem.TYPE_PLAYLIST,
+                                )
+                            )
+                            onDismiss()
                         }
                     )
                 )

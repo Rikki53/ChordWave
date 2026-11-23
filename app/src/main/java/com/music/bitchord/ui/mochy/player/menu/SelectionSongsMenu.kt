@@ -10,10 +10,11 @@
 // - AddToPlaylistDialog's onGetSong just returns the ids: the dialog
 //   itself does the online add in `pick` (Mochy added to the synced
 //   playlist here AND returned ids — the port must not double-add).
-// - "Delete from playlist" row: STUB (Timber.w + TODO) — no CW store
-//   holds playlist membership, and the menu has no browseId for the
-//   online API. The row is kept so the behaviour matches SongMenu's
-//   stub pattern.
+// - "Delete from playlist" row: wired through the onDeleteFromPlaylist
+//   callback, which the playlist screen supplies (LocalPlaylistViewModel
+//   .removeSong handles offline and online entries alike). The row only
+//   appears when the caller passes both the entry maps and the callback,
+//   so it never shows where it can't act.
 // - Dropped Mochy's dead `notAddedList` and the dead `isPortrait` /
 //   `configuration` reads.
 
@@ -70,6 +71,8 @@ fun SelectionSongMenu(
     onDismiss: () -> Unit,
     clearAction: () -> Unit,
     songPosition: List<PlaylistSongMap>? = emptyList(),
+    /** Removes the selected entries from their playlist; null = the delete row is hidden. */
+    onDeleteFromPlaylist: ((List<PlaylistSongMap>) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -369,7 +372,7 @@ fun SelectionSongMenu(
                             }
                         )
                     )
-                    if (songPosition?.isNotEmpty() == true) {
+                    if (songPosition?.isNotEmpty() == true && onDeleteFromPlaylist != null) {
                         add(
                             Material3MenuItemData(
                                 title = { Text(text = stringResource(R.string.delete)) },
@@ -380,9 +383,7 @@ fun SelectionSongMenu(
                                     )
                                 },
                                 onClick = {
-                                    // TODO(Phase 3): no CW store holds playlist membership, and
-                                    // this menu has no browseId for the online API.
-                                    Timber.w("SelectionSongMenu: delete from playlist is not wired yet")
+                                    onDeleteFromPlaylist(songPosition)
                                     onDismiss()
                                     clearAction()
                                 }

@@ -76,14 +76,8 @@ private fun LyricsTile(ink: BedsideInk, padding: BedsideInsets, modifier: Modifi
     val connection = LocalPlayerConnection.current
     val lyrics = rememberVideoLyrics()
     val look = rememberVideoLyricLook()
-    // TODO [CW] Mochy offsets the lyrics clock by connection.lyricsOffsetMs (the song's saved
-    // per-song lyrics offset); ChordWave has no such value yet (NEEDS.md §(b) B4), so the
-    // clock runs unshifted until the coordinator wires it.
-    LaunchedEffect(Unit) {
-        Timber.w("Bedside LyricsTile: lyrics offset is 0 — lyricsOffsetMs not wired yet (NEEDS.md §(b) B4)")
-    }
     val clock = remember(connection) {
-        PlaybackClock({ connection?.player }, { 0L })
+        PlaybackClock({ connection?.player }, { connection?.lyricsOffsetMs?.value?.toLong() ?: 0L })
     }
     BoxWithConstraints(modifier) {
         FollowingLyrics(

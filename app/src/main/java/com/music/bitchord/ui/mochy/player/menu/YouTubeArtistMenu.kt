@@ -13,8 +13,8 @@
 //   channel id from the item or, failing that, the artist id itself.
 // - Shuffle / Radio build YouTubeQueue from the item's endpoints exactly as
 //   in Mochy and hand it to MochyPlayerConnection.playQueue (Phase 3 stub).
-// - Pin state comes in as a param; the toggle is a caller callback, and
-//   without one the action logs a Phase 3 TODO (CW has no pin store yet).
+// - Pin state comes from SpeedDialStore (the Home speed dial's pins);
+//   the action toggles the artist's pin and dismisses.
 // - Share is a plain ACTION_SEND intent with the item's share link.
 // - DROPPED: the isPortrait/configuration dead reads.
 
@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,8 +56,9 @@ import com.music.bitchord.ui.mochy.component.SheetHeaderGap
 import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 
@@ -65,12 +67,12 @@ fun YouTubeArtistMenu(
     artist: ArtistItem,
     onDismiss: () -> Unit,
     isSubscribed: Boolean = false,
-    isPinned: Boolean = false,
-    onTogglePin: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val coroutineScope = rememberCoroutineScope()
+    val pins by SpeedDialStore.all.collectAsState()
+    val isPinned = pins.any { it.id == artist.id }
     var subscribed by rememberSaveable { mutableStateOf(isSubscribed) }
 
     SheetHeader(
@@ -144,13 +146,16 @@ fun YouTubeArtistMenu(
                             },
                             text = if (isPinned) "Unpin" else "Pin",
                             onClick = {
-                                if (onTogglePin != null) {
-                                    onTogglePin()
-                                    onDismiss()
-                                } else {
-                                    // TODO(Phase 3): CW has no pin store yet.
-                                    Timber.w("YouTubeArtistMenu: pin needs Phase 3 (pin store)")
-                                }
+                                SpeedDialStore.toggle(
+                                    SpeedDialItem(
+                                        id = artist.id,
+                                        title = artist.title,
+                                        subtitle = null,
+                                        thumbnailUrl = artist.thumbnail,
+                                        type = SpeedDialItem.TYPE_ARTIST,
+                                    )
+                                )
+                                onDismiss()
                             }
                         )
                     )

@@ -15,7 +15,7 @@
 //   an empty album in Mochy.
 // - The header save state is local rememberSaveable state; the write is
 //   YtMusicRepository.setSaved(album playlistId, saved). A local album has
-//   no playlist id, so saving it logs a TODO instead.
+//   no playlist id, so it shows no heart (it is already on the phone).
 // - Download state is the aggregate over the loaded tracks
 //   (downloadStateForAll); download/remove go through Downloads.
 // - Shuffle drops playerConnection.service.getAutomix(): CW needs no
@@ -23,17 +23,17 @@
 //   transition (PlaybackService.loadAutoplayForCurrentTrack).
 // - Navigation goes through MochyNavigator (param renamed navController ->
 //   navigator, same route strings).
-// - Pin state comes in as a param; the toggle is a caller callback, and
-//   without one the row logs a Phase 3 TODO (CW has no pin store yet).
-// - STUBBED (log + row stays): Refetch (no local store to refetch into).
+// - Pin state comes from SpeedDialStore (the Home speed dial's pins);
+//   the row toggles the album's pin and dismisses.
+// - Refetch is gone: it rewrote the local library record, and CW has no
+//   local library store — metadata is fetched fresh whenever a screen
+//   loads, so there is nothing stale to refresh.
 //   Add to playlist opens AddToPlaylistDialog (online add works; local
 //   playlists answer honestly in the dialog).
 // - DROPPED: the isPortrait/configuration dead reads.
 
 package com.music.bitchord.ui.mochy.player.menu
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -54,8 +54,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -65,7 +65,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -99,20 +98,21 @@ import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem
+import com.music.bitchord.ui.mochy.speeddial.SpeedDialStore
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 @Composable
 fun AlbumMenu(
     originalAlbum: Album,
     navigator: MochyNavigator,
     onDismiss: () -> Unit,
-    isPinned: Boolean = false,
-    onTogglePin: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val album = originalAlbum
+    val pins by SpeedDialStore.all.collectAsState()
+    val isPinned = pins.any { it.id == album.id }
     var songs by remember {
         mutableStateOf(emptyList<Song>())
     }
@@ -125,14 +125,6 @@ fun AlbumMenu(
     }
 
     val downloadState = downloadStateForAll(songs.map { it.id })
-
-    var refetchIconDegree by remember { mutableFloatStateOf(0f) }
-
-    val rotationAnimation by animateFloatAsState(
-        targetValue = refetchIconDegree,
-        animationSpec = tween(durationMillis = 800),
-        label = "",
-    )
 
     var saved by rememberSaveable { mutableStateOf(album.album.bookmarkedAt != null) }
 
@@ -209,24 +201,22 @@ fun AlbumMenu(
             album.artists.joinToString { it.name }.ifBlank { null },
             album.album.year?.toString(),
         ).joinToString(" • "),
-        trailing = {
-            SheetHeaderButton(
-                icon = if (saved) R.drawable.favorite else R.drawable.favorite_border,
-                tint = if (saved) MaterialTheme.colorScheme.error else Color.White,
-                onClick = {
-                    val playlistId = album.album.playlistId
-                    if (playlistId == null) {
-                        // TODO(Phase 3): a local album has no YouTube playlist
-                        // id to save against, and CW has no local save store.
-                        Timber.w("AlbumMenu: cannot save a local album (no playlist id)")
-                    } else {
+        // A local album has no YouTube playlist id to save against, and CW
+        // has no local save store — so a local album shows no heart at
+        // all (it is already on the phone; there is nothing to save).
+        trailing = album.album.playlistId?.let { playlistId ->
+            {
+                SheetHeaderButton(
+                    icon = if (saved) R.drawable.favorite else R.drawable.favorite_border,
+                    tint = if (saved) MaterialTheme.colorScheme.error else Color.White,
+                    onClick = {
                         saved = !saved
                         coroutineScope.launch {
                             YtMusicRepository.setSaved(playlistId, saved)
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         },
     )
 
@@ -393,7 +383,7 @@ fun AlbumMenu(
                     Material3MenuItemData(
                         title = {
                             Text(
-                                text = if (isPinned) "Unpin from library" else "Pin to library"
+                                text = stringResource(if (isPinned) R.string.unpin_from_speed_dial else R.string.pin_to_speed_dial)
                             )
                         },
                         icon = {
@@ -403,13 +393,18 @@ fun AlbumMenu(
                             )
                         },
                         onClick = {
-                            if (onTogglePin != null) {
-                                onTogglePin()
-                                onDismiss()
-                            } else {
-                                // TODO(Phase 3): CW has no pin store yet.
-                                Timber.w("AlbumMenu: pin needs Phase 3 (pin store)")
-                            }
+                            SpeedDialStore.toggle(
+                                SpeedDialItem(
+                                    id = album.id,
+                                    secondaryId = album.album.playlistId,
+                                    title = album.title,
+                                    subtitle = album.artists.joinToString(", ") { it.name },
+                                    thumbnailUrl = album.thumbnailUrl,
+                                    type = SpeedDialItem.TYPE_ALBUM,
+                                    explicit = album.album.explicit,
+                                )
+                            )
+                            onDismiss()
                         }
                     )
                 )
@@ -483,30 +478,5 @@ fun AlbumMenu(
             )
         }
 
-        item { Spacer(modifier = Modifier.height(12.dp)) }
-
-        item {
-            Material3MenuGroup(
-                items = listOf(
-                    Material3MenuItemData(
-                        title = { Text(text = stringResource(R.string.refetch)) },
-                        description = { Text(text = stringResource(R.string.refetch_desc)) },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.sync),
-                                contentDescription = null,
-                                modifier = Modifier.graphicsLayer(rotationZ = rotationAnimation)
-                            )
-                        },
-                        onClick = {
-                            refetchIconDegree -= 360
-                            // TODO(Phase 3): refetching rewrites the local library
-                            // record, and CW has no local library store to rewrite.
-                            Timber.w("AlbumMenu: refetch needs Phase 3 (no local library store)")
-                        }
-                    )
-                )
-            )
-        }
     }
 }

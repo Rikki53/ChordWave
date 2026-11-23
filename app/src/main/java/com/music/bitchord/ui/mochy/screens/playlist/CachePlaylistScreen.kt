@@ -269,6 +269,7 @@ fun CachePlaylistScreen(
                                 navigator = navigator,
                                 onDismiss = menuState::dismiss,
                                 isFromCache = true,
+                                onRemoveFromCache = { viewModel.removeSongFromCache(it) },
                             )
                         }
                     },
