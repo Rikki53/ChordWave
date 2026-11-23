@@ -39,13 +39,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BringIntoViewRequester
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.bringIntoViewRequester
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -468,7 +468,7 @@ fun MochySettingsScreen(
                                             // is already the top of the stack) — clear the
                                             // query and keyboard so the page and the
                                             // highlighted card are visible again
-                                            searchQuery = TextFieldValue("")
+                                            query = TextFieldValue()
                                             focusManager.clearFocus()
                                         }
                                         open(entry.route)
