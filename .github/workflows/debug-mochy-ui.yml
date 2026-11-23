@@ -2,7 +2,7 @@ name: Debug Build (Mochy UI)
 
 on:
   push:
-    branches: [mochy-ui]
+    branches: [main, mochy-ui]
   workflow_dispatch:
 
 permissions:
@@ -40,6 +40,6 @@ jobs:
           gh release create dev-mochy-ui --prerelease \
             --target "${{ github.sha }}" \
             --title "Dev build (Mochy UI clone)" \
-            --notes "Rolling debug build from the mochy-ui branch. Pre-release, so the in-app updater ignores it." \
+            --notes "Rolling debug build from the main branch (Mochy UI clone). Pre-release, so the in-app updater ignores it." \
             2>/dev/null || true
           gh release upload dev-mochy-ui app/build/outputs/apk/dev/debug/*.apk --clobber
