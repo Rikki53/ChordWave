@@ -21,10 +21,12 @@
 //   navigator, same route strings).
 // - Pin state comes in as a param; the toggle is a caller callback, and
 //   without one the row logs a Phase 3 TODO (CW has no pin store yet).
-// - STUBBED (log + row stays): Add to playlist (AddToPlaylistDialog not
-//   ported), Details (ShowMediaInfo not ported).
-// - DROPPED: the AddToPlaylistDialog call, the isPortrait/configuration
-//   dead reads.
+// - Add to playlist opens AddToPlaylistDialog (online add works; local
+//   playlists answer honestly in the dialog). Details opens CW's own
+//   SongInfoDialog (Classic) — Mochy's ShowMediaInfo was NOT ported: it
+//   needs Mochy's innertube fork (getMediaInfo) and a Room database CW
+//   doesn't have.
+// - DROPPED: the isPortrait/configuration dead reads.
 // - Share is a plain ACTION_SEND intent with the item's share link
 //   (Mochy's SongShare sheet is not ported).
 
@@ -65,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.ui.components.SongInfoDialog
 import com.music.bitchord.ui.mochy.component.ListDialog
 import com.music.bitchord.ui.mochy.component.Material3MenuGroup
 import com.music.bitchord.ui.mochy.component.Material3MenuItemData
@@ -119,6 +122,27 @@ fun YouTubeSongMenu(
     var showSelectArtistDialog by rememberSaveable {
         mutableStateOf(false)
     }
+
+    // Details opens CW's own song info dialog (Classic, SongInfoRepository)
+    // — not Mochy's ShowMediaInfo, which needs Mochy's innertube fork
+    // (getMediaInfo) and a Room database CW doesn't have.
+    var showSongInfo by rememberSaveable { mutableStateOf(false) }
+
+    if (showSongInfo) {
+        SongInfoDialog(song.toCwSong()) { showSongInfo = false }
+    }
+
+    var showAddToPlaylist by remember { mutableStateOf(false) }
+
+    // Opens over this menu, which comes back forward behind it; the online
+    // add works, a local playlist answers honestly (see the dialog).
+    AddToPlaylistDialog(
+        isVisible = showAddToPlaylist,
+        onGetSong = { listOf(song.id) },
+        onDismiss = { showAddToPlaylist = false },
+        topSongId = song.id,
+        topSongArtworkUrl = song.thumbnail,
+    )
 
     if (showSelectArtistDialog) {
         ListDialog(
@@ -233,8 +257,7 @@ fun YouTubeSongMenu(
                             )
                         },
                         onClick = {
-                            // TODO(Phase 3): AddToPlaylistDialog is not ported yet.
-                            Timber.w("YouTubeSongMenu: add-to-playlist needs Phase 3 (AddToPlaylistDialog)")
+                            showAddToPlaylist = true
                         }
                     ),
                     Material3MenuItemData(
@@ -423,8 +446,7 @@ fun YouTubeSongMenu(
                                 )
                             },
                             onClick = {
-                                // TODO(Phase 3): ShowMediaInfo is not ported yet.
-                                Timber.w("YouTubeSongMenu: details needs Phase 3 (ShowMediaInfo)")
+                                showSongInfo = true
                             }
                         )
                     )

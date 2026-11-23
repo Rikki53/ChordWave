@@ -103,6 +103,17 @@ internal fun announceAddedToPlaylist(playlist: Playlist, ids: List<String>) {
     )
 }
 
+/** The honest answer when the pick couldn't be saved (local playlists, see pick below). */
+internal fun announcePlaylistAddFailed(playlist: Playlist) {
+    TopToaster.show(
+        text = "Couldn't add to ${playlist.playlist.name} yet",
+        thumbnail = null,
+        iconRes = R.drawable.playlist_add,
+        actionLabel = null,
+        onAction = null,
+    )
+}
+
 @Composable
 fun AddToPlaylistDialog(
     isVisible: Boolean,
@@ -155,12 +166,15 @@ fun AddToPlaylistDialog(
                 currentOnDismiss()
                 if (browseId != null) {
                     YtMusicRepository.addToPlaylist(browseId, ids)
+                    announceAddedToPlaylist(playlist, ids)
                 } else {
-                    // TODO(Phase 3): no CW store holds YouTube-song playlists;
-                    // OfflinePlaylists.add drops songs without a localUri.
+                    // Local (offline) playlists hold device files by
+                    // localUri, and this dialog only carries video ids —
+                    // there is nothing to store yet, so say so instead of
+                    // announcing a save that never happened.
                     Timber.w("AddToPlaylistDialog: cannot add ${ids.size} songs to local playlist ${playlist.id} — no store")
+                    announcePlaylistAddFailed(playlist)
                 }
-                announceAddedToPlaylist(playlist, ids)
             }
         }
     }

@@ -256,12 +256,17 @@ fun AddToPlaylistDialogOnline(
                     shape = listItemShape(index = index + 1, count = totalItemsCount),
                     modifier = Modifier.clickable {
                         val browseId = playlist.playlist.browseId
+                        // resolveAll calls back once per song; the honest
+                        // answer for a local playlist is said once, not once
+                        // per song (see AddToPlaylistDialog.pick).
+                        var warned = false
                         resolveAll { _, videoId ->
                             if (browseId != null) {
                                 YtMusicRepository.addToPlaylist(browseId, listOf(videoId))
-                            } else {
-                                // TODO(Phase 3): no CW store holds YouTube-song playlists.
+                            } else if (!warned) {
+                                warned = true
                                 Timber.w("AddToPlaylistDialogOnline: cannot add to local playlist ${playlist.id} — no store")
+                                announcePlaylistAddFailed(playlist)
                             }
                         }
                     }

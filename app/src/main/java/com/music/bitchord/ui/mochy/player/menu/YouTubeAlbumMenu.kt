@@ -25,10 +25,9 @@
 //   navigator, same route strings).
 // - Pin state comes in as a param; the toggle is a caller callback, and
 //   without one the row logs a Phase 3 TODO (CW has no pin store yet).
-// - STUBBED (log + row stays): Add to playlist (AddToPlaylistDialog not
-//   ported).
-// - DROPPED: the AddToPlaylistDialog + already-in-playlist error dialog,
-//   the isPortrait/configuration dead reads.
+// - Add to playlist opens AddToPlaylistDialog (online add works; local
+//   playlists answer honestly in the dialog).
+// - DROPPED: the isPortrait/configuration dead reads.
 
 package com.music.bitchord.ui.mochy.player.menu
 
@@ -110,6 +109,18 @@ fun YouTubeAlbumMenu(
         mutableStateOf(emptyList<Song>())
     }
     var saved by rememberSaveable { mutableStateOf(isSaved) }
+
+    var showAddToPlaylist by remember { mutableStateOf(false) }
+
+    // Opens over this menu, which comes back forward behind it; the online
+    // add works, a local playlist answers honestly (see the dialog).
+    AddToPlaylistDialog(
+        isVisible = showAddToPlaylist,
+        onGetSong = { songs.map { it.id } },
+        onDismiss = { showAddToPlaylist = false },
+        topSongId = songs.firstOrNull()?.id,
+        topSongArtworkUrl = songs.firstOrNull()?.song?.thumbnailUrl,
+    )
 
     LaunchedEffect(albumItem.browseId) {
         songs = YtMusicRepository.browseSongs(albumItem.browseId).getOrNull()
@@ -338,8 +349,7 @@ fun YouTubeAlbumMenu(
                             )
                         },
                         onClick = {
-                            // TODO(Phase 3): AddToPlaylistDialog is not ported yet.
-                            Timber.w("YouTubeAlbumMenu: add-to-playlist needs Phase 3 (AddToPlaylistDialog)")
+                            showAddToPlaylist = true
                         }
                     ),
                     Material3MenuItemData(

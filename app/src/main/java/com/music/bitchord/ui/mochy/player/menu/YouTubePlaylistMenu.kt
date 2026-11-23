@@ -24,11 +24,10 @@
 //   remove-download confirmation dialog is kept (DefaultDialog).
 // - Pin state comes in as a param; the toggle is a caller callback, and
 //   without one the row logs a Phase 3 TODO (CW has no pin store yet).
-// - STUBBED (log + row stays): Add to playlist (AddToPlaylistDialog not
-//   ported).
-// - DROPPED: the AddToPlaylistDialog + already-in-playlist error dialog,
-//   the ImportPlaylistDialog (its show state was never set to true in
-//   Mochy — dead), the isPortrait/configuration dead reads.
+// - Add to playlist opens AddToPlaylistDialog (online add works; local
+//   playlists answer honestly in the dialog).
+// - DROPPED: the ImportPlaylistDialog (its show state was never set to true
+//   in Mochy — dead), the isPortrait/configuration dead reads.
 // - `onImportedPlaylist` is kept in the signature (HomeScreen passes it)
 //   but is currently unused: it fires when the import dialog lands.
 // - Share is a plain ACTION_SEND intent with the item's share link.
@@ -105,6 +104,26 @@ fun YouTubePlaylistMenu(
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
     var saved by rememberSaveable { mutableStateOf(isSaved) }
+
+    var showAddToPlaylist by remember { mutableStateOf(false) }
+
+    // Opens over this menu, which comes back forward behind it; the online
+    // add works, a local playlist answers honestly (see the dialog). Callers
+    // don't pass the songs, so the ids are read from the playlist itself
+    // (paginated, on the dialog's IO scope) unless they were given.
+    AddToPlaylistDialog(
+        isVisible = showAddToPlaylist,
+        onGetSong = {
+            if (songs.isNotEmpty()) {
+                songs.map { it.id }
+            } else {
+                YtMusicRepository.playlistEntries(playlist.id).getOrNull().orEmpty().map { it.videoId }
+            }
+        },
+        onDismiss = { showAddToPlaylist = false },
+        topSongId = songs.firstOrNull()?.id,
+        topSongArtworkUrl = songs.firstOrNull()?.thumbnail ?: playlist.thumbnail,
+    )
 
     // The sheet's header: cover, name, who made it - and save, for playlists that aren't the user's own.
     SheetHeader(
@@ -307,8 +326,7 @@ fun YouTubePlaylistMenu(
                             )
                         },
                         onClick = {
-                            // TODO(Phase 3): AddToPlaylistDialog is not ported yet.
-                            Timber.w("YouTubePlaylistMenu: add-to-playlist needs Phase 3 (AddToPlaylistDialog)")
+                            showAddToPlaylist = true
                         }
                     ),
                     Material3MenuItemData(

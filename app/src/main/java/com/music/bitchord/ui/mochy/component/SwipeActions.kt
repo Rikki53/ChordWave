@@ -11,8 +11,10 @@
 //   token is missing it is fetched from YtMusicRepository.songMenu() first.
 //   The db flag flip is dropped (CW has no local library store); the
 //   SongItem overload reads in-library state off the tokens themselves.
-// - detailsSwipeAction: ShowMediaInfo is not ported — the trigger logs a
-//   Phase 3 TODO (the pill still shows, so the gesture stays discoverable).
+// - detailsSwipeAction: opens CW's own SongInfoDialog (Classic) via the
+//   caller's onOpenDialog callback, like addToPlaylistSwipeAction.
+//   Mochy's ShowMediaInfo was NOT ported: it needs Mochy's innertube fork
+//   (getMediaInfo) and a Room database CW doesn't have.
 // - removeImportSwipeAction is DROPPED: CW has no importer / ImportSource.
 // - queueSwipeAction / playNextSwipeAction / addToPlaylistSwipeAction /
 //   removeFromPlaylistSwipeAction are verbatim apart from the player
@@ -537,17 +539,20 @@ fun addToPlaylistSwipeAction(
     onOpenDialog(target)
 }
 
-// open the media details sheet for the swiped song
+// open the media details dialog for the swiped song
 @Composable
-fun detailsSwipeAction(mediaItem: (() -> MediaItem)?): SwipeAction {
+fun detailsSwipeAction(
+    mediaItem: (() -> MediaItem)?,
+    onOpenDialog: (MediaItem) -> Unit,
+): SwipeAction {
     return SwipeAction(
         icon = SongSwipeAction.Details.icon,
         color = SongSwipeAction.Details.color,
         label = stringResource(SongSwipeAction.Details.pillLabel),
         mediaItem = mediaItem,
     ) {
-        // TODO(Phase 3): ShowMediaInfo is not ported — no details sheet exists yet.
-        Timber.w("detailsSwipeAction: ShowMediaInfo is not ported yet (Phase 3)")
+        val target = mediaItem?.invoke() ?: return@SwipeAction
+        onOpenDialog(target)
     }
 }
 

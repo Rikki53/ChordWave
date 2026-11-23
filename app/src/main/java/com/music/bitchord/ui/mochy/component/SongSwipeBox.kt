@@ -4,7 +4,9 @@
 // ADAPTATION: the AddToPlaylistDialog branch is dropped — the dialog is not
 // ported (CW has no local playlists yet; see NEEDS.md). Choosing "Add to
 // playlist" as a swipe action now logs a Phase 3 TODO instead of opening
-// the picker. Everything else is verbatim.
+// the picker. "Details" opens CW's own SongInfoDialog (Classic) instead:
+// the swiped MediaItem's tagged Mochy metadata converts straight to the CW
+// Song the dialog needs. Everything else is verbatim.
 
 package com.music.bitchord.ui.mochy.component
 
@@ -12,13 +14,19 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.datastore.preferences.core.Preferences
 import androidx.media3.common.MediaItem
 import com.music.bitchord.R
+import com.music.bitchord.data.model.Song as CwSong
+import com.music.bitchord.ui.components.SongInfoDialog
 import com.music.bitchord.ui.mochy.constants.SwipeLeftActionKey
 import com.music.bitchord.ui.mochy.constants.SwipeRightActionKey
+import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
 import timber.log.Timber
 
@@ -49,6 +57,10 @@ fun SongSwipeBox(
     queue: @Composable () -> SwipeAction,
     content: @Composable () -> Unit,
 ) {
+    var infoSong by remember { mutableStateOf<CwSong?>(null) }
+    infoSong?.let { song ->
+        SongInfoDialog(song) { infoSong = null }
+    }
     SwipeActionsBox(
         modifier = modifier,
         enabled = enabled,
@@ -63,6 +75,7 @@ fun SongSwipeBox(
                     // TODO(Phase 3): AddToPlaylistDialog is not ported yet.
                     Timber.w("SongSwipeBox: add-to-playlist swipe needs Phase 3 (AddToPlaylistDialog)")
                 },
+                onOpenDetailsDialog = { infoSong = it.toInfoSong() },
             )
         },
         end = {
@@ -75,6 +88,7 @@ fun SongSwipeBox(
                     // TODO(Phase 3): AddToPlaylistDialog is not ported yet.
                     Timber.w("SongSwipeBox: add-to-playlist swipe needs Phase 3 (AddToPlaylistDialog)")
                 },
+                onOpenDetailsDialog = { infoSong = it.toInfoSong() },
             )
         },
         content = content,
@@ -88,6 +102,7 @@ private fun chosenSwipeAction(
     library: @Composable () -> SwipeAction,
     queue: @Composable () -> SwipeAction,
     onOpenPlaylistDialog: (MediaItem) -> Unit,
+    onOpenDetailsDialog: (MediaItem) -> Unit,
 ): SwipeAction {
     val (chosen) = rememberEnumPreference(key, defaultValue = default)
     return when (chosen) {
@@ -96,6 +111,24 @@ private fun chosenSwipeAction(
         SongSwipeAction.Download -> downloadSwipeAction(queue().mediaItem)
         SongSwipeAction.PlayNext -> playNextSwipeAction(queue().mediaItem)
         SongSwipeAction.AddToPlaylist -> addToPlaylistSwipeAction(queue().mediaItem, onOpenPlaylistDialog)
-        SongSwipeAction.Details -> detailsSwipeAction(queue().mediaItem)
+        SongSwipeAction.Details -> detailsSwipeAction(queue().mediaItem, onOpenDetailsDialog)
     }
+}
+
+/**
+ * The swiped item as the CW Song the info dialog needs. Queue items carry
+ * their Mochy metadata as the tag (see MediaItemExt.buildMediaItem), which
+ * converts exactly; anything else falls back to the player's own metadata
+ * and the media id, which is the video id for online tracks.
+ */
+private fun MediaItem.toInfoSong(): CwSong {
+    val tagged = localConfiguration?.tag as? MediaMetadata
+    if (tagged != null) return tagged.toCwSong()
+    val meta = mediaMetadata
+    return CwSong(
+        videoId = mediaId,
+        title = meta.title?.toString().orEmpty(),
+        artist = meta.artist?.toString().orEmpty(),
+        thumbnailUrl = meta.artworkUri?.toString(),
+    )
 }
