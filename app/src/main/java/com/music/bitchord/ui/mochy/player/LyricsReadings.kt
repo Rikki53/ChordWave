@@ -223,8 +223,10 @@ private fun switchFor(body: String, script: LyricsUtils.Script): Preferences.Key
 suspend fun readSong(
     lines: List<LyricsEntry>,
     allowed: (Preferences.Key<Boolean>) -> Boolean,
-    onLine: (index: Int, reading: LineReading?) -> Unit,
     trackId: String = "",
+    // onLine LAST: both call sites pass it as a trailing lambda, which only
+    // binds to the final parameter (a trackId after it broke the build).
+    onLine: (index: Int, reading: LineReading?) -> Unit,
 ) = withContext(Dispatchers.Default) {
     // the whole song decides the language: a kanji line alone looks chinese, and an english verse alone looks like nothing
     val body = lines.joinToString(" ") { it.text }
