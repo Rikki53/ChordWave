@@ -17,6 +17,7 @@
     <string name="trending">Trending</string>
     <string name="charts">Charts</string>
     <string name="new_release_albums">New release albums</string>
+    <string name="new_release_empty">No new releases right now</string>
     <string name="top_music_videos">Top music videos</string>
     <string name="play_all">Play all</string>
 </resources>

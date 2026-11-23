@@ -151,8 +151,10 @@ import com.music.bitchord.ui.mochy.screens.audiolab.AudioQualityScreen
 import com.music.bitchord.ui.mochy.screens.equalizer.EqualizerScreen
 import com.music.bitchord.ui.mochy.screens.karaoke.KaraokeRemoteScreen
 import com.music.bitchord.ui.mochy.screens.listen.ListenTogetherScreen
+import com.music.bitchord.ui.mochy.screens.profile.ProfileScreen
 import com.music.bitchord.ui.mochy.screens.radio.RadioScreen
 import com.music.bitchord.ui.mochy.screens.replay.ReplayScreen
+import com.music.bitchord.ui.mochy.screens.search.NewReleaseScreen
 import com.music.bitchord.ui.mochy.screens.settings.CustomisationScreen
 import com.music.bitchord.ui.mochy.screens.sources.SourcesScreen
 import com.music.bitchord.ui.mochy.utils.rememberYouTubeSignedIn
@@ -818,6 +820,13 @@ private fun DetailContent(
                 params = params,
             )
         }
+        // ---- Profile (simplified port of Mochy's ProfileScreen) ----
+        // Opened from the avatar in Home/Search/Library/Artist; the profile
+        // itself links on to Settings (the Mochy flow).
+        route == "profile" -> ProfileScreen(navigator = navigator)
+        // New Release albums (Explore's title navigates here; Mochy never
+        // had a destination for it — this screen is ChordWave's own).
+        route == "new_release" -> NewReleaseScreen(navigator = navigator)
         // ---- Settings (Phase 4; verbatim Mochy route strings) ----
         route == "mochy_settings" -> MochySettingsScreen(navigator = navigator)
         route == "general_settings" -> AppBehaviourSettingsScreen(navigator = navigator)

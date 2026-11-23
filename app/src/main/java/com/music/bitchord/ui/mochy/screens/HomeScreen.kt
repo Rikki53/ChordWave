@@ -2032,7 +2032,7 @@ fun HomeScreen(
                             }
                             .height(44.dp)
                             .clip(RoundedCornerShape(50))
-                            .clickable { navigator.navigateToTab("settings") },
+                            .clickable { navigator.navigateToTab("profile") },
                         contentAlignment = Alignment.CenterEnd
                     ) {
                         Row(

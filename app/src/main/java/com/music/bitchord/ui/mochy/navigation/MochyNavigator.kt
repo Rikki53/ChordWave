@@ -54,14 +54,23 @@ class MochyNavigator {
      *  Library 2, Search 3, Radio 4.
      *
      *  "settings" is not a tab — Classic has no Settings tab — but the
-     *  profile avatar in Home/Search/Library/Artist still calls
+     *  profile page's "Open settings" row still calls
      *  navigateToTab("settings"), so it opens the settings page as a
      *  detail over the current tab instead: fresh, any open details
      *  closed first, as a tab switch would have. Back from it returns
-     *  to the tab it was opened from. */
+     *  to the tab it was opened from.
+     *
+     *  "profile" is likewise not a tab: the profile avatar in
+     *  Home/Search/Library/Artist calls navigateToTab("profile"), which
+     *  opens the profile page the same way (the Mochy flow — the avatar
+     *  opens the profile, and the profile links on to Settings). */
     fun navigateToTab(route: String) {
         if (route == "settings") {
             _detailStack.value = listOf("mochy_settings")
+            return
+        }
+        if (route == "profile") {
+            _detailStack.value = listOf("profile")
             return
         }
         val index = when (route) {

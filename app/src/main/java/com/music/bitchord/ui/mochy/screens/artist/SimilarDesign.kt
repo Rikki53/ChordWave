@@ -403,7 +403,7 @@ internal fun SimilarPage(
             profileImage = profilePic.ifBlank { null },
             onBackClick = { navigator.popBackStack() },
             onBackLongClick = { navigator.clearDetails() },
-            onProfileClick = { navigator.navigateToTab("settings") },
+            onProfileClick = { navigator.navigateToTab("profile") },
         )
     }
 }

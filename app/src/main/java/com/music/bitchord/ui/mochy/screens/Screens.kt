@@ -57,9 +57,10 @@ sealed class Screens(
 
     // Not a tab any more (Classic has no Settings tab): kept so the
     // settings route, title and icons stay defined in one place. Settings
-    // opens as a detail — the profile avatar in Home/Search/Library/
-    // Artist calls navigateToTab("settings"), which MochyNavigator
-    // answers by pushing the settings page over the current tab.
+    // opens as a detail — the profile page's "Open settings" row calls
+    // navigateToTab("settings"), which MochyNavigator answers by pushing
+    // the settings page over the current tab. (The avatar opens the
+    // profile page instead; see navigateToTab("profile").)
     object Settings : Screens(
         titleId = R.string.settings,
         iconIdInactive = R.drawable.nav_mochy_outline,

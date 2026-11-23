@@ -4,7 +4,7 @@
 // Port notes (see staging/phase2-detail/NEEDS.md for the full list):
 // - Navigation goes through MochyNavigator; route strings are Mochy's verbatim.
 //   Back is popBackStack(); back-to-main is clearDetails(); the profile avatar
-//   goes through navigator.navigateToTab("settings").
+//   goes through navigator.navigateToTab("profile").
 // - The staged ArtistVideos.shelves takes VideoShelf, not ArtistSection: the
 //   shelves map one-to-one (ArtistShelves).
 // - rememberYouTubeSignedIn reads ChordWave's auth.SignedIn flow (ported in
@@ -553,7 +553,7 @@ fun ArtistScreen(
             profileImage = profilePic.ifBlank { null },
             onBackClick = { navigator.popBackStack() },
             onBackLongClick = { navigator.clearDetails() },
-            onProfileClick = { navigator.navigateToTab("settings") },
+            onProfileClick = { navigator.navigateToTab("profile") },
         )
     }
 }

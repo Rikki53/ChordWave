@@ -162,7 +162,7 @@ fun LibraryHomeScreen(
             trailing = {
                 SearchAvatar(
                     imageUrl = profilePicStr.ifBlank { null },
-                    onClick = { navigator.navigateToTab("settings") },
+                    onClick = { navigator.navigateToTab("profile") },
                 )
             },
             bottomInset = bottomInset,

@@ -392,7 +392,7 @@ fun OnlineSearchResult(
             pureBlack = pureBlack,
             title = stringResource(R.string.search),
             trailing = {
-                SearchAvatar(imageUrl = profilePicStr.ifBlank { null }, onClick = { navigator.navigateToTab("settings") })
+                SearchAvatar(imageUrl = profilePicStr.ifBlank { null }, onClick = { navigator.navigateToTab("profile") })
             },
             below = {
                 SearchCategoryRow(
