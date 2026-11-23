@@ -689,8 +689,10 @@ fun MoodTile(
     }
 }
 
+// internal (not private): Home's mood tiles reuse the same two tilted
+// covers (HomeTopPicks.kt), so the pattern stays in one place.
 @Composable
-private fun BoxScope.LayeredCover(
+internal fun BoxScope.LayeredCover(
     url: String?,
     rotation: Float,
     offsetX: Dp,

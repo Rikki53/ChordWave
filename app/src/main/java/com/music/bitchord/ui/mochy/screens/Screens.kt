@@ -57,14 +57,15 @@ sealed class Screens(
 
     // Not a tab any more (Classic has no Settings tab): kept so the
     // settings route, title and icons stay defined in one place. Settings
-    // opens as a detail — the profile page's "Open settings" row calls
-    // navigateToTab("settings"), which MochyNavigator answers by pushing
-    // the settings page over the current tab. (The avatar opens the
-    // profile page instead; see navigateToTab("profile").)
+    // opens as a detail — the profile avatar in Home/Search/Library/
+    // Artist calls navigateToTab("settings"), which MochyNavigator
+    // answers by pushing the settings page over the current tab.
     object Settings : Screens(
         titleId = R.string.settings,
-        iconIdInactive = R.drawable.nav_mochy_outline,
-        iconIdActive = R.drawable.nav_mochy_filled,
+        // ChordWave's gear (nav_settings_*), not the Mochy mark: the
+        // nav_mochy_* drawables were deleted with the rebrand.
+        iconIdInactive = R.drawable.nav_settings_outline,
+        iconIdActive = R.drawable.nav_settings_filled,
         route = "settings"
     )
 

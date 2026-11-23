@@ -4,7 +4,10 @@
 // The data is ChordWave's own: TopPick/TopPickMood from :shared, built by
 // TopPicks.build in the HomeViewModel adapter. Mood colours and lines are
 // Classic's own values (sharedUi TopPicksShelf), reused so a mood looks the
-// same in both UI modes.
+// same in both UI modes. The tiles' two tilted covers are Search's
+// LayeredCover pattern, fed by MoodAndGenresViewModel.requestMoodCovers —
+// covers appear once fetched; before that (or offline) the tile is the
+// plain gradient it always was.
 
 package com.music.bitchord.ui.mochy.component
 
@@ -36,7 +39,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +62,10 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.TopPick
 import com.music.bitchord.data.model.TopPickKind
 import com.music.bitchord.data.model.TopPickMood
+import com.music.bitchord.ui.mochy.screens.search.LayeredCover
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
+import com.music.bitchord.ui.mochy.viewmodels.MoodAndGenresViewModel
+import com.music.bitchord.ui.mochy.viewmodels.moodCoverKey
 
 // ---- Mood colours, titles, lines (Classic's values, sharedUi TopPicksShelf) ----
 
@@ -354,8 +362,11 @@ private val HomeMoodTitleStyle = TextStyle(
 
 /**
  * A mood's square tile and its name under it, laid out like a HomeCoverCard.
- * The tile is the mood's own colour, lit from the top; [onClick] gets the
- * mood and the title it was showing, for the station's queue name.
+ * The tile is the mood's own colour, lit from the top, with two tilted
+ * covers from the mood's own playlists layered at the bottom-right (the
+ * Search MoodTile pattern); [onClick] gets the mood and the title it was
+ * showing, for the station's queue name. With no covers yet the tile is
+ * the plain gradient — the loading/offline look, not an empty frame.
  */
 @Composable
 fun HomeMoodTile(
@@ -363,6 +374,7 @@ fun HomeMoodTile(
     onClick: (TopPickMood, String) -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = homeCardSize(),
+    covers: List<String?> = emptyList(),
 ) {
     val title = stringResource(moodTitleRes(mood))
     val colors = remember(mood) { mood.colors() }
@@ -397,6 +409,37 @@ fun HomeMoodTile(
         ) {
             // a soft pale wash so the flat colour reads as lit, not printed
             Box(Modifier.fillMaxSize().background(washBrush))
+            // two tilted covers, bottom-right, like Search's MoodTile;
+            // only the covers that actually arrived are drawn
+            if (covers.any { it != null }) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 2.dp, bottom = 2.dp)
+                        .size(width = size * 0.62f, height = size * 0.62f),
+                ) {
+                    covers.getOrNull(1)?.let { url ->
+                        LayeredCover(
+                            url = url,
+                            rotation = -24f,
+                            offsetX = (-2).dp,
+                            offsetY = 2.dp,
+                            size = size * 0.40f,
+                            alpha = 1f,
+                        )
+                    }
+                    covers.getOrNull(0)?.let { url ->
+                        LayeredCover(
+                            url = url,
+                            rotation = -6f,
+                            offsetX = size * 0.17f,
+                            offsetY = size * 0.13f,
+                            size = size * 0.44f,
+                            alpha = 1f,
+                        )
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -420,6 +463,7 @@ fun FindYourMoodContent(
     expanded: Boolean,
     onMoodClick: (TopPickMood, String) -> Unit,
     modifier: Modifier = Modifier,
+    moodViewModel: MoodAndGenresViewModel = hiltViewModel(),
 ) {
     val coreMoods = remember { TopPickMood.entries.filter { it.isCoreMood } }
     BoxWithConstraints(modifier = modifier) {
@@ -436,7 +480,12 @@ fun FindYourMoodContent(
                     horizontalArrangement = Arrangement.spacedBy(HomeCardSpacing),
                 ) {
                     items(coreMoods, key = { it.name }) { mood ->
-                        HomeMoodTile(mood = mood, onClick = onMoodClick)
+                        LaunchedEffect(mood) { moodViewModel.requestMoodCovers(mood) }
+                        HomeMoodTile(
+                            mood = mood,
+                            onClick = onMoodClick,
+                            covers = moodViewModel.covers[moodCoverKey(mood)].orEmpty(),
+                        )
                     }
                 }
             }
@@ -458,7 +507,13 @@ fun FindYourMoodContent(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             rowMoods.forEach { mood ->
-                                HomeMoodTile(mood = mood, onClick = onMoodClick, size = gridSize)
+                                LaunchedEffect(mood) { moodViewModel.requestMoodCovers(mood) }
+                                HomeMoodTile(
+                                    mood = mood,
+                                    onClick = onMoodClick,
+                                    size = gridSize,
+                                    covers = moodViewModel.covers[moodCoverKey(mood)].orEmpty(),
+                                )
                             }
                             repeat(3 - rowMoods.size) {
                                 Spacer(Modifier.width(gridSize))

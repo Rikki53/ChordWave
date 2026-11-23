@@ -1129,11 +1129,11 @@ fun SettingsScreen(
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
-            // Dual UI mode: Classic (this look) or Modern (Mochy-style).
+            // Dual UI mode: Classic (this look) or Modern.
             // The host recomposes onto the other UI; no restart, and
             // playback keeps going — it runs in a service.
             val uiModeTitle = stringResource(R.string.ui_mode)
-            row(uiModeTitle, "interface", "modern", "classic", "mochy") {
+            row(uiModeTitle, "interface", "modern", "classic") {
                 SettingsRow(icon = Icons.Rounded.Palette, title = uiModeTitle)
                 SegmentedControl(
                     options = UiMode.entries.map { it.localizedLabel() },

@@ -19,6 +19,12 @@
 // - Failures log through Timber (Mochy used reportException / a silent
 //   empty block) and never crash; a failed sections fetch leaves the
 //   previous value (null = the loading dots stay).
+// - requestMoodCovers serves Home's Find Your Mood tiles: the same
+//   moodGenreShelves() browse, but keyed per TopPickMood (moods share
+//   YouTube categories, so a per-category key would paint eight tiles
+//   with the same two covers) and steered by the mood's shelfWords, the
+//   way TopPicks.moodQueue picks the shelf to play. The repo caches the
+//   browse per category, so 27 moods cost at most 11 requests.
 
 package com.music.bitchord.ui.mochy.viewmodels
 
@@ -27,6 +33,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.MoodGenre
+import com.music.bitchord.data.model.TopPickMood
 import com.music.bitchord.data.model.MoodGenreSection
 import com.music.bitchord.ui.mochy.models.innertube.BrowseEndpoint
 import com.music.bitchord.ui.mochy.models.innertube.MoodAndGenres
@@ -66,6 +73,43 @@ class MoodAndGenresViewModel @Inject constructor() : ViewModel() {
         }
     }
 
+    /**
+     * Covers for one Home mood tile: the mood's own category page, with
+     * shelves scored by the mood's shelfWords (same scoring as
+     * TopPicks.moodQueue) so moods sharing a category still get covers
+     * from the shelves that fit them. Keyed per mood in the shared cache.
+     */
+    fun requestMoodCovers(mood: TopPickMood) {
+        val key = moodCoverKey(mood)
+        if (!MoodCoverCache.requested.add(key)) return
+        viewModelScope.launch(Dispatchers.IO) {
+            gate.withPermit {
+                YtMusicRepository.moodGenreShelves(TopPickMood.CATEGORY_BROWSE_ID, mood.params)
+                    .onSuccess { shelves ->
+                        val score = { shelf: com.music.bitchord.data.model.HomeShelf ->
+                            val title = shelf.title.lowercase(java.util.Locale.ROOT)
+                            mood.shelfWords.count { it in title }
+                        }
+                        val urls = shelves
+                            .sortedByDescending(score)
+                            .asSequence()
+                            .flatMap { it.items.asSequence() }
+                            .mapNotNull { it.thumbnailUrl }
+                            .distinct()
+                            .take(2)
+                            .toList()
+                        if (urls.isNotEmpty()) {
+                            MoodCoverCache.covers[key] = urls
+                        }
+                    }
+                    .onFailure {
+                        MoodCoverCache.requested.remove(key)
+                        Timber.w(it, "Home: moodGenreShelves failed for $mood")
+                    }
+            }
+        }
+    }
+
     fun requestCovers(browseId: String, params: String?) {
         val key = coverKey(browseId, params)
         if (!MoodCoverCache.requested.add(key)) return
@@ -92,6 +136,13 @@ class MoodAndGenresViewModel @Inject constructor() : ViewModel() {
         }
     }
 }
+
+/**
+ * Cache key for a Home mood tile's covers: the category page plus the
+ * mood itself, so moods sharing a YouTube category keep distinct covers.
+ */
+fun moodCoverKey(mood: TopPickMood): String =
+    coverKey(TopPickMood.CATEGORY_BROWSE_ID, mood.params + "|" + mood.name)
 
 private fun MoodGenreSection.toMochy(): MoodAndGenres =
     MoodAndGenres(
