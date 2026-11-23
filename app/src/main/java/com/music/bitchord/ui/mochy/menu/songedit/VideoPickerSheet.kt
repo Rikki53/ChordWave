@@ -1,19 +1,15 @@
 // Ported from Mochy Music (GPL-3.0): ui/menu/songedit/VideoPickerSheet.kt
-// UI verbatim. Engine stubs (NEEDS.md §(b) E4/E6):
+// UI verbatim. Engine (NEEDS.md §(b) E4/E6):
 // - SEARCH: Mochy searched YouTube for videos as you typed
-//   (YouTube.search FILTER_VIDEO, SongItem results). CW has no video search
-//   wired here, so typing finds nothing and logs a Timber warning + TODO
-//   (once per query). The Auto / No video choices still work as UI state.
-// - STARTING CHOICE: reads the staged SongEdits stub (always Auto — no
-//   store, so no song has a picked video yet).
-// - SAVE: Mochy ran SongEditSaver.setVideo(db, songId, videoId, noVideo).
-//   CW has no store, so "Next" with a changed choice logs a Timber warning
-//   + TODO and shows the "Couldn't save your changes" toast instead of
-//   dismissing as if the choice had been saved. "Next" with an unchanged
-//   choice just dismisses, as in Mochy.
-// - SongItem results are gone with the search; the result rows render from
-//   a local VideoResult (id/title/artists/duration/thumbnail) so the row UI
-//   stays verbatim and the adapter only has to fill the list.
+//   (YouTube.search FILTER_VIDEO, SongItem results). CW runs the same
+//   search through YtMusicRepository (SearchFilter.VIDEOS) and reads the
+//   track rows into the local VideoResult the rows render from.
+// - STARTING CHOICE: reads SongEdits (persisted), so a song with a picked
+//   video opens on it.
+// - SAVE: "Next" with a changed choice runs SongEditSaver.setVideo, which
+//   upserts the videoId/noVideo into the song's hand edit (the video mode
+//   and cover video read it from YouTubeVideoLookup). "Next" with an
+//   unchanged choice just dismisses, as in Mochy.
 
 package com.music.bitchord.ui.mochy.menu.songedit
 
@@ -45,7 +41,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,7 +49,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -64,19 +58,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.model.SearchFilter
+import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.PopupSheetHandle
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.SheetPillButton
 import com.music.bitchord.ui.mochy.component.SheetSearchField
-import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
+import com.music.bitchord.ui.mochy.songedit.SongEditSaver
 import com.music.bitchord.ui.mochy.songedit.SongEdits
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.makeTimeString
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import timber.log.Timber
 
 private const val SearchSettleMs = 400L
 
@@ -113,7 +108,6 @@ private class VideoPickState(query: String, val startChoice: VideoChoice) {
 @Composable
 fun VideoPickerSheet(songId: String, title: String, artist: String, onDismiss: () -> Unit) {
     val menuState = LocalMenuState.current
-    val context = LocalContext.current
     val currentOnDismiss by rememberUpdatedState(onDismiss)
 
     DisposableEffect(menuState, songId) {
@@ -128,7 +122,6 @@ fun VideoPickerSheet(songId: String, title: String, artist: String, onDismiss: (
         var closed = false
         handle[0] = menuState.showWithHandle(
             buttonBar = {
-                val scope = rememberCoroutineScope()
                 SheetPillButton(
                     text = stringResource(R.string.video_pick_next),
                     enabled = !state.busy,
@@ -138,25 +131,12 @@ fun VideoPickerSheet(songId: String, title: String, artist: String, onDismiss: (
                             handle[0]?.dismiss()
                             return@SheetPillButton
                         }
-                        state.busy = true
-                        handle[0]?.setLocked(true)
-                        scope.launch {
-                            // TODO(phase3-adapter): persist the video choice
-                            // (NEEDS.md §(b) E4). Mochy ran
-                            // SongEditSaver.setVideo(db, songId, videoId,
-                            // noVideo) here. CW has no store, so the choice
-                            // is dropped: warn, toast, unlock, stay open.
-                            Timber.w(
-                                "VideoPickerSheet: video choice for %s not saved (no metadata store yet)",
-                                songId,
-                            )
-                            TopToaster.show(
-                                text = context.getString(R.string.song_edit_failed),
-                                iconRes = R.drawable.edit,
-                            )
-                            state.busy = false
-                            handle[0]?.setLocked(false)
-                        }
+                        SongEditSaver.setVideo(
+                            songId = songId,
+                            videoId = (choice as? VideoChoice.Picked)?.videoId,
+                            noVideo = choice == VideoChoice.None,
+                        )
+                        handle[0]?.dismiss()
                     },
                 )
             },
@@ -181,11 +161,23 @@ private fun VideoPickerContent(state: VideoPickState) {
         }
         delay(SearchSettleMs)
         state.searching = true
-        // TODO(phase3-adapter): video search (NEEDS.md §(b) E6). Mochy ran
-        // YouTube.search(text, FILTER_VIDEO) here; CW has no video search
-        // wired, so nothing comes back.
-        Timber.w("VideoPickerSheet: video search not available (no engine yet)")
+        val hits = YtMusicRepository.search(text, SearchFilter.VIDEOS).getOrNull().orEmpty()
+        val videos = hits.mapNotNull { result ->
+            val song = when (result) {
+                is SearchResult.Track -> result.song
+                is SearchResult.TopTrack -> result.song
+                else -> return@mapNotNull null
+            }
+            VideoResult(
+                id = song.videoId,
+                title = song.title,
+                artists = listOf(song.artist).filter { it.isNotBlank() },
+                durationSeconds = parseDurationSeconds(song.durationText),
+                thumbnail = song.thumbnailUrl,
+            )
+        }
         state.results.clear()
+        state.results.addAll(videos)
         state.searching = false
     }
 
@@ -286,6 +278,12 @@ private fun VideoPickerContent(state: VideoPickState) {
 }
 
 private val PickedRow = lerp(MenuRowSurface, Color.White, 0.12f)
+
+// "3:45" or "1:02:03" into seconds; anything else reads as no duration
+private fun parseDurationSeconds(text: String?): Int? {
+    val parts = text?.split(':')?.map { it.toIntOrNull() ?: return null }?.takeIf { it.isNotEmpty() } ?: return null
+    return parts.fold(0) { total, part -> total * 60 + part }
+}
 
 @Composable
 private fun ChoiceRow(title: String, detail: String, picked: Boolean, onClick: () -> Unit) {

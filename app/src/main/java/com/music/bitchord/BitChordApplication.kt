@@ -152,6 +152,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // Loads the Modern UI's hand edits for songs (title/cover/artists/
+        // video), so the queue wears them from the first launch.
+        com.music.bitchord.ui.mochy.songedit.SongEdits.init(this)
         // After AppSettings: fetches Automix's models as soon as Automix is on,
         // rather than waiting for the first song it would mix.
         com.music.bitchord.playback.smart.AutomixModels.install(this)

@@ -999,10 +999,12 @@ private fun PlayerSheet(
                 )
             },
             onDismiss = {
-                // TODO(phase3-player-core): automix — Mochy called
-                // playerConnection.service.clearAutomix() here; automix is
-                // engine, not ported (NEEDS.md §(b) B10).
-                Timber.w("clearAutomix not wired: automix engine not ported")
+                // Mochy called playerConnection.service.clearAutomix() here,
+                // which only emptied its own automixItems list. CW has no
+                // such list: AutoPlay's tracks live in the ExoPlayer queue
+                // itself, so clearMediaItems() below already clears them,
+                // and the service only refills on a track ending, never on
+                // a stop — nothing extra to clear.
                 playerConnection.player?.stop()
                 playerConnection.player?.clearMediaItems()
             },

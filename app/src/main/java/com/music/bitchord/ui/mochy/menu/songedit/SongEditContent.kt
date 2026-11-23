@@ -1,17 +1,18 @@
 // Ported from Mochy Music (GPL-3.0): ui/menu/songedit/SongEditContent.kt
-// UI verbatim. Adaptations (NEEDS.md §(b) E1/E2/L2):
+// UI verbatim, minus two sections CW has no store for (NEEDS.md §(b) E2/P1):
+// - SPEED: Mochy's "set playback speed" promised the song would play that
+//   fast every time. CW has no per-song speed store, so the section is
+//   REMOVED rather than shown as a slider that saves nothing.
+// - EQ PRESET: Mochy listed EqPresets.BuiltIn + the AudioLabStore's saved
+//   presets. CW's equalizer is global only (AppSettings.equalizerPreset),
+//   so the single-option "Same as every other song" dropdown is REMOVED
+//   rather than shown as a control that does nothing.
 // - SIGNATURE: Mochy took (state, audioLab: AudioLabStore). CW has no
-//   AudioLabStore, so the sheet takes only (state); the EQ select is stubbed
-//   (below) instead of reading the store.
+//   AudioLabStore, so the sheet takes only (state).
 // - LyricsSourceSelect: reads the connection's per-provider lookup states
 //   (rememberLyricsSources), so the dropdown offers every provider that
 //   answered for the song — wired in the Nov 2026 lyrics merge.
-// - EqPresetSelect: Mochy listed EqPresets.BuiltIn + the store's saved
-//   presets. CW has an equalizer but no per-song preset store, so the
-//   dropdown offers only "Same as every other song" and a pick logs a
-//   Timber warning + TODO (unreachable with one option, kept for the
-//   adapter). NEEDS.md §(b) E2.
-// - VideoRow reads the staged SongEdits stub (always "auto").
+// - VideoRow reads SongEdits (persisted), so a picked video survives a restart.
 // - LabSelect is the staged copy in this package (see LabSelect.kt).
 
 package com.music.bitchord.ui.mochy.menu.songedit
@@ -65,7 +66,6 @@ import com.music.bitchord.ui.mochy.player.menu.LineSlider
 import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
 import com.music.bitchord.ui.mochy.songedit.SongEdits
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
-import timber.log.Timber
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -76,7 +76,6 @@ private val LabelGap = 10.dp
 
 private const val MaxTitleLength = 200
 private const val OffsetStepMs = 100
-private const val SpeedStep = 0.05f
 
 // the body of the song edit sheet, top to bottom as in the mock; scrolls on its own while ok stays pinned under it
 @Composable
@@ -116,14 +115,6 @@ internal fun SongEditContent(state: SongEditState) {
 
         Spacer(Modifier.height(SectionGap))
         OffsetSection(state)
-
-        Spacer(Modifier.height(SectionGap))
-        SpeedSection(state)
-
-        Spacer(Modifier.height(SectionGap))
-        SheetLabel(stringResource(R.string.song_edit_eq))
-        Spacer(Modifier.height(LabelGap))
-        EqPresetSelect(state)
 
         Spacer(Modifier.height(SectionGap))
         SheetLabel(stringResource(R.string.song_edit_artist))
@@ -225,31 +216,6 @@ private fun OffsetSection(state: SongEditState) {
     RangeLabels(stringResource(R.string.song_edit_offset_min), stringResource(R.string.song_edit_offset_max))
 }
 
-// "set playback speed": saved with the song, so it plays this fast every time; the pill puts it back to normal
-@Composable
-private fun SpeedSection(state: SongEditState) {
-    val value = String.format(Locale.getDefault(), "%.2f", state.speed)
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        SheetLabel(stringResource(R.string.song_edit_speed), modifier = Modifier.weight(1f))
-        ValuePill(
-            text = stringResource(R.string.song_edit_speed_value, value),
-            description = null,
-            onClick = { state.speed = 1f },
-        )
-    }
-    Spacer(Modifier.height(6.dp))
-    LineSlider(
-        value = (state.speed - SpeedMin) / (SpeedMax - SpeedMin),
-        onValueChange = { fraction ->
-            val raw = SpeedMin + fraction * (SpeedMax - SpeedMin)
-            state.speed = ((raw / SpeedStep).roundToInt() * SpeedStep).coerceIn(SpeedMin, SpeedMax)
-        },
-    )
-    RangeLabels(stringResource(R.string.song_edit_speed_min), stringResource(R.string.song_edit_speed_max))
-    Spacer(Modifier.height(6.dp))
-    Text(text = stringResource(R.string.song_edit_speed_hint), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
-}
-
 @Composable
 private fun ValuePill(text: String, description: String?, onClick: () -> Unit) {
     Box(
@@ -275,25 +241,6 @@ private fun RangeLabels(start: String, end: String) {
         Text(text = start, color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         Text(text = end, color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
     }
-}
-
-// "set equalizer preset": the song's own curve while it plays, or the same as every other song
-@Composable
-private fun EqPresetSelect(state: SongEditState) {
-    // STUB (NEEDS.md §(b) E2): Mochy listed EqPresets.BuiltIn + the
-    // AudioLabStore's saved presets. CW has no per-song EQ store, so the
-    // only option is "same as every other song" and the state keeps null.
-    val none = stringResource(R.string.song_edit_eq_none)
-    LabSelect(
-        options = listOf(none),
-        selectedIndex = 0,
-        onSelect = {
-            // TODO(phase3-adapter): per-song EQ preset store (NEEDS.md §(b) E2).
-            Timber.w("SongEditContent: per-song EQ presets not available (no store yet)")
-            state.eqPresetId = null
-        },
-        contentDescription = stringResource(R.string.song_edit_eq_desc),
-    )
 }
 
 // "other music metadata": the album and the year

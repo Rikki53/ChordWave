@@ -55,8 +55,8 @@
     <string name="song_edit_name">Song name</string>
     <string name="song_edit_name_hint">What\'s this song called?</string>
     <string name="song_edit_offset">Set lyric offset</string>
-    <string name="song_edit_offset_max">+3 minutes</string>
-    <string name="song_edit_offset_min">-2 minutes</string>
+    <string name="song_edit_offset_max">+5 seconds</string>
+    <string name="song_edit_offset_min">-5 seconds</string>
     <string name="song_edit_offset_reset">Put the lyric offset back to zero</string>
     <string name="song_edit_offset_value">%1$s s</string>
     <string name="song_edit_saving">Saving…</string>

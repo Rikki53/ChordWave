@@ -5,6 +5,12 @@
 package com.music.bitchord.ui.mochy.player
 
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import android.net.ConnectivityManager
+import androidx.core.content.getSystemService
+import com.music.bitchord.data.canvas.CanvasArtwork
+import com.music.bitchord.data.canvas.CanvasRepository
+import com.music.bitchord.data.model.Song as CwSong
+import com.music.bitchord.ui.mochy.utils.DataSaver
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -114,6 +120,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.isActive
 import com.music.bitchord.ui.mochy.LocalGlassState
 import com.music.bitchord.ui.mochy.constants.CanvasThumbnailAnimationKey
+import com.music.bitchord.ui.mochy.constants.CanvasWifiOnlyKey
 import com.music.bitchord.ui.mochy.constants.DisableBlurKey
 import com.music.bitchord.ui.mochy.constants.ForceYtBackdropBlur1500Key
 import com.music.bitchord.ui.mochy.constants.PlayVideoBackgroundKey
@@ -1997,26 +2004,43 @@ private fun CoverCanvasLayer(
     // told when the canvas's picture is up over the cover, and when it's gone
     onShowingChange: ((Boolean) -> Unit)? = null,
 ) {
-    // TODO(Phase 5): the canvas fetch is NOT ported — Mochy looks the song's
-    // animated cover up over the network (MonochromeApiCanvas, then
-    // AppleMusicCanvasProvider), and the canvas provider modules are out of
-    // scope for the Phase 3 port (see NEEDS.md §(b)). The URL stays null, so
-    // the canvas layer never mounts and the still cover shows instead.
-    // (CanvasArtworkPlayer below is the Phase 5 stub.)
+    val context = LocalContext.current
+    // The song's animated cover from CW's own CanvasRepository (Apple/Tidal/
+    // Spotify/Community, in the order the listener picked) — Mochy's
+    // Monochrome + Apple providers were NOT ported; CW's engine is the one
+    // that exists here. The album is a key: it resolves a beat after the
+    // track starts, and it is what makes the catalogue searches land, so its
+    // arrival restarts the lookup (the repository treats an album-less miss
+    // as provisional and searches again with it in hand).
+    var canvasArtwork by remember(trackInfo.mediaId) { mutableStateOf<CanvasArtwork?>(null) }
     val canvasEnabled = rememberPreference(CanvasThumbnailAnimationKey, defaultValue = true).value && !alternateStyle
-    var canvasArtworkUrl by remember(trackInfo.mediaId) { mutableStateOf<String?>(null) }
-    LaunchedEffect(trackInfo.mediaId, canvasEnabled) {
-        if (canvasEnabled) {
-            Timber.w("CoverCanvasLayer: canvas fetch not wired (Phase 5); showing the still cover")
-        }
+    val canvasWifiOnly by rememberPreference(CanvasWifiOnlyKey, defaultValue = true)
+    LaunchedEffect(trackInfo.mediaId, trackInfo.title, trackInfo.artist, trackInfo.album, canvasEnabled, canvasWifiOnly) {
+        val mediaId = trackInfo.mediaId
+        val titleStr = trackInfo.title
+        val artistStr = trackInfo.artist
+        if (!canvasEnabled || mediaId.isBlank() || titleStr.isBlank() || artistStr.isBlank()) return@LaunchedEffect
+        val connectivityManager = context.getSystemService<ConnectivityManager>()
+        if (canvasWifiOnly && connectivityManager?.isActiveNetworkMetered == true) return@LaunchedEffect
+        // data saver keeps the cover still, a canvas is a video loop
+        if (DataSaver.isActive(context)) return@LaunchedEffect
+        canvasArtwork = CanvasRepository.canvasFor(
+            CwSong(
+                videoId = mediaId,
+                title = titleStr,
+                artist = artistStr,
+                thumbnailUrl = trackInfo.thumbnailUrl,
+                albumName = trackInfo.album.takeIf { it.isNotBlank() },
+            )
+        )
     }
 
     val mountedHolder = remember { booleanArrayOf(false) }
-    val mounted by remember(canvasArtworkUrl, canvasEnabled, isDiscStyle) {
+    val mounted by remember(canvasArtwork, canvasEnabled, isDiscStyle) {
         derivedStateOf {
             val p = progressProvider()
             val next = when {
-                isDiscStyle || !canvasEnabled || canvasArtworkUrl == null -> false
+                isDiscStyle || !canvasEnabled || canvasArtwork?.url == null -> false
                 p >= CanvasMountAt -> true
                 p <= 0f -> false
                 else -> mountedHolder[0]
@@ -2035,15 +2059,15 @@ private fun CoverCanvasLayer(
         modifier = Modifier.fillMaxSize()
     ) {
         CanvasArtworkPlayer(
-            primaryUrl = canvasArtworkUrl,
-            fallbackUrl = null,
+            primaryUrl = canvasArtwork?.url,
+            fallbackUrl = canvasArtwork?.fallbackUrl,
             isPlaying = playing,
-            // TODO(Phase 5): Mochy's CanvasArtworkPlayer also takes onReadyChange
-            // (mirror readiness + live-cover signalling) and onFrameColors (the
-            // ambient backdrop following the canvas's colours); the current stub
-            // has neither parameter, so they are not passed. Restore them when
-            // the real player lands — the mirror/onLiveEnd/onShowingChange
-            // wiring above stays in place for it.
+            onReadyChange = if (mirror == null && onLiveEnd == null && onShowingChange == null) null else { ready ->
+                mirror?.ready = ready
+                onShowingChange?.invoke(ready)
+                if (!ready) onLiveEnd?.invoke()
+            },
+            onFrameColors = onFrameColors,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = sheetFade(progressProvider()) }

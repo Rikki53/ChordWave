@@ -1,9 +1,10 @@
 // Ported from Mochy Music (GPL-3.0): ui/menu/songedit/SongCoverCarousel.kt
 // Verbatim port; only the package/imports changed. CoverOption, CoverPick
 // and CoverSources come from the staged ui.mochy.songedit support file —
-// CoverSources.search is a STUB (empty flow, Timber warning + TODO) until
-// the adapter wires a cover lookup (NEEDS.md §(b) E3), so the carousel
-// offers Custom + Current only. The photo picker (Custom page) works fully.
+// CoverSources.search runs a YouTube Music lookup (Apple Music, Deezer and
+// modules are not wired — see the note above the object), so the carousel
+// offers Custom + Current + the covers YouTube Music found. The photo
+// picker (Custom page) works fully.
 
 package com.music.bitchord.ui.mochy.menu.songedit
 

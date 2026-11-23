@@ -1,12 +1,12 @@
 // Ported from Mochy Music (GPL-3.0): ui/menu/songedit/SongArtistPicker.kt
-// UI verbatim. Engine stub (NEEDS.md §(b) E5):
-// - Mochy searched YouTube Music for artists as you typed (YouTube.search
-//   with FILTER_ARTIST). CW has no artist search wired here, so the search
-//   returns no results and logs a Timber warning + TODO (once per query).
-//   The typed-name fallback still works: a name nobody has on YouTube
-//   becomes an artist of its own, exactly as in Mochy — the only difference
-//   is the id comes from generateEditedArtistId() (SongEditSupport) instead
-//   of Mochy's ArtistEntity.generateArtistId() db helper.
+// UI verbatim. Engine (NEEDS.md §(b) E5): Mochy searched YouTube Music for
+// artists as you typed (YouTube.search with FILTER_ARTIST); CW runs the
+// same search through YtMusicRepository (SearchFilter.ARTISTS) and takes
+// the artist rows (browseId + name + thumbnail).
+// The typed-name fallback still works: a name nobody has on YouTube
+// becomes an artist of its own, exactly as in Mochy — the only difference
+// is the id comes from generateEditedArtistId() (SongEditSupport) instead
+// of Mochy's ArtistEntity.generateArtistId() db helper.
 // - Picked artists (from the song's metadata) render, tap to remove, and
 //   the "pick at least one" toast still fires — all local state.
 
@@ -55,6 +55,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.model.BrowseType
+import com.music.bitchord.data.model.SearchFilter
+import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.SheetSearchField
 import com.music.bitchord.ui.mochy.component.TopToaster
@@ -63,7 +67,6 @@ import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
 import com.music.bitchord.ui.mochy.songedit.EditedArtist
 import com.music.bitchord.ui.mochy.songedit.generateEditedArtistId
 import kotlinx.coroutines.delay
-import timber.log.Timber
 
 private val CircleSize = 76.dp
 private const val SearchSettleMs = 350L
@@ -82,12 +85,12 @@ internal fun SongArtistPicker(state: SongEditState, sidePadding: Dp) {
             return@LaunchedEffect
         }
         delay(SearchSettleMs)
-        // TODO(phase3-adapter): artist search (NEEDS.md §(b) E5). Mochy ran
-        // YouTube.search(text, FILTER_ARTIST) here; CW has no artist search
-        // wired, so no results come back. The typed-name artist below still
-        // lets a new name be added.
-        Timber.w("SongArtistPicker: artist search not available (no engine yet)")
+        val found = YtMusicRepository.search(text, SearchFilter.ARTISTS).getOrNull().orEmpty()
+            .filterIsInstance<SearchResult.Browse>()
+            .filter { it.item.type == BrowseType.ARTIST }
+            .map { EditedArtist(it.item.browseId, it.item.title, it.item.thumbnailUrl) }
         results.clear()
+        results.addAll(found)
     }
 
     // a name nobody has on youtube still works: it becomes an artist of its own, made once per typed name

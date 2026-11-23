@@ -8,9 +8,17 @@
 //                           gets a generated local id — see SongEditSupport)
 //   currentCover         <- metadata.thumbnailUrl
 //   year                 <- null (MediaMetadata carries no year)
-//   lyricsOffsetMs       <- 0 (no lyrics store yet — NEEDS.md §(b) L1)
-//   speed                <- 1f (no per-song tuning store — NEEDS.md §(b) P1)
-//   eqPresetId           <- null (no per-song EQ store — NEEDS.md §(b) E2)
+//   lyricsOffsetMs       <- the song's stored offset, else the global one
+//   speed                <- 1f, never changed: CW has no per-song speed
+//                           store, and the sheet no longer shows the speed
+//                           section (the draft still carries the field)
+//   eqPresetId           <- null, never changed: CW has no per-song EQ
+//                           store, and the sheet no longer shows the EQ
+//                           section (the draft still carries the field)
+// OFFSET RANGE: Mochy's sheet slid from two minutes early to three late.
+// CW's per-song offset store clamps to ±5 seconds (the same range the
+// player's offset sheet uses), so the slider does too — a wider range
+// would silently clamp on save.
 // Types come from the staged songedit support file (EditedArtist,
 // CoverPick, SongEditDraft, PickedLyrics) and lyrics/ProviderCandidate.
 
@@ -23,6 +31,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.lyrics.ProviderCandidate
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.songedit.CoverPick
@@ -32,12 +41,10 @@ import com.music.bitchord.ui.mochy.songedit.SongEditDraft
 import com.music.bitchord.ui.mochy.songedit.generateEditedArtistId
 import kotlin.math.abs
 
-// lyric offset range from the mock: two minutes early to three minutes late
-internal const val OffsetMinMs = -120_000
-internal const val OffsetMaxMs = 180_000
-
-internal const val SpeedMin = 0.25f
-internal const val SpeedMax = 5f
+// the offset range the per-song store clamps to: five seconds either way,
+// the same range the player's own offset sheet uses
+internal const val OffsetMinMs = -5_000
+internal const val OffsetMaxMs = 5_000
 
 // what the edit sheet is changing; plain state outside composition, because the popup host composes the body and the ok bar apart
 @Stable
@@ -98,7 +105,8 @@ internal class SongEditState(
                 },
                 album = metadata.album?.title.orEmpty(),
                 year = null,
-                lyricsOffsetMs = 0,
+                lyricsOffsetMs = AppSettings.lyricsOffsetForSong(metadata.id)
+                    ?: AppSettings.lyricsOffsetMs.value,
                 speed = 1f,
                 eqPresetId = null,
             )

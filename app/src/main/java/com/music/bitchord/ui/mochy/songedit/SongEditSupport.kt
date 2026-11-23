@@ -4,7 +4,8 @@
 // - CoverPick / SongEditDraft: songedit/SongEditSaver.kt (verbatim)
 // - CoverOption: songedit/CoverSources.kt (verbatim)
 // - PickedLyrics / LyricsFileReader: songedit/LyricsFileReader.kt (verbatim)
-// - CoverSources: STUB (engine — network cover lookup; see NEEDS.md §(b) E3)
+// - CoverSources: YouTube Music cover lookup (Mochy also had Apple Music,
+//   Deezer and modules — see the note above the object)
 // - SongEdit/SongEdits: coordinator's store (models/SongEdit.kt +
 //   songedit/SongEdits.kt, phase3-coordinator) — the minimal stub that was
 //   here was deleted at merge; see the note above CoverSources.
@@ -17,6 +18,9 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.Immutable
+import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.model.SearchFilter
+import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
 import java.io.ByteArrayOutputStream
 import java.util.Locale
@@ -24,7 +28,8 @@ import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -78,18 +83,77 @@ data class SongEditDraft(
 // SongEdit + SongEdits live in the coordinator's store
 // (ui.mochy.models.SongEdit + ui.mochy.songedit.SongEdits, phase3-coordinator):
 // the full Mochy entity (title/artists/album/year/cover/videoId/noVideo) with
-// an in-memory put()/remove() store. The minimal stub that was here (videoId +
-// noVideo only, always empty) was deleted at merge — call sites only read
-// videoId/noVideo, which the full entity carries.
+// a persisted put()/remove() store (SharedPreferences JSON). The minimal stub
+// that was here (videoId + noVideo only, always empty) was deleted at merge —
+// call sites only read videoId/noVideo, which the full entity carries.
 
-// STUB: Mochy's CoverSources looked a song's cover up on YouTube Music,
-// Apple Music, Deezer and switched-on modules. Until the adapter wires a
-// lookup, the carousel offers only Custom + Current. NEEDS.md §(b) E3.
+// Mochy's CoverSources looked a song's cover up on YouTube Music, Apple
+// Music, Deezer and switched-on modules. CW wires YouTube Music only:
+// Apple's CW API returns canvas videos, not artwork; Deezer has no CW
+// engine; modules are out of scope. YouTube Music is the source that
+// matters — its thumbnails are the album art.
 object CoverSources {
-    fun search(title: String, artist: String, album: String?, durationMs: Long?): Flow<CoverOption> {
-        // TODO(phase3-adapter): cover lookup (NEEDS.md §(b) E3).
-        Timber.w("SongEditSupport: cover lookup not available (no engine yet)")
-        return emptyFlow()
+    // a few is enough to catch the single and the album versions without a wall of the same picture
+    private const val PerSource = 3
+
+    fun search(title: String, artist: String, album: String?, durationMs: Long?): Flow<CoverOption> = channelFlow {
+        if (title.isBlank()) return@channelFlow
+        val match = Match(title, artist)
+        val songs = safely {
+            YtMusicRepository.search("$title $artist".trim(), SearchFilter.SONGS).getOrNull().orEmpty()
+                .mapNotNull { result ->
+                    when (result) {
+                        is SearchResult.Track -> result.song
+                        is SearchResult.TopTrack -> result.song
+                        else -> null
+                    }
+                }
+                .filterNot { it.isVideo }
+        }.orEmpty()
+        songs
+            .sortedByDescending { match.score(it.title, it.artist) }
+            .mapNotNull { it.thumbnailUrl?.takeIf(String::isNotBlank) }
+            .distinct()
+            .take(PerSource)
+            .forEach { send(CoverOption("YouTube Music", it)) }
+    }.flowOn(Dispatchers.IO)
+
+    // a source that breaks (blocked, changed, offline) is left out instead of taking the others down
+    private suspend fun <T> safely(block: suspend () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Timber.tag("CoverSources").w(e, "A cover source failed")
+        null
+    }
+
+    // how close a result is to the song: same title and artist first, then either one
+    private class Match(title: String, artist: String) {
+        private val title = normalizeTitle(title)
+        private val artist = normalizeArtist(artist)
+
+        fun score(candidateTitle: String, candidateArtist: String): Int {
+            val titleHit = close(normalizeTitle(candidateTitle), title)
+            val artistHit = close(normalizeArtist(candidateArtist), artist)
+            return (if (titleHit) 2 else 0) + (if (artistHit) 1 else 0)
+        }
+
+        private fun close(a: String, b: String) =
+            a.isNotEmpty() && b.isNotEmpty() && (a.contains(b, ignoreCase = true) || b.contains(a, ignoreCase = true))
+
+        // bracketed tags and featured artists off the title; the first artist only
+        private fun normalizeTitle(raw: String) = raw
+            .replace(Regex("\\s*\\[[^]]*]"), "")
+            .replace(Regex("\\s*\\((?:feat\\.?|ft\\.?|featuring|with)\\b[^)]*\\)", RegexOption.IGNORE_CASE), "")
+            .trim()
+
+        private fun normalizeArtist(raw: String) = raw
+            .split(
+                Regex("(?:\\s*,\\s*|\\s*&\\s*|\\s+×\\s+|\\s+x\\s+|\\bfeat\\.?\\b|\\bft\\.?\\b|\\bfeaturing\\b|\\bwith\\b)", RegexOption.IGNORE_CASE),
+                limit = 2,
+            )
+            .first().trim()
     }
 }
 

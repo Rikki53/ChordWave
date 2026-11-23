@@ -18,8 +18,9 @@
 //   no playlist id, so saving it logs a TODO instead.
 // - Download state is the aggregate over the loaded tracks
 //   (downloadStateForAll); download/remove go through Downloads.
-// - Shuffle drops playerConnection.service.getAutomix(): MochyPlayerConnection
-//   has no service/getAutomix. The shuffled ListQueue still plays.
+// - Shuffle drops playerConnection.service.getAutomix(): CW needs no
+//   priming call — the service fills AutoPlay itself on every track
+//   transition (PlaybackService.loadAutoplayForCurrentTrack).
 // - Navigation goes through MochyNavigator (param renamed navController ->
 //   navigator, same route strings).
 // - Pin state comes in as a param; the toggle is a caller callback, and

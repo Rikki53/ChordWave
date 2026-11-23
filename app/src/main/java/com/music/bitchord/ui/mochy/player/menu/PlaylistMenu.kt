@@ -6,11 +6,10 @@
 //   by Re-sync to open a sign-in page; the resync state is a stub until
 //   a resync engine exists — see PlaylistResyncMenu.kt).
 // - dbPlaylist: the passed `playlist` (no database flow to observe).
-// - Songs: from `songList` when autoPlaylist, else EMPTY — no CW store
-//   holds playlist membership yet (OfflinePlaylists only holds local-file
-//   songs, and there is no CW Song -> mochy Song mapper). Play/Shuffle/
-//   Play next/Add to queue do nothing until that store lands; the
-//   download row likewise has nothing to enqueue. Timber.w + TODO.
+// - Songs: from `songList` when autoPlaylist; else resolved here —
+//   OfflinePlaylists for a local playlist, YtMusicRepository.playlistEntries
+//   for a YouTube one — mapped with CwSong.toMochySong. Play/Shuffle/Play
+//   next/Add to queue/Download all run off that list.
 // - Save toggle: local rememberSaveable state + YtMusicRepository.setSaved
 //   when the playlist has a browseId (YouTubePlaylistMenu pattern).
 // - Pin: isPinned=false; tapping logs a Phase 3 TODO (no speed-dial store).
@@ -42,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,6 +73,7 @@ import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.Song
+import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
@@ -96,16 +97,36 @@ fun PlaylistMenu(
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    // TODO(Phase 3): no CW store holds playlist membership. OfflinePlaylists
-    // only holds local-file songs, and there is no CW Song -> mochy Song
-    // mapper, so a non-auto playlist's songs are unknown here.
-    val songs: List<Song> = remember(autoPlaylist, songList, playlist.id) {
-        if (autoPlaylist == true) {
-            songList ?: emptyList()
-        } else {
-            Timber.w("PlaylistMenu: no CW store holds songs for playlist ${playlist.id} yet")
-            emptyList()
+    // The rows below (Play, Shuffle, Play next, Add to queue, Download, the
+    // edit sheet's cover song) all run off this list. It used to be empty
+    // for every non-auto playlist — the header claimed no CW store holds
+    // membership and no CW Song -> mochy Song mapper exists — but both exist
+    // now: OfflinePlaylists for local playlists, playlistEntries for
+    // YouTube ones, and CwSong.toMochySong maps either.
+    var songs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    // The download row only appears once this is true, so a tap during the
+    // fetch can't enqueue an empty list and look like a dead button.
+    var songsLoaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(autoPlaylist, songList, playlist.id) {
+        songsLoaded = false
+        songs = when {
+            autoPlaylist == true -> songList ?: emptyList()
+            else -> {
+                val browseId = playlist.playlist.browseId
+                when {
+                    browseId == null -> {
+                        Timber.w("PlaylistMenu: playlist ${playlist.id} has no browseId, songs unknown")
+                        emptyList()
+                    }
+                    OfflinePlaylists.isOfflinePlaylist(browseId) ->
+                        OfflinePlaylists.get(browseId)?.songs.orEmpty().map { it.toMochySong() }
+                    else ->
+                        YtMusicRepository.playlistEntries(browseId).getOrNull().orEmpty().map { it.toMochySong() }
+                }
+            }
         }
+        songsLoaded = true
     }
 
     val downloadState = downloadStateForAll(songs.map { it.id })
@@ -413,7 +434,7 @@ fun PlaylistMenu(
                         )
                     )
                     resync.menuItem()?.let(::add)
-                    if (downloadPlaylist != true) {
+                    if (downloadPlaylist != true && songsLoaded) {
                         add(
                             when (downloadState) {
                                 Download.STATE_COMPLETED -> {

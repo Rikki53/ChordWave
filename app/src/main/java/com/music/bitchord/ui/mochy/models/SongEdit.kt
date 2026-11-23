@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 
 // what someone changed on a song by hand in its edit sheet; a null field follows youtube, a set one survives every refetch and sync
 @Immutable
+@Serializable
 data class SongEdit(
     val songId: String,
     val title: String? = null,

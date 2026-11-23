@@ -194,8 +194,9 @@ fun AlbumScreen(
 
     fun play(startIndex: Int = 0, shuffled: Boolean = false) {
         val current = album ?: return
-        // Mochy primed the automix here (playerConnection.service.getAutomix):
-        // no CW equivalent until Phase 3 wires the queue translation (NEEDS.md §(b))
+        // Mochy primed the automix here (playerConnection.service.getAutomix);
+        // CW needs no priming call — the service fills AutoPlay itself on
+        // every track transition (PlaybackService.loadAutoplayForCurrentTrack).
         playerConnection.playQueue(
             if (shuffled) {
                 LocalAlbumRadio(current.copy(songs = current.songs.shuffled()))

@@ -9,11 +9,13 @@
 //   song_edit_not_now) are NOT staged — the adapter adds them back with the
 //   store (NEEDS.md §(b) E1).
 // - SongEditState comes from fromMetadata() (no db row, no tuning).
-// - SAVE IS STUBBED: Mochy ran SongEditSaver.save(db, tuning, draft) +
-//   LyricsMenuViewModel.useSource for a picked lyrics source. CW has no
-//   metadata store, so OK logs a Timber warning + TODO and shows the
-//   "Couldn't save your changes" toast, then unlocks — it never dismisses
-//   as if the save had worked, and never fakes success.
+// - SAVE: Mochy ran SongEditSaver.save(db, tuning, draft) +
+//   LyricsMenuViewModel.useSource for a picked lyrics source. CW runs the
+//   adapted SongEditSaver.save (SongEdits store + per-song offset store +
+//   lyrics override through the player connection); a picked source's
+//   lyrics are kept as the song's override, since CW has no per-song
+//   provider preference. Speed/EQ are not saved (no CW store) and the
+//   sheet no longer shows those sections.
 // - No Hilt, no AudioLabEntryPoint, no ViewModel in this file.
 
 package com.music.bitchord.ui.mochy.menu.songedit
@@ -34,6 +36,8 @@ import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.SheetPillButton
 import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.models.MediaMetadata
+import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.songedit.SongEditSaver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -123,6 +127,7 @@ private class SongEditFlow(
 private fun SaveButton(state: SongEditState, onLock: (Boolean) -> Unit, onSaved: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val connection = LocalPlayerConnection.current
     SheetPillButton(
         text = if (state.busy) stringResource(R.string.song_edit_saving) else stringResource(android.R.string.ok),
         enabled = !state.busy && state.title.isNotBlank(),
@@ -130,14 +135,27 @@ private fun SaveButton(state: SongEditState, onLock: (Boolean) -> Unit, onSaved:
             state.busy = true
             onLock(true)
             scope.launch {
-                // TODO(phase3-adapter): metadata save (NEEDS.md §(b) E1).
-                // Mochy ran SongEditSaver.save(db, tuning, state.draft())
-                // here (title/cover/artists/album/year/offset/speed/EQ/
-                // custom lyrics + picked lyrics source). CW has no metadata
-                // store, so nothing is saved: warn, toast the failure, and
-                // unlock — the sheet stays open and onSaved is NOT called.
+                // a file of your own wins; otherwise a picked source's
+                // lyrics are kept as this song's override
+                val draft = state.draft()
+                val lyricsText = draft.customLyrics ?: state.lyricsSource?.lyrics
+                val saved = SongEditSaver.save(
+                    context = context,
+                    songId = state.songId,
+                    metadata = state.metadata,
+                    draft = draft,
+                    lyricsText = lyricsText,
+                    saveLyrics = connection?.let { player -> { lrc: String -> player.saveLyrics(state.songId, lrc) } },
+                )
+                if (saved) {
+                    onSaved()
+                    return@launch
+                }
+                // the only way save fails is lyrics with nowhere to go (no
+                // player connection in scope); nothing was written, so the
+                // sheet stays open and onSaved is NOT called
                 Timber.w(
-                    "SongEditSheet: saving edits for %s not available (no metadata store yet); draft dropped",
+                    "SongEditSheet: saving edits for %s failed (lyrics have no store in scope); draft kept",
                     state.songId,
                 )
                 onLock(false)
