@@ -39,10 +39,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BringIntoViewRequester
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.bringIntoViewRequester
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,17 +56,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -76,6 +82,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.UiMode
@@ -108,6 +115,7 @@ private data class SettingsEntry(
 
 // search ids stay english so rows can find themselves, what's shown and matched follows the app's language
 private val LocalizedSettingsTitles = mapOf(
+    "Interface" to R.string.settings_ui_mode,
     "Customisation" to R.string.settings_customisation_category,
     "Blur" to R.string.appearance_blur,
     "Progressive blur" to R.string.appearance_progressive_blur,
@@ -136,6 +144,12 @@ private val LocalizedSettingsTitles = mapOf(
     "Show sample rate" to R.string.appearance_sample_rate,
     "Always enable Youtube background" to R.string.appearance_youtube_background,
     "Enable animated canvas" to R.string.appearance_canvas,
+    "Tinted lyrics" to R.string.appearance_lyrics_soft_light,
+    "Canvas order" to R.string.canvas_order,
+    "Sharpest animated covers" to R.string.canvas_best_quality,
+    "Override lyrics sorting" to R.string.settings_lyrics_order_override,
+    "Classic" to R.string.ui_mode_classic,
+    "Modern" to R.string.ui_mode_modern,
     "High quality bloom" to R.string.appearance_bloom,
     "Audio Pass" to R.string.audiopass_hub_title,
     "Prefer USB DAC" to R.string.playback_usb_prefer,
@@ -162,6 +176,7 @@ private val LocalizedSettingsTitles = mapOf(
     "Open with your finger" to R.string.customise_swipe_up_follows,
 )
 private val LocalizedSettingsPages = mapOf(
+    "Settings" to R.string.settings,
     "App behaviour" to R.string.settings_app_behaviour,
     "Customisation" to R.string.settings_customisation_category,
     "Storage" to R.string.storage,
@@ -172,6 +187,11 @@ private val LocalizedSettingsPages = mapOf(
 )
 
 private val SettingsIndex = listOf(
+    // Interface — the Classic/Modern switch lives on this page (UiModeCard)
+    SettingsEntry("Interface", "Settings", "mochy_settings", "interface classic modern theme switch ui mode appearance"),
+    SettingsEntry("Classic", "Settings", "mochy_settings", "classic interface old ui mode switch theme"),
+    SettingsEntry("Modern", "Settings", "mochy_settings", "modern interface new ui mode switch theme"),
+
     // Customisation
     SettingsEntry("Customisation", "Customisation", "customisation_settings", "customize cover rounding playlist player home styles gesture swipe blur animation lyrics"),
     SettingsEntry("Cover rounding", "Customisation", "customisation_settings", "square rounded corner radius px thumbnail art"),
@@ -219,6 +239,10 @@ private val SettingsIndex = listOf(
     SettingsEntry("Show sample rate", "App behaviour", "general_settings", "sample rate khz hz format badge quality"),
     SettingsEntry("Always enable Youtube background", "App behaviour", "general_settings", "youtube video background canvas"),
     SettingsEntry("Enable animated canvas", "App behaviour", "general_settings", "canvas animation spotify looping visual"),
+    SettingsEntry("Canvas order", "App behaviour", "general_settings", "canvas order apple music tidal spotify source priority"),
+    SettingsEntry("Sharpest animated covers", "App behaviour", "general_settings", "canvas animated cover motion apple music quality hd 4k sharp resolution"),
+    SettingsEntry("Tinted lyrics", "App behaviour", "general_settings", "lyrics tinted soft light cover colours blend"),
+    SettingsEntry("Override lyrics sorting", "App behaviour", "general_settings", "lyrics provider order sort priority source"),
     SettingsEntry("High quality bloom", "App behaviour", "general_settings", "lyrics bloom quality extra soft pass glow"),
     SettingsEntry("Disable description on settings", "App behaviour", "general_settings", "hide subtitle text rows titles only"),
 
@@ -438,6 +462,15 @@ fun MochySettingsScreen(
                                     .background(BubbleColor)
                                     .clickable {
                                         SettingsHighlight.pending = entry.highlightKey
+                                        if (entry.route == "mochy_settings") {
+                                            // the search ran on this very page, so navigation
+                                            // is a no-op (MochyNavigator ignores a route that
+                                            // is already the top of the stack) — clear the
+                                            // query and keyboard so the page and the
+                                            // highlighted card are visible again
+                                            searchQuery = TextFieldValue("")
+                                            focusManager.clearFocus()
+                                        }
                                         open(entry.route)
                                     }
                                     .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -851,16 +884,42 @@ private fun AccountCard(
 
 // the Classic / Modern switch: two pills in the same bubble style as the rest
 // of the page. Switching to Classic rebranches the host (MainActivity reads
+/** Search keys that point at the Interface card (its own title and both modes). */
+private val UiModeHighlightKeys = setOf("Interface", "Classic", "Modern")
+
 // AppSettings.uiMode); Modern is where this screen lives.
 @Composable
 private fun UiModeCard() {
     val uiMode by AppSettings.uiMode.collectAsState()
+    val highlight by snapshotFlow { SettingsHighlight.active }.collectAsState(initial = null)
+    val bringIntoView = remember { BringIntoViewRequester() }
+    // the search index points "Interface", "Classic" and "Modern" here, and
+    // the card answers to all three keys (same flash as a settings row)
+    LaunchedEffect(Unit) {
+        if (SettingsHighlight.pending in UiModeHighlightKeys) {
+            SettingsHighlight.pending = null
+            SettingsHighlight.active = "Interface"
+            delay(320)
+            bringIntoView.bringIntoView()
+            delay(2400)
+            SettingsHighlight.active = null
+        }
+    }
+    val flash by animateFloatAsState(
+        if (highlight == "Interface") 1f else 0f,
+        tween(durationMillis = 450),
+        label = "uiModeFlash",
+    )
+    val accent = MaterialTheme.colorScheme.primary
     Column(
         modifier = Modifier
+            .bringIntoViewRequester(bringIntoView)
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(BubbleColor)
+            // after the background so the flash tints it, behind the text
+            .drawBehind { drawRect(accent.copy(alpha = 0.22f * flash)) }
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

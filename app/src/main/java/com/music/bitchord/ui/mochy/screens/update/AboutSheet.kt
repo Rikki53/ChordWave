@@ -89,6 +89,8 @@ private data class ContributorEntry(
     val login: String,
     val avatarUrl: String,
     val profileUrl: String,
+    /** A line under the name, for pinned credits; null for plain GitHub contributors. */
+    val subtitle: String? = null,
 )
 
 private val LeadDevs = listOf(
@@ -117,6 +119,25 @@ private val FallbackContributors = listOf(
     ),
 )
 
+// The Modern interface's design is inspired by realidkroo's work. He has no
+// commits in this repo (the interface was ported, not forked), so the
+// contributors API would never list him — he is pinned instead, named
+// without the other project's name, as the merge brief requires.
+private val ModernUiInspiration = ContributorEntry(
+    login = "realidkroo",
+    avatarUrl = githubAvatarUrl("realidkroo"),
+    profileUrl = "https://github.com/realidkroo",
+    subtitle = "Inspiration for the Modern interface",
+)
+
+/** The list with the pinned credit appended, unless the API already listed him. */
+private fun withPinnedInspiration(list: List<ContributorEntry>): List<ContributorEntry> =
+    if (list.any { it.login.equals("realidkroo", ignoreCase = true) }) {
+        list
+    } else {
+        list + ModernUiInspiration
+    }
+
 // kept in memory for the session so reopening the about sheet never hits github twice
 @Volatile
 private var cachedContributors: List<ContributorEntry>? = null
@@ -129,8 +150,10 @@ private suspend fun fetchContributors(): List<ContributorEntry> {
     cachedContributors?.let { return it }
     // GitHub counts the fork's inherited history, so the upstream projects'
     // authors would list as contributors; the row stays ChordWave-only.
+    // (realidkroo is NOT excluded: he is credited below as the Modern
+    // interface's inspiration, pinned because the API never lists him.)
     val upstreamLogins = setOf(
-        "kushagrasinghx", "mostafaalagamy", "realidkroo", "fast4x",
+        "kushagrasinghx", "mostafaalagamy", "fast4x",
         "maxrave-dev", "tranxuanthang", "jaakkopasanen", "rukamori",
         "ibratabian17", "boidushya",
     )
@@ -159,11 +182,12 @@ private suspend fun fetchContributors(): List<ContributorEntry> {
                     }
                 }.ifEmpty { FallbackContributors }
                     .distinctBy { it.login.lowercase() }
+                    .let(::withPinnedInspiration)
                     .also { cachedContributors = it }
             } finally {
                 conn.disconnect()
             }
-        }.getOrDefault(FallbackContributors)
+        }.getOrDefault(FallbackContributors).let(::withPinnedInspiration)
     }
 }
 
@@ -329,7 +353,7 @@ private fun ColumnScope.AboutSheetContent(
                 contributors.forEach { contributor ->
                     PersonRow(
                         name = contributor.login,
-                        subtitle = null,
+                        subtitle = contributor.subtitle,
                         avatarUrl = contributor.avatarUrl,
                         showArrow = false,
                         onClick = { context.openUrl(contributor.profileUrl) },

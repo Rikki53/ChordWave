@@ -225,6 +225,15 @@ internal fun AndroidCanvasArtworkPlayer(
     onStillCaptured: (ImageBitmap?, Long) -> Unit = { _, _ -> },
     onResumed: () -> Unit = {},
     nowPlaying: Boolean = false,
+    /**
+     * The sharpest rendition the decoder may take (up to 4K), instead of a
+     * small one that starts fast. Null keeps whatever the decoder was
+     * created with ([AppSettings.canvasBestQuality] at creation time); a
+     * value switches the picture where it plays, with no reload. The Modern
+     * player passes its setting ANDed with data saver off; Classic callers
+     * leave it null.
+     */
+    bestQuality: Boolean? = null,
 ) {
     val context = LocalContext.current
 
@@ -261,6 +270,13 @@ internal fun AndroidCanvasArtworkPlayer(
 
     val owned = if (nowPlaying) rememberNowPlayingDecoder(context, teardown) else null
     val player = if (nowPlaying) owned?.player ?: return else remember { newCanvasDecoder(context) }
+
+    // A change switches the picture where it plays, no reload (Mochy's
+    // CanvasVideoSession.setBestQuality, ported). Null leaves the
+    // creation-time quality alone.
+    LaunchedEffect(player, bestQuality) {
+        bestQuality?.let { player.applyCanvasQuality(it) }
+    }
 
     fun confirmTextureFrame(surface: SurfaceTexture): Boolean {
         if (owned?.closed == true) return false
@@ -1111,11 +1127,35 @@ internal fun newCanvasDecoder(context: Context): ExoPlayer {
             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
             .apply { CanvasPlaybackLimits.maxFrameRate?.let(::setMaxVideoFrameRate) }
             .build()
+        player.applyCanvasQuality(AppSettings.canvasBestQuality.value)
         return player
     } catch (e: Exception) {
         runCatching { player.release() }
         throw e
     }
+}
+
+/**
+ * The sharpest version the phone's decoder can take, instead of a small one
+ * that starts fast — ported from Mochy's CanvasVideoSession.applyQuality.
+ * Apple sends sizes up to 4K, and ExoPlayer drops anything bigger than the
+ * screen unless told not to.
+ */
+internal fun ExoPlayer.applyCanvasQuality(best: Boolean) {
+    trackSelectionParameters = trackSelectionParameters.buildUpon().apply {
+        if (best) {
+            clearVideoSizeConstraints()
+            setMaxVideoBitrate(Int.MAX_VALUE)
+            clearViewportSizeConstraints()
+            // the biggest picture the decoder can play, at the best bitrate for that size; a size it can't play is skipped
+            setForceHighestSupportedBitrate(true)
+        } else {
+            setMaxVideoSize(1280, 1280)
+            setMaxVideoBitrate(2_500_000)
+            setViewportSizeToPhysicalDisplaySize(true)
+            setForceHighestSupportedBitrate(false)
+        }
+    }.build()
 }
 
 @Composable

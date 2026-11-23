@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +50,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
+import com.music.bitchord.data.canvas.CanvasOrder
+import com.music.bitchord.data.canvas.CanvasSearchSource
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.DefaultPlayerSeekBarSlider
 import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
@@ -100,6 +104,7 @@ import com.music.bitchord.ui.mochy.constants.YtReportPlaysKey
 import com.music.bitchord.ui.mochy.constants.YtVideoBackgroundLyricsSyncKey
 import com.music.bitchord.ui.mochy.i18n.AppLanguage
 import com.music.bitchord.ui.mochy.i18n.activityOrNull
+import com.music.bitchord.ui.mochy.menu.songedit.LabSelect
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.player.LarpLevel
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
@@ -496,10 +501,18 @@ private fun playerLookItems(): List<SettingsItem> {
     val (lyricsSync, onLyricsSyncChange) = rememberPreference(YtVideoBackgroundLyricsSyncKey, defaultValue = true)
     val (canvasEnabled, onCanvasEnabledChange) = rememberPreference(CanvasThumbnailAnimationKey, defaultValue = true)
     val (canvasWifiOnly, onCanvasWifiOnlyChange) = rememberPreference(CanvasWifiOnlyKey, defaultValue = true)
+    val canvasOrder by AppSettings.canvasOrder.collectAsState()
+    val canvasBest by AppSettings.canvasBestQuality.collectAsState()
     val (highBloom, onHighBloomChange) = rememberPreference(LyricsHighBloomKey, defaultValue = true)
     val (lyricsStyle) = rememberEnumPreference(LyricsMotionStyleKey, defaultValue = LyricsMotionStyle.MOTION)
     val (romanizeAsMain, onRomanizeAsMainChange) = rememberPreference(LyricsRomanizeAsMainKey, defaultValue = false)
     val (floatingLyrics, onFloatingLyricsChange) = rememberFloatingLyricsSwitch()
+    val overlay = LocalZoomOutOverlayState.current
+    val canvasSourceNames = mapOf(
+        CanvasSearchSource.APPLE to stringResource(R.string.canvas_source_apple),
+        CanvasSearchSource.TIDAL to stringResource(R.string.canvas_source_tidal),
+        CanvasSearchSource.SPOTIFY to stringResource(R.string.canvas_source_spotify),
+    )
     return listOf(
         switchItem(
             key = "Audio format badge",
@@ -544,6 +557,28 @@ private fun playerLookItems(): List<SettingsItem> {
             checked = canvasEnabled,
             onCheckedChange = onCanvasEnabledChange,
         ),
+        SettingsItem(
+            title = { Text(stringResource(R.string.canvas_order)) },
+            highlightKey = "Canvas order",
+            searchText = stringResource(R.string.canvas_order),
+            description = {
+                LabSelect(
+                    options = CanvasOrder.entries.map { order ->
+                        order.sources.joinToString(" → ") { canvasSourceNames.getValue(it) }
+                    },
+                    selectedIndex = canvasOrder.ordinal,
+                    onSelect = { AppSettings.setCanvasOrder(CanvasOrder.entries[it]) },
+                    contentDescription = stringResource(R.string.canvas_order),
+                    // every option here is a real order, none is the "none" one LabSelect mutes
+                    mutedIndex = -1,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            },
+            icon = painterResource(R.drawable.sparks),
+            iconShape = CircleShape,
+            isVisible = canvasEnabled,
+            isSubOption = true,
+        ),
         switchItem(
             key = "Canvas on Wi-Fi only",
             title = stringResource(R.string.appearance_canvas_wifi),
@@ -551,6 +586,15 @@ private fun playerLookItems(): List<SettingsItem> {
             icon = painterResource(R.drawable.wifi_proxy),
             checked = canvasWifiOnly,
             onCheckedChange = onCanvasWifiOnlyChange,
+            subOptionOf = canvasEnabled,
+        ),
+        switchItem(
+            key = "Sharpest animated covers",
+            title = stringResource(R.string.canvas_best_quality),
+            description = stringResource(R.string.canvas_best_quality_desc),
+            icon = rememberVectorPainter(Icons.Rounded.HighQuality),
+            checked = canvasBest,
+            onCheckedChange = AppSettings::setCanvasBestQuality,
             subOptionOf = canvasEnabled,
         ),
         // only the shaded lyric styles have a bloom to make softer
@@ -570,6 +614,28 @@ private fun playerLookItems(): List<SettingsItem> {
             icon = painterResource(R.drawable.lyrics),
             checked = romanizeAsMain,
             onCheckedChange = onRomanizeAsMainChange,
+        ),
+        // ChordWave always tries providers in the listener's order (there is no
+        // separate "override" switch like Mochy's — the order IS the lookup
+        // sequence, with word-synced answers winning over plain ones within
+        // it), so the row just opens the sheet that arranges it.
+        SettingsItem(
+            title = { Text(stringResource(R.string.settings_lyrics_order_override)) },
+            highlightKey = "Override lyrics sorting",
+            searchText = stringResource(R.string.settings_lyrics_order_override),
+            descriptionText = stringResource(R.string.settings_lyrics_order_override_desc),
+            detail = stringResource(R.string.settings_lyrics_order_override_detail),
+            icon = painterResource(R.drawable.lyrics),
+            iconShape = CircleShape,
+            onClick = { overlay.showLyricsProviderSortSheet() },
+            trailingContent = {
+                Icon(
+                    painter = painterResource(R.drawable.navigate_next),
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp),
+                )
+            },
         ),
         switchItem(
             key = "Floating lyrics overlay bubble",

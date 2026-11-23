@@ -10,6 +10,8 @@ import android.net.NetworkCapabilities
 import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
+import com.music.bitchord.data.canvas.CanvasOrder
+import com.music.bitchord.data.canvas.CanvasSearchSource
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.lyrics.LyricsSource
@@ -686,13 +688,30 @@ object AppSettings {
     /** Automatically collapses the lower controls after Spotify Canvas settles. */
     val spotifyCanvasAutoHide = MutableStateFlow(true)
 
-    /** Tries Spotify before Apple Music and the other animated-art providers. */
+    /**
+     * The order the catalogue services are tried in for animated covers
+     * ([CanvasOrder]; the community index is always the fallback, tried
+     * last). The Modern "Canvas order" row writes this; the Classic
+     * Spotify-first toggle rewrites it instead of living beside it.
+     */
+    val canvasOrder = MutableStateFlow(CanvasOrder.APPLE_TIDAL_SPOTIFY)
+
+    /** Plays the sharpest animated cover there is, up to 4K. */
+    val canvasBestQuality = MutableStateFlow(true)
+
+    /**
+     * Tries Spotify before Apple Music and the other animated-art providers.
+     * A mirror of [canvasOrder] (true when Spotify is first), kept so the
+     * Classic Spotify settings toggle keeps working — it rewrites the order
+     * rather than a flag of its own (see [setPrioritizeSpotifyCanvas]).
+     */
     val prioritizeSpotifyCanvas = MutableStateFlow(false)
     val effectiveSpotifyCanvasAutoHide = MutableStateFlow(true)
     val effectivePrioritizeSpotifyCanvas = MutableStateFlow(false)
 
     private fun updateEffectiveSpotifyCanvasSettings() {
         effectiveSpotifyCanvasAutoHide.value = spotifyCanvasAutoHide.value && !disableSpotifyCanvas.value
+        prioritizeSpotifyCanvas.value = canvasOrder.value.sources.first() == CanvasSearchSource.SPOTIFY
         effectivePrioritizeSpotifyCanvas.value = prioritizeSpotifyCanvas.value && !disableSpotifyCanvas.value
     }
 
@@ -1274,7 +1293,21 @@ object AppSettings {
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
         disableSpotifyCanvas.value = prefs.getBoolean(KEY_DISABLE_SPOTIFY_CANVAS, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
-        prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
+        // The order arrived in the Nov 2026 Modern settings merge; an
+        // install that only has the old Spotify-first switch migrates it
+        // once, then the order is the only thing stored.
+        val storedOrder = prefs.getString(KEY_CANVAS_ORDER, null)
+            ?.let { name -> runCatching { CanvasOrder.valueOf(name) }.getOrNull() }
+        canvasOrder.value = storedOrder
+            ?: if (prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)) {
+                CanvasOrder.SPOTIFY_APPLE_TIDAL
+            } else {
+                CanvasOrder.APPLE_TIDAL_SPOTIFY
+            }
+        if (storedOrder == null) {
+            prefs.edit().putString(KEY_CANVAS_ORDER, canvasOrder.value.name).apply()
+        }
+        canvasBestQuality.value = prefs.getBoolean(KEY_CANVAS_BEST_QUALITY, true)
         updateEffectiveSpotifyCanvasSettings()
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
@@ -2118,10 +2151,37 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, value).apply()
     }
 
-    fun setPrioritizeSpotifyCanvas(value: Boolean) {
-        prioritizeSpotifyCanvas.value = value
+    fun setCanvasOrder(order: CanvasOrder) {
+        canvasOrder.value = order
         updateEffectiveSpotifyCanvasSettings()
-        prefs.edit().putBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, value).apply()
+        prefs.edit()
+            .putString(KEY_CANVAS_ORDER, order.name)
+            .putBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, order.sources.first() == CanvasSearchSource.SPOTIFY)
+            .apply()
+    }
+
+    fun setCanvasBestQuality(value: Boolean) {
+        canvasBestQuality.value = value
+        prefs.edit().putBoolean(KEY_CANVAS_BEST_QUALITY, value).apply()
+    }
+
+    /**
+     * The Classic Spotify-first toggle, as a rewrite of [canvasOrder]:
+     * turning it on moves Spotify first (keeping the Apple/Tidal order the
+     * listener already had), turning it off moves Spotify last. The order
+     * stays the single source of truth.
+     */
+    fun setPrioritizeSpotifyCanvas(value: Boolean) {
+        val current = canvasOrder.value.sources
+        val appleFirst = current.indexOf(CanvasSearchSource.APPLE) < current.indexOf(CanvasSearchSource.TIDAL)
+        setCanvasOrder(
+            when {
+                value && appleFirst -> CanvasOrder.SPOTIFY_APPLE_TIDAL
+                value -> CanvasOrder.SPOTIFY_TIDAL_APPLE
+                appleFirst -> CanvasOrder.APPLE_TIDAL_SPOTIFY
+                else -> CanvasOrder.TIDAL_APPLE_SPOTIFY
+            },
+        )
     }
 
     fun setSignatureApiEnabled(value: Boolean) {
@@ -2788,6 +2848,8 @@ object AppSettings {
     private const val KEY_DISABLE_SPOTIFY_CANVAS = "disable_spotify_canvas"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
+    private const val KEY_CANVAS_ORDER = "canvas_order"
+    private const val KEY_CANVAS_BEST_QUALITY = "canvas_best_quality"
     private const val KEY_SIGNATURE_API_ENABLED = "signature_api_enabled"
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"

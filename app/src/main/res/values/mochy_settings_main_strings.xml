@@ -21,6 +21,8 @@
     <string name="appearance_canvas_desc">Looping visuals for supported tracks</string>
     <string name="appearance_canvas_wifi">Canvas on Wi-Fi only</string>
     <string name="appearance_canvas_wifi_desc">Skip mobile data</string>
+    <string name="appearance_lyrics_soft_light">Tinted lyrics</string>
+    <string name="appearance_lyrics_soft_light_desc">Lines that aren\'t being sung take on the cover\'s colours. Turn it off if the lyrics feel slow</string>
     <string name="appearance_format_badge">Audio format badge</string>
     <string name="appearance_format_badge_desc">What the song is playing as, beside its title</string>
     <string name="appearance_lyrics_animation">Lyrics animation</string>
@@ -33,6 +35,12 @@
     <string name="appearance_youtube_background_desc">Stream video background on player when available</string>
     <string name="audiopass_hub_title">Audio Pass</string>
     <string name="back_content_desc">Back</string>
+    <string name="canvas_best_quality">Sharpest animated covers</string>
+    <string name="canvas_best_quality_desc">Plays the best version there is, up to 4K. Data saver turns it off</string>
+    <string name="canvas_order">Canvas order</string>
+    <string name="canvas_source_apple">Apple Music</string>
+    <string name="canvas_source_spotify">Spotify</string>
+    <string name="canvas_source_tidal">Tidal</string>
     <string name="customise_animation_speed">Animation speed</string>
     <string name="customise_cover_rounding">Cover\nrounding</string>
     <string name="customise_element_blur">Element blur</string>
@@ -115,6 +123,9 @@
     <string name="settings_local_auto_metadata">Local song automatic metadata</string>
     <string name="settings_local_auto_metadata_desc">Automatically match local tracks with online metadata</string>
     <string name="settings_local_section">Local settings</string>
+    <string name="settings_lyrics_order_override">Override lyrics sorting</string>
+    <string name="settings_lyrics_order_override_desc">The order providers are tried in, and which ones are asked at all</string>
+    <string name="settings_lyrics_order_override_detail">ChordWave tries providers in your order and keeps the first word-synced answer; failing that, the first line-synced one, then the first plain one. Songs that already have lyrics keep them until you refetch.</string>
     <string name="settings_nothing_matches">Nothing matches “%1$s”.</string>
     <string name="settings_offline_mode">Offline mode</string>
     <string name="settings_offline_mode_desc">Play downloaded music only</string>
