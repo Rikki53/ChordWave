@@ -3,9 +3,9 @@
 // - SIGNATURE: Mochy took (state, audioLab: AudioLabStore). CW has no
 //   AudioLabStore, so the sheet takes only (state); the EQ select is stubbed
 //   (below) instead of reading the store.
-// - LyricsSourceSelect: Mochy's LyricsMenuViewModel becomes LyricsMenuStub
-//   (empty sources), so the dropdown offers only "Keep the lyrics it has"
-//   until the adapter wires provider checks. The file box above it works.
+// - LyricsSourceSelect: reads the connection's per-provider lookup states
+//   (rememberLyricsSources), so the dropdown offers every provider that
+//   answered for the song — wired in the Nov 2026 lyrics merge.
 // - EqPresetSelect: Mochy listed EqPresets.BuiltIn + the store's saved
 //   presets. CW has an equalizer but no per-song preset store, so the
 //   dropdown offers only "Same as every other song" and a pick logs a
@@ -34,7 +34,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,7 +57,7 @@ import com.music.bitchord.ui.mochy.component.SheetIcon
 import com.music.bitchord.ui.mochy.component.SheetLabel
 import com.music.bitchord.ui.mochy.component.SheetTextField
 import com.music.bitchord.ui.mochy.component.bleedHorizontally
-import com.music.bitchord.ui.mochy.lyrics.LyricsMenuStub
+import com.music.bitchord.ui.mochy.lyrics.rememberLyricsSources
 import com.music.bitchord.ui.mochy.lyrics.LyricsProviderRegistry
 import com.music.bitchord.ui.mochy.lyrics.LyricsSourceState
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
@@ -172,8 +171,7 @@ private fun LyricsSection(state: SongEditState) {
 
 @Composable
 private fun LyricsSourceSelect(state: SongEditState) {
-    val sources by LyricsMenuStub.sources.collectAsState()
-    LaunchedEffect(state.songId) { LyricsMenuStub.checkSources(state.metadata) }
+    val sources by rememberLyricsSources().collectAsState()
 
     val found = remember(sources) {
         sources.values

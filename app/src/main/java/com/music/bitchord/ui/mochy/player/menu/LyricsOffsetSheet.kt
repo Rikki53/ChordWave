@@ -74,7 +74,7 @@ import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** The slider and the typed value both stop here: 10 seconds either way, shown in ms. */
+/** The slider and the typed value both stop here: 5 seconds either way, shown in ms. */
 // ±5s: AppSettings.setLyricsOffsetMs clamps to ±5_000 ms, so the sheet's
 // range matches the store — a wider range would snap back on reopen.
 private const val MaxOffsetMs = 5_000
@@ -320,7 +320,7 @@ private fun NudgeLabel(symbol: String, onClick: () -> Unit) {
 @Composable
 private fun OffsetTrack(offset: Int, onOffsetChange: (Int) -> Unit) {
     var widthPx by remember { mutableIntStateOf(0) }
-    // the edit sheet allows minutes either way, past this bar's ten seconds, so it stops at the ends
+    // the edit sheet allows minutes either way, past this bar's five seconds, so it stops at the ends
     val fraction = ((offset + MaxOffsetMs) / (2f * MaxOffsetMs)).coerceIn(0f, 1f)
 
     fun valueAt(x: Float): Int {

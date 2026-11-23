@@ -636,6 +636,14 @@ object AppSettings {
     val lyricsOffsetMs = MutableStateFlow(0)
 
     /**
+     * Per-song lyric offsets, keyed by videoId/songId. A song with an entry
+     * here uses it; every other song falls back to [lyricsOffsetMs]. The
+     * Modern player reads the merged value through MochyPlayerConnection;
+     * Classic keeps reading the global value only.
+     */
+    val lyricsOffsetsBySong = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    /**
      * Which language the lyrics translate button translates *into*.
      *
      * Blank — the default — means "whatever the app is set to", and is stored
@@ -1256,6 +1264,7 @@ object AppSettings {
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        lyricsOffsetsBySong.value = readLyricsOffsetsBySong()
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
@@ -1923,6 +1932,59 @@ object AppSettings {
         if (lyricsOffsetMs.value == normalized) return
         lyricsOffsetMs.value = normalized
         prefs.edit().putInt(KEY_LYRICS_OFFSET_MS, normalized).apply()
+    }
+
+    /** The per-song offset for [songId], or null when the song uses the global offset. */
+    fun lyricsOffsetForSong(songId: String): Int? = lyricsOffsetsBySong.value[songId]
+
+    /**
+     * Sets the lyric offset for one song (clamped to ±5_000 ms, like the
+     * global offset). An offset of 0 removes the per-song entry, so the
+     * song falls back to the global offset instead of pinning 0 for ever.
+     */
+    fun setLyricsOffsetForSong(songId: String, value: Int) {
+        val normalized = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        val editor = prefs.edit()
+        if (normalized == 0) {
+            editor.remove(KEY_LYRICS_OFFSET_PREFIX + songId)
+            if (lyricsOffsetsBySong.value[songId] == null) return
+            lyricsOffsetsBySong.value = lyricsOffsetsBySong.value - songId
+        } else {
+            if (lyricsOffsetsBySong.value[songId] == normalized) return
+            editor.putInt(KEY_LYRICS_OFFSET_PREFIX + songId, normalized)
+            lyricsOffsetsBySong.value = lyricsOffsetsBySong.value + (songId to normalized)
+        }
+        editor.apply()
+    }
+
+    private fun readLyricsOffsetsBySong(): Map<String, Int> {
+        val out = mutableMapOf<String, Int>()
+        prefs.all.forEach { (key, value) ->
+            if (key.startsWith(KEY_LYRICS_OFFSET_PREFIX) && value is Int) {
+                val songId = key.removePrefix(KEY_LYRICS_OFFSET_PREFIX)
+                if (songId.isNotEmpty()) {
+                    out[songId] = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+                }
+            }
+        }
+        return out
+    }
+
+    /**
+     * Lyrics the listener wrote for one song (edited in the player, or
+     * imported from a file), as LRC text — or null when the song has none.
+     * An override wins over every provider in [com.music.bitchord.ui.MainViewModel.loadLyrics]:
+     * these are the listener's own words for this recording.
+     */
+    fun lyricsOverride(songId: String): String? =
+        prefs.getString(KEY_LYRICS_OVERRIDE_PREFIX + songId, null)?.takeIf { it.isNotBlank() }
+
+    fun setLyricsOverride(songId: String, lrc: String) {
+        prefs.edit().putString(KEY_LYRICS_OVERRIDE_PREFIX + songId, lrc).apply()
+    }
+
+    fun clearLyricsOverride(songId: String) {
+        prefs.edit().remove(KEY_LYRICS_OVERRIDE_PREFIX + songId).apply()
     }
 
     /** Blank restores "follow the app language"; see [translationLanguage]. */
@@ -2716,6 +2778,10 @@ object AppSettings {
     private const val KEY_PROGRESSIVE_BLUR = "progressive_blur"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
+    /** Per-song offset keys are this prefix + the songId; see [lyricsOffsetsBySong]. */
+    private const val KEY_LYRICS_OFFSET_PREFIX = "lyrics_offset_song_"
+    /** Edited/imported lyrics are stored as LRC under this prefix + the songId. */
+    private const val KEY_LYRICS_OVERRIDE_PREFIX = "lyrics_override_"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"

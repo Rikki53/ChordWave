@@ -1,13 +1,15 @@
 // Ported from Mochy Music (GPL-3.0): lyrics/LyricsTranslationHelper.kt
-// PARTIAL — the state machine and the pure helpers are verbatim; the translation ENGINES
-// (Google Translate, OpenRouter/DeepL AI, YouTube caption translation) are NOT ported and
-// their entry points are stubs (see NEEDS.md §(b)). The UI compiles and degrades gracefully:
-// turning translation on shows the loading dots, then nothing arrives, and the status
-// returns to Idle instead of hanging on Translating.
+// PARTIAL — the state machine and the pure helpers are verbatim; the AI
+// (OpenRouter/DeepL) and YouTube caption engines are NOT ported and their
+// entry points are stubs (see NEEDS.md §(b)). The GOOGLE engine IS wired
+// (Nov 2026 lyrics merge), through ChordWave's own LyricsTranslation —
+// the public translate.googleapis.com endpoint, no API key — instead of
+// Mochy's GoogleTranslateEngine.
 //
 // Differences from Mochy, forced by the staged types:
 // - No `database` parameter anywhere: ChordWave has no MusicDatabase equivalent, and the
-//   stubs persist nothing. The coordinator owns the signature if a real engine lands.
+//   stubs persist nothing. Translations are cached in memory here and on disk by
+//   LyricsTranslation itself, so switching songs back and forth is free.
 // - loadTranslationsFromDatabase / hasTranslations / clearTranslations are stubs: the
 //   staged LyricsEntity (phase3-player-menus) has no translatedLyrics / translationLanguage
 //   / translationMode fields yet. Once the coordinator adds those three fields, the Mochy
@@ -16,6 +18,8 @@
 package com.music.bitchord.ui.mochy.lyrics
 
 import android.content.Context
+import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsTranslation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -25,6 +29,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 object LyricsTranslationHelper {
@@ -198,7 +203,19 @@ object LyricsTranslationHelper {
         _status.value = TranslationStatus.Idle
     }
 
-    // TODO(lyrics-engine): Google Translate is not ported. See translateLyrics.
+    /**
+     * Translates [lyrics] with ChordWave's Google Translate engine
+     * ([LyricsTranslation]) — the public translate.googleapis.com endpoint,
+     * no API key — and publishes one translated line per non-blank original
+     * through each entry's [LyricsEntry.translatedTextFlow]. A line that
+     * comes back identical to the original (case-insensitive) keeps no
+     * translation: it already reads as the target language.
+     *
+     * The engine always auto-detects the source language; [sourceLanguage]
+     * (a manual override from the sheet) is only used for the cache tag,
+     * not honoured as a detection hint. When the song has no id, the
+     * lyrics text itself keys the engine's disk cache.
+     */
     fun translateWithGoogle(
         lyrics: List<LyricsEntry>,
         targetLanguage: String,
@@ -207,9 +224,57 @@ object LyricsTranslationHelper {
         scope: CoroutineScope,
         songId: String = "",
     ) {
-        warnOnce("translateWithGoogle")
+        translationJob?.cancel()
+        _status.value = TranslationStatus.Translating
         lyrics.forEach { it.translatedTextFlow.value = null }
-        _status.value = TranslationStatus.Idle
+
+        translationJob = scope.launch {
+            val indexed = lyrics.mapIndexedNotNull { index, entry ->
+                if (entry.text.isNotBlank()) index to entry else null
+            }
+            if (indexed.isEmpty()) {
+                _status.value = TranslationStatus.Idle
+                return@launch
+            }
+
+            val lyricsText = indexed.joinToString("\n") { it.second.text }
+            val result = runCatching {
+                LyricsTranslation.translate(
+                    trackId = songId.ifBlank { lyricsText.hashCode().toString() },
+                    lines = indexed.map { (_, entry) ->
+                        LyricLine(timeMs = entry.time, text = entry.text)
+                    },
+                    targetLanguageTag = targetLanguage,
+                )
+            }.getOrNull() ?: LyricsTranslation.Result.Unavailable
+
+            when (result) {
+                is LyricsTranslation.Result.Translated -> {
+                    val translated = result.lines.map { it.text }
+                    indexed.forEachIndexed { idx, (originalIndex, entry) ->
+                        // A line already in the target language comes back
+                        // unchanged; showing it twice only doubles the line.
+                        lyrics[originalIndex].translatedTextFlow.value = translated
+                            .getOrNull(idx)
+                            ?.takeUnless { it.trim().equals(entry.text.trim(), ignoreCase = true) }
+                    }
+                    _hasActiveTranslations.value = true
+                    _status.value = TranslationStatus.Success
+                    translationCache[getCacheKey(
+                        lyricsText, mode, languageTag(sourceLanguage, targetLanguage),
+                    )] = translated
+                }
+                is LyricsTranslation.Result.SameLanguage -> {
+                    // The song is already in the target language: every
+                    // line translates to itself, so there is nothing to show.
+                    _hasActiveTranslations.value = false
+                    _status.value = TranslationStatus.Success
+                }
+                LyricsTranslation.Result.Unavailable -> {
+                    _status.value = TranslationStatus.Error("Translation unavailable")
+                }
+            }
+        }
     }
 
     /**

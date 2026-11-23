@@ -30,10 +30,12 @@
 // MainViewModel.lyrics), the lyrics loading trigger (attachLyrics + the
 // mediaMetadata watcher — Modern mode never runs the Classic UI's
 // loadLyrics effect, so the connection has to trigger the load itself),
-// and saveLyricsOffset (v1: ChordWave's single GLOBAL offset, not
-// per-song). See NEEDS.md in that staging dir for the contracts, the
-// three-state null/LYRICS_NOT_FOUND semantics, and the host wiring the
-// coordinator must add in MochyApp.
+// and saveLyricsOffset. The Nov 2026 lyrics merge made the offset
+// per-song (AppSettings.lyricsOffsetsBySong, falling back to the global
+// value) and added the provider bridge (LyricsProviderBridge) behind the
+// provider picker + editor. See NEEDS.md in that staging dir for the
+// contracts, the three-state null/LYRICS_NOT_FOUND semantics, and the
+// host wiring the coordinator must add in MochyApp.
 //
 // Phase 3 adapter round, queue/like (15 Nov 2026, coordinator, same file):
 // wires the queue methods onto the controller (playQueue/playNext/
@@ -74,7 +76,9 @@ import com.music.bitchord.R
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.ui.LyricsProviderState
 import com.music.bitchord.data.model.Song as CwSong
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.settings.AppSettings
@@ -84,7 +88,12 @@ import com.music.bitchord.playback.toSong
 import com.music.bitchord.ui.mochy.constants.InfiniteQueueKey
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntity
+import com.music.bitchord.ui.mochy.lyrics.LyricsSourceState
+import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
+import com.music.bitchord.ui.mochy.lyrics.ProviderCandidate
 import com.music.bitchord.ui.mochy.lyrics.mapLyricsToEntity
+import com.music.bitchord.ui.mochy.lyrics.serializeLyricLines
+import com.music.bitchord.ui.mochy.lyrics.toMochyProviderName
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.toMochyMetadata
@@ -153,6 +162,32 @@ data class LyricsLoadRequest(
     val album: String?,
     val localUri: String?,
 )
+
+/**
+ * The lyrics provider picker + editor, as the host attaches it. Like
+ * [MochyPlayerConnection.attachLyrics]'s loader, this keeps MainViewModel
+ * out of the connection: the host (MochyApp) implements it over the
+ * activity-scoped ViewModel, and the connection only calls through it.
+ */
+interface LyricsProviderBridge {
+    /** Per-provider lookup state for the current track (see [com.music.bitchord.ui.LyricsProviderState]). */
+    val providerStates: StateFlow<Map<LyricsSource, LyricsProviderState>>
+
+    /** Applies [source]'s lyrics for the current track (fetching it first when untouched). */
+    fun selectProvider(source: LyricsSource)
+
+    /** The completed result for [source] from the current track's lookup, if it answered. */
+    fun providerResult(source: LyricsSource): LyricsRepository.Result?
+
+    /** Saves LRC the listener wrote for [songId] as that song's override. */
+    fun saveLyrics(songId: String, lrc: String)
+
+    /** Drops the saved override for [songId], re-running the provider lookup when it is playing. */
+    fun clearLyrics(songId: String)
+
+    /** Whether [songId] has a saved override. */
+    fun hasLyricsOverride(songId: String): Boolean
+}
 
 class MochyPlayerConnection(context: Context) {
 
@@ -322,13 +357,24 @@ class MochyPlayerConnection(context: Context) {
     val streamFailure = MutableStateFlow<StreamFailure?>(null)
 
     /**
-     * The user's lyrics offset in ms, straight from ChordWave's own
-     * setting ([AppSettings.lyricsOffsetMs]) — exposed directly, not
-     * mapped, so there is exactly one source of truth and no extra
-     * coroutine. Positive values delay synced lyrics (core B11,
-     * styles §(b).4, menus L1).
+     * The user's lyrics offset in ms for the song now playing: the song's
+     * own offset when one was set ([AppSettings.lyricsOffsetsBySong]),
+     * otherwise ChordWave's global setting ([AppSettings.lyricsOffsetMs]).
+     * Positive values delay synced lyrics (core B11, styles §(b).4,
+     * menus L1).
      */
-    val lyricsOffsetMs: StateFlow<Int> = AppSettings.lyricsOffsetMs
+    val lyricsOffsetMs: StateFlow<Int> = combine(
+        mediaMetadata,
+        AppSettings.lyricsOffsetsBySong,
+        AppSettings.lyricsOffsetMs,
+    ) { metadata, perSong, global ->
+        perSong[metadata?.id] ?: global
+    }.stateIn(
+        scope,
+        SharingStarted.Lazily,
+        AppSettings.lyricsOffsetsBySong.value[mediaMetadata.value?.id]
+            ?: AppSettings.lyricsOffsetMs.value,
+    )
 
     /**
      * STUB — always false. ChordWave DOES have a crossfade engine
@@ -379,7 +425,10 @@ class MochyPlayerConnection(context: Context) {
     private val attachedLyricsLines = MutableStateFlow<List<LyricLine>?>(null)
     private val attachedLyricsSource = MutableStateFlow<LyricsSource?>(null)
     private val attachedLyricsChecked = MutableStateFlow(false)
+    private val attachedLyricsProviderStates =
+        MutableStateFlow<Map<LyricsSource, LyricsProviderState>>(emptyMap())
     private val lyricsLoaderFlow = MutableStateFlow<((LyricsLoadRequest) -> Unit)?>(null)
+    private var lyricsProviderBridge: LyricsProviderBridge? = null
 
     /**
      * The song the trigger last asked the loader for. currentLyrics is gated
@@ -423,6 +472,92 @@ class MochyPlayerConnection(context: Context) {
     }.stateIn(scope, SharingStarted.Lazily, null)
 
     /**
+     * Per-provider lookup state for the current track, forwarded from the
+     * attached [LyricsProviderBridge] — the provider picker's rows.
+     */
+    val lyricsProviderStates: StateFlow<Map<LyricsSource, LyricsProviderState>> =
+        attachedLyricsProviderStates
+
+    /** The source the current lyrics came from (null for embedded-file or edited lyrics). */
+    val currentLyricsSource: StateFlow<LyricsSource?> = attachedLyricsSource
+
+    /**
+     * The provider picker's rows: every offered source with what the current
+     * track's lookup knows about it — checking, found (with the candidate),
+     * not found, or switched off in Settings. The candidate carries the
+     * serialised lines, so the picker can tell word- from line-synced.
+     * A source the lookup never asked (a race loser, or one added after the
+     * track loaded) reads Checking — tapping it fetches it, via
+     * [selectLyricsProvider].
+     */
+    val lyricsSources: StateFlow<Map<LyricsSource, LyricsSourceState>> = combine(
+        attachedLyricsProviderStates,
+        AppSettings.lyricsSources,
+        AppSettings.lyricsSourceOrder,
+    ) { states, enabled, order ->
+        val ordered = LyricsSource.ordered(order)
+        ordered.associateWith { source ->
+            when {
+                source !in enabled -> LyricsSourceState.Off
+                else -> when (states[source]) {
+                    LyricsProviderState.FOUND -> {
+                        val result = lyricsProviderBridge?.providerResult(source)
+                        if (result == null) {
+                            LyricsSourceState.Checking
+                        } else {
+                            LyricsSourceState.Available(
+                                ProviderCandidate(
+                                    providerName = source.toMochyProviderName(),
+                                    lyrics = serializeLyricLines(result.lines),
+                                    order = ordered.indexOf(source),
+                                    sync = syncKindOf(result.lines),
+                                    script = LyricsUtils.dominantScript(
+                                        result.lines.joinToString(" ") { it.text },
+                                    ),
+                                    source = source,
+                                ),
+                            )
+                        }
+                    }
+                    LyricsProviderState.NOT_FOUND -> LyricsSourceState.Unavailable
+                    else -> LyricsSourceState.Checking
+                }
+            }
+        }
+    }.stateIn(scope, SharingStarted.Lazily, emptyMap())
+
+    /** Applies [source]'s lyrics for the current track (fetching it first when untouched). */
+    fun selectLyricsProvider(source: LyricsSource) {
+        lyricsProviderBridge?.selectProvider(source)
+    }
+
+    /** The completed result for [source] from the current track's lookup, if it answered. */
+    fun lyricsProviderResult(source: LyricsSource): LyricsRepository.Result? =
+        lyricsProviderBridge?.providerResult(source)
+
+    /** Saves LRC the listener wrote for [songId] as that song's override. */
+    fun saveLyrics(songId: String, lrc: String) {
+        lyricsProviderBridge?.saveLyrics(songId, lrc)
+    }
+
+    /** Drops the saved override for [songId], re-running the provider lookup when it is playing. */
+    fun clearLyrics(songId: String) {
+        lyricsProviderBridge?.clearLyrics(songId)
+    }
+
+    /** Whether [songId] has a saved override. */
+    fun hasLyricsOverride(songId: String): Boolean =
+        lyricsProviderBridge?.hasLyricsOverride(songId) ?: false
+
+    /** Word-, line- or plain-synced, from the lines a provider answered with. */
+    private fun syncKindOf(lines: List<LyricLine>): LyricsUtils.SyncKind = when {
+        lines.any { it.isWordSynced } -> LyricsUtils.SyncKind.WORD
+        lines.any { it.timeMs > 0L } -> LyricsUtils.SyncKind.LINE
+        lines.any { it.text.isNotBlank() } -> LyricsUtils.SyncKind.PLAIN
+        else -> LyricsUtils.SyncKind.NONE
+    }
+
+    /**
      * Attaches ChordWave's lyrics state and loader. The host (MochyApp)
      * calls this once, with the activity-scoped MainViewModel:
      *
@@ -436,6 +571,7 @@ class MochyPlayerConnection(context: Context) {
      *                 request.durationMs, request.album, request.localUri,
      *             )
      *         },
+     *         providerBridge = ..., // the provider picker + editor over the same ViewModel
      *     )
      *
      * Re-attaching cancels the previous forwarding jobs and replaces the
@@ -447,13 +583,19 @@ class MochyPlayerConnection(context: Context) {
         source: StateFlow<LyricsSource?>,
         checked: StateFlow<Boolean>,
         loader: ((LyricsLoadRequest) -> Unit)?,
+        providerBridge: LyricsProviderBridge? = null,
     ) {
         lyricsForwardJobs.forEach { it.cancel() }
         lyricsForwardJobs = listOf(
             scope.launch { lyrics.collect { attachedLyricsLines.value = it } },
             scope.launch { source.collect { attachedLyricsSource.value = it } },
             scope.launch { checked.collect { attachedLyricsChecked.value = it } },
+        ) + listOfNotNull(
+            providerBridge?.let { bridge ->
+                scope.launch { bridge.providerStates.collect { attachedLyricsProviderStates.value = it } }
+            },
         )
+        lyricsProviderBridge = providerBridge
         lyricsLoaderFlow.value = loader
         if (loader != null) warnedNoLyricsLoader = false
     }
@@ -461,16 +603,14 @@ class MochyPlayerConnection(context: Context) {
     /**
      * Persists a lyric offset for [songId] (menus L1).
      *
-     * v1 DEVIATION — the offset is GLOBAL, not per-song: ChordWave has no
-     * per-song offset store, so this writes the single AppSettings value
-     * ([AppSettings.setLyricsOffsetMs], clamped to ±5_000 ms) and [songId]
-     * is accepted for the contract's sake and ignored. Every song shares
-     * the offset until a per-song store exists. The top-level
-     * [com.music.bitchord.ui.mochy.lyrics.saveLyricsOffset] the sheets call
-     * performs this same write.
+     * Per-song since the lyrics merge: this writes the song's own offset
+     * ([AppSettings.setLyricsOffsetForSong], clamped to ±5_000 ms); songs
+     * without one keep using the global [AppSettings.lyricsOffsetMs]. The
+     * top-level [com.music.bitchord.ui.mochy.lyrics.saveLyricsOffset] the
+     * sheets call performs this same write.
      */
     suspend fun saveLyricsOffset(songId: String, offsetMs: Int) {
-        AppSettings.setLyricsOffsetMs(offsetMs)
+        AppSettings.setLyricsOffsetForSong(songId, offsetMs)
     }
 
     // ---- lyrics loading trigger (core B8) ----

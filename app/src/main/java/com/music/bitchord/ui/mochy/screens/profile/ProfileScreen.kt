@@ -76,7 +76,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets

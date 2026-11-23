@@ -16,8 +16,11 @@ package com.music.bitchord.ui.mochy.lyrics
 // lrc.red lets anyone use its lyrics as long as the app links back to it wherever they show.
 // (Mochy read this from com.music.directlyrics.LrcRed.BaseUrl; inlined here — verify the URL
 // still resolves at merge time.)
+// Unison (the BetterLyrics aggregator) asks for the same: its project page, not the fetch
+// mirror (unison.boidu.dev) the engine calls.
 fun LyricsProviderRegistry.getWebsite(name: String): String? = when (name) {
     "LrcRed" -> "https://lrc.red"
+    "Unison" -> "https://unison.betterlyrics.org"
     else     -> null
 }
 

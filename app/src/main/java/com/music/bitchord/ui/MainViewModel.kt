@@ -35,6 +35,7 @@ import com.music.bitchord.data.spotify.SpotifyImporter
 import com.music.bitchord.data.spotify.SpotifyLibrary
 import com.music.bitchord.data.spotify.SpotifyTrack
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
+import com.music.bitchord.data.lyrics.LrcLib
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
@@ -362,6 +363,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val artist: String,
         val durationMs: Long,
         val album: String?,
+        val localUri: String? = null,
     )
 
     private var currentLyricsRequest: LyricsRequest? = null
@@ -414,7 +416,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         lyricsFor = key
         lyricsGeneration += 1
         val generation = lyricsGeneration
-        currentLyricsRequest = LyricsRequest(videoId, title, artist, durationMs, album)
+        currentLyricsRequest = LyricsRequest(videoId, title, artist, durationMs, album, localUri)
         selectedLyricsSource = null
         manualLyricsJobs.values.forEach(Job::cancel)
         manualLyricsJobs.clear()
@@ -424,6 +426,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _lyrics.value = null
         _lyricsSource.value = null
         lyricsJob?.cancel()
+        // Lyrics the listener wrote for this song (edited in the player, or
+        // imported from a file) win over every provider — including over the
+        // file's own embedded lyrics and over "synced lyrics off": these are
+        // the listener's own words for this recording, not a third-party
+        // fetch, so neither the source switch nor the duration gate applies.
+        // A stale or unparseable override falls through to the normal path.
+        AppSettings.lyricsOverride(videoId)?.let { lrc ->
+            val overrideLines = runCatching { LrcLib.parseLrc(lrc) }.getOrNull().orEmpty()
+            if (overrideLines.isNotEmpty()) {
+                _lyrics.value = overrideLines
+                _lyricsSource.value = null
+                _lyricsChecked.value = true
+                return
+            }
+        }
         if (sources.isEmpty()) {
             // Switched off, or every source unticked. Nothing to look up, and
             // nothing to say about it — the player drops the lyric strip
@@ -573,6 +590,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _lyrics.value = result.lines
         _lyricsSource.value = result.source
         _lyricsChecked.value = true
+    }
+
+    /** The completed result for [source] from the current track's lookup, if it answered. */
+    fun lyricsProviderResult(source: LyricsSource): LyricsRepository.Result? =
+        lyricsProviderResults[source]
+
+    /**
+     * Saves lyrics the listener wrote for [songId] (edited in the player, or
+     * imported from a file) as that song's override. When the song is the one
+     * playing, the new words apply at once — an in-flight lookup is cancelled
+     * first, so its late answer cannot clobber the edit.
+     */
+    fun saveLyricsOverride(songId: String, lrc: String) {
+        AppSettings.setLyricsOverride(songId, lrc)
+        if (currentLyricsRequest?.videoId != songId) return
+        val lines = runCatching { LrcLib.parseLrc(lrc) }.getOrNull().orEmpty()
+        if (lines.isEmpty()) return
+        lyricsJob?.cancel()
+        lyricsGeneration += 1
+        _lyrics.value = lines
+        _lyricsSource.value = null
+        _lyricsChecked.value = true
+    }
+
+    /**
+     * Drops the saved override for [songId]. When the song is the one playing,
+     * its lyrics are looked up again from the providers.
+     */
+    fun clearLyricsOverride(songId: String) {
+        AppSettings.clearLyricsOverride(songId)
+        val request = currentLyricsRequest?.takeIf { it.videoId == songId } ?: return
+        lyricsFor = null
+        loadLyrics(
+            request.videoId, request.title, request.artist, request.durationMs,
+            request.album, request.localUri,
+        )
     }
 
     private val _account = MutableStateFlow<Account?>(null)

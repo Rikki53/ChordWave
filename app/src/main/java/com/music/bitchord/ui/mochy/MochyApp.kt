@@ -51,6 +51,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.music.bitchord.R
+import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.ui.MainViewModel
@@ -72,6 +73,7 @@ import com.music.bitchord.ui.mochy.constants.PureBlackKey
 import com.music.bitchord.ui.mochy.importer.ImportSource
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.playback.LyricsProviderBridge
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
 import com.music.bitchord.ui.mochy.player.BottomSheetPlayer
 import com.music.bitchord.ui.mochy.player.ipod.ChordWaveIpodLibrary
@@ -241,6 +243,22 @@ fun MochyApp(modifier: Modifier = Modifier) {
                     request.videoId, request.title, request.artist,
                     request.durationMs, request.album, request.localUri,
                 )
+            },
+            // The provider picker + editor over the same ViewModel, so the
+            // connection never touches MainViewModel directly (see
+            // LyricsProviderBridge).
+            providerBridge = object : LyricsProviderBridge {
+                override val providerStates = mainViewModel.lyricsProviderStates
+                override fun selectProvider(source: LyricsSource) =
+                    mainViewModel.selectLyricsProvider(source)
+                override fun providerResult(source: LyricsSource) =
+                    mainViewModel.lyricsProviderResult(source)
+                override fun saveLyrics(songId: String, lrc: String) =
+                    mainViewModel.saveLyricsOverride(songId, lrc)
+                override fun clearLyrics(songId: String) =
+                    mainViewModel.clearLyricsOverride(songId)
+                override fun hasLyricsOverride(songId: String): Boolean =
+                    AppSettings.lyricsOverride(songId) != null
             },
         )
         // The import/sync engine signs out through the activity-scoped

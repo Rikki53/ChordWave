@@ -6,15 +6,15 @@
 // because every one of them acts on lyrics that are on screen. "Refetch lyrics" from a player with
 // no lyrics view open is an action whose entire result is invisible.
 //
-// UI verbatim. Engine stubs (lyrics/LyricsStubs.kt, NEEDS.md §(b) L1/L2/L5):
-// - NO ViewModel is ported: Mochy's LyricsMenuViewModel becomes LyricsMenuStub
-//   (sources flow, checkSources, saveLyrics, useSource — all log + TODO).
-//   Until the adapter wires it, the editor shows "No lyrics to edit" (no
-//   current lyrics flow) and the provider picker lists all providers as
-//   "Checking…" (empty sources map) — honest, never faked.
-// - Current lyrics come from rememberLyricsEntity() (always null for now).
-// - Translation state/actions come from LyricsTranslationStub (idle/off;
-//   the Translate button logs + TODO instead of translating).
+// UI verbatim. Engine (Nov 2026 lyrics merge — wired for real over ChordWave's own engine):
+// - Current lyrics come from rememberLyricsEntity() (the connection's currentLyrics).
+// - The provider picker reads rememberLyricsSources() (the connection's per-provider lookup
+//   states, filled by the automatic lookup on track change) and applies a pick through the
+//   connection's selectLyricsProvider, which goes to MainViewModel.
+// - The editor and the file box save through the connection's saveLyrics: a per-song override
+//   in AppSettings, applied by MainViewModel ahead of every provider.
+// - Translation state/actions come from LyricsTranslationHelper, whose Google engine is
+//   ChordWave's LyricsTranslation (no API key).
 // - YouTube caption languages come from rememberYouTubeCaptionLanguages()
 //   (always empty: no YouTubeCaptionTranslation engine).
 // - The language list, the picker, PillButton and the LRC helpers are
@@ -48,7 +48,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -68,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
+import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.SheetIcon
@@ -76,13 +76,11 @@ import com.music.bitchord.ui.mochy.constants.TranslateLanguageKey
 import com.music.bitchord.ui.mochy.constants.TranslateLyricsKey
 import com.music.bitchord.ui.mochy.constants.TranslateSourceLanguageKey
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntity.Companion.LYRICS_NOT_FOUND
-import com.music.bitchord.ui.mochy.lyrics.LyricsMenuStub
-import com.music.bitchord.ui.mochy.lyrics.LyricsProviderRegistry
 import com.music.bitchord.ui.mochy.lyrics.LyricsSourceState
-import com.music.bitchord.ui.mochy.lyrics.LyricsTranslationStub
+import com.music.bitchord.ui.mochy.lyrics.LyricsTranslationHelper
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
-import com.music.bitchord.ui.mochy.lyrics.TranslationStatus
 import com.music.bitchord.ui.mochy.lyrics.rememberLyricsEntity
+import com.music.bitchord.ui.mochy.lyrics.rememberLyricsSources
 import com.music.bitchord.ui.mochy.lyrics.rememberYouTubeCaptionLanguages
 import com.music.bitchord.ui.mochy.menu.songedit.LyricsFileBox
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
@@ -140,6 +138,25 @@ fun LyricsEditorSheet(onDismiss: () -> Unit) {
                     modifier = Modifier.weight(1f),
                 )
                 if (parsed.isNotEmpty()) {
+                    // A song with saved (edited/imported) lyrics can go back to its providers.
+                    val songId = mediaMetadata?.id
+                    if (songId != null && playerConnection.hasLyricsOverride(songId)) {
+                        Text(
+                            text = "Reset",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Color.White.copy(alpha = 0.14f))
+                                .clickable {
+                                    playerConnection.clearLyrics(songId)
+                                    closeSheet()
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(
                         text = "Save",
                         color = Color.White,
@@ -151,9 +168,9 @@ fun LyricsEditorSheet(onDismiss: () -> Unit) {
                             .clickable {
                                 val id = mediaMetadata?.id
                                 if (id != null) {
-                                    LyricsMenuStub.saveLyrics(
+                                    playerConnection.saveLyrics(
                                         songId = id,
-                                        lyrics = buildLrc(parsed.map { it.time }, drafts),
+                                        lrc = buildLrc(parsed.map { it.time }, drafts),
                                     )
                                 }
                                 closeSheet()
@@ -242,25 +259,23 @@ internal fun buildLrc(times: List<Long>, texts: List<String>): String = buildStr
 /**
  * Picks which source this song's lyrics come from.
  *
- * Every source is asked as soon as the sheet opens, and each row says what it found: checking,
- * word / line synced, plain, not found, or switched off. Tapping a source that has lyrics applies
- * the copy already fetched, so the switch is instant. This used to move the tapped source to the
- * front of the global order and search again, but provider order only breaks ties in the grading,
- * so the same result usually came straight back and the pick appeared to do nothing.
+ * The automatic lookup that ran when the track started asked every enabled source, and each row
+ * says what it found: checking, word / line synced, plain, not found, or switched off. Tapping a
+ * source that has lyrics applies the copy already fetched, so the switch is instant. Tapping one
+ * still checking fetches it — the sheet stays open and the row flips when it answers. This used
+ * to move the tapped source to the front of the global order and search again, but provider order
+ * only breaks ties in the grading, so the same result usually came straight back and the pick
+ * appeared to do nothing.
  */
 @Composable
 fun LyricsProviderSheet(onDismiss: () -> Unit) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
-    val lyricsEntity by rememberLyricsEntity().collectAsState()
-    val sources by LyricsMenuStub.sources.collectAsState()
-
-    LaunchedEffect(mediaMetadata?.id) {
-        mediaMetadata?.let(LyricsMenuStub::checkSources)
-    }
+    val sources by rememberLyricsSources().collectAsState()
+    val activeSource by playerConnection.currentLyricsSource.collectAsState()
 
     // Sources with lyrics first, in the order they would be preferred; then the rest.
-    val names = remember(sources) {
+    val ordered = remember(sources) {
         val rank = { state: LyricsSourceState? ->
             when (state) {
                 is LyricsSourceState.Available -> 0
@@ -269,12 +284,11 @@ fun LyricsProviderSheet(onDismiss: () -> Unit) {
                 LyricsSourceState.Off -> 3
             }
         }
-        LyricsProviderRegistry.providerNames.sortedWith(
-            compareBy<String> { rank(sources[it]) }
+        sources.keys.sortedWith(
+            compareBy<LyricsSource> { rank(sources[it]) }
                 .thenBy { (sources[it] as? LyricsSourceState.Available)?.candidate?.order ?: Int.MAX_VALUE }
         )
     }
-    val active = lyricsEntity?.provider
     val addedText = stringResource(R.string.lyrics_file_added)
 
     MenuSheetSurface(onDismiss = onDismiss, wrapHeight = true) { _ ->
@@ -298,7 +312,7 @@ fun LyricsProviderSheet(onDismiss: () -> Unit) {
             LyricsFileBox(
                 picked = null,
                 onPicked = { file ->
-                    mediaMetadata?.let { LyricsMenuStub.saveLyrics(it.id, file.text) }
+                    mediaMetadata?.let { playerConnection.saveLyrics(it.id, file.text) }
                     TopToaster.show(text = addedText, iconRes = R.drawable.lyrics)
                     closeSheet()
                 },
@@ -308,10 +322,10 @@ fun LyricsProviderSheet(onDismiss: () -> Unit) {
             // A left-aligned list, not centred pills. These are named options being chosen from,
             // so they read down a common left edge like every other menu in the app; centred pills
             // made a list of eight providers into eight floating buttons with no scan line.
-            names.forEach { name ->
-                val state = sources[name]
+            ordered.forEach { source ->
+                val state = sources[source]
                 val available = state as? LyricsSourceState.Available
-                val isActive = name == active
+                val isActive = source == activeSource
                 val status = when {
                     isActive -> "In use"
                     available != null -> when (available.candidate.sync) {
@@ -331,15 +345,15 @@ fun LyricsProviderSheet(onDismiss: () -> Unit) {
                         .clip(RoundedCornerShape(16.dp))
                         .background(MenuRowSurface)
                         .clickable(
-                            enabled = available != null && !isActive,
+                            enabled = !isActive && state != LyricsSourceState.Unavailable &&
+                                state != LyricsSourceState.Off,
                             interactionSource = remember { MutableInteractionSource() },
                             indication = RemoteFocus,
                         ) {
-                            val metadata = mediaMetadata
-                            if (available != null && metadata != null) {
-                                LyricsMenuStub.useSource(metadata, available.candidate)
-                                closeSheet()
-                            }
+                            playerConnection.selectLyricsProvider(source)
+                            // A source with lyrics applies at once; one still checking is
+                            // fetched, and the sheet stays open so the row can flip.
+                            if (available != null) closeSheet()
                         }
                         .padding(horizontal = 14.dp, vertical = 14.dp),
                 ) {
@@ -358,7 +372,7 @@ fun LyricsProviderSheet(onDismiss: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = LyricsProviderRegistry.getDisplayName(name),
+                        text = source.label,
                         color = Color.White.copy(alpha = if (available != null) 1f else 0.5f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -429,9 +443,9 @@ fun LyricsTranslationSheet(onDismiss: () -> Unit) {
     var picking by remember { mutableStateOf(false) }
     var pickingSource by remember { mutableStateOf(false) }
 
-    val status by LyricsTranslationStub.status.collectAsState()
-    val translationOn by LyricsTranslationStub.translationOn.collectAsState()
-    val isTranslating = status is TranslationStatus.Translating
+    val status by LyricsTranslationHelper.status.collectAsState()
+    val translationOn by LyricsTranslationHelper.translationOn.collectAsState()
+    val isTranslating = status is LyricsTranslationHelper.TranslationStatus.Translating
     // STUB: no YouTubeCaptionTranslation engine, so no language ever carries
     // the green "video has its own captions" tick (NEEDS.md §(b) L5).
     val youtubeLanguages = rememberYouTubeCaptionLanguages()
@@ -534,9 +548,9 @@ fun LyricsTranslationSheet(onDismiss: () -> Unit) {
                         indication = RemoteFocus,
                     ) {
                         if (translationOn) {
-                            LyricsTranslationStub.triggerClearTranslations()
+                            LyricsTranslationHelper.triggerClearTranslations()
                         } else {
-                            LyricsTranslationStub.triggerManualTranslation()
+                            LyricsTranslationHelper.triggerManualTranslation()
                         }
                         // Close so the result is actually visible — the lyrics are behind this
                         // sheet, and the loading dots appear on the lines themselves.
@@ -557,7 +571,7 @@ fun LyricsTranslationSheet(onDismiss: () -> Unit) {
             }
 
             // A failed translation used to leave the lines quietly untranslated with no reason.
-            (status as? TranslationStatus.Error)?.let { error ->
+            (status as? LyricsTranslationHelper.TranslationStatus.Error)?.let { error ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Couldn't translate: ${error.message}",

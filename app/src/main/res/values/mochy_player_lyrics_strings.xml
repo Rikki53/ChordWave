@@ -2,4 +2,9 @@
 <!-- Ported from Mochy Music (GPL-3.0): strings used by the lyrics player UI. -->
 <resources>
     <string name="lyrics_not_found">No lyrics found</string>
+    <!-- Provider order sheet (port of Mochy's LyricsProviderSortSheet, Nov 2026 lyrics merge). -->
+    <string name="lyrics_sort_title">Sort providers</string>
+    <string name="lyrics_sort_done">Done</string>
+    <string name="lyrics_sort_turn_on">Turn on %1$s</string>
+    <string name="lyrics_sort_turn_off">Turn off %1$s</string>
 </resources>
