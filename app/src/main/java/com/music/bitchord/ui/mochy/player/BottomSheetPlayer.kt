@@ -1235,6 +1235,7 @@ private fun PlayerSheet(
                     enterProgressProvider = { transition.cardMorphProgress(PlayerPage.LYRICS) },
                     morph = morph,
                     onSwitchSource = { showLyricsSource = true },
+                    onCoverBackdrop = backgroundStyle.takesSoftLight,
                     modifier = Modifier
                         .fillMaxSize()
                         .pageTransitionLayer(PlayerPage.LYRICS, transition, morph, pageLook) { lyricsPageProgress },

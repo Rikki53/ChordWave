@@ -188,6 +188,15 @@ internal fun lyricsLineInsets(alignment: LyricsAlignment): LyricsLineInsets {
 
 private const val ActiveUnsungAlpha = 0.58f
 
+// with tinted lyrics the words still to come are only a faint white in the plain copy; the soft-lit copy under them gives them the background's colour
+private const val TintedUnsungAlpha = 0.22f
+
+// how far the soft copy lifts those faint words, back up to solid white
+private const val SweepSoftBoost = 1f / TintedUnsungAlpha
+
+// how strongly the sung line's words still to come are soft-lit, brighter than the lines waiting below it
+private const val ActiveSoftFill = 1f
+
 @Composable
 fun LyricsGlowLine(
     entry: LyricsEntry,
@@ -239,6 +248,9 @@ fun LyricsGlowLine(
 
     /** told where the words start across the row (px from its left edge), for the line the card grows into */
     onTextStart: ((Float) -> Unit)? = null,
+
+    // set when the page sits right on a cover background: the resting look is white soft-lit onto it
+    blend: LyricsBackdropBlend? = null,
 ) {
     val wordMotion = motionStyle.risesWords
     val targetAlpha = restingAlphaOf(state)
@@ -247,6 +259,12 @@ fun LyricsGlowLine(
     val animSpec = tween<Float>(durationMillis = 600)
     val alpha by animateFloatAsState(targetAlpha, animSpec, label = "lyricsLineAlpha")
     val scale by animateFloatAsState(targetScale, animSpec, label = "lyricsLineScale")
+    // how sung the line is: the wave's strength, and the plain copy's share while it soft-lights
+    val waveAmplitude by animateFloatAsState(
+        targetValue = if (state == LyricsLineState.ACTIVE) 1f else 0f,
+        animationSpec = animSpec,
+        label = "lyricsWaveAmplitude",
+    )
 
     // Only lines without word timing move as a whole; word-synced ones rise word by word.
     val wholeLineRise = wordMotion && entry.words.isNullOrEmpty()
@@ -273,7 +291,8 @@ fun LyricsGlowLine(
         label = "lyricsLineColor",
     )
     val textColor = remember(lineColor) { ColorProducer { lineColor.value } }
-    val unsungColor = remember(lineColor) { ColorProducer { lineColor.value.copy(alpha = ActiveUnsungAlpha) } }
+    val unsungAlpha = if (blend != null) TintedUnsungAlpha else ActiveUnsungAlpha
+    val unsungColor = remember(lineColor, unsungAlpha) { ColorProducer { lineColor.value.copy(alpha = unsungAlpha) } }
     val readingColor = remember(lineColor) { ColorProducer { lineColor.value.copy(alpha = 0.4f) } }
     val subLineColor = remember(lineColor) { ColorProducer { lineColor.value.copy(alpha = 0.6f) } }
     val translationColor = remember(lineColor) { ColorProducer { lineColor.value.copy(alpha = 0.5f) } }
@@ -300,6 +319,8 @@ fun LyricsGlowLine(
     }
     val leadText = parts.lead
     val words = parts.leadWords
+    // a word-timed line sweeps while it's sung, the only kind whose words still to come stay dim
+    val sweepsWords = !words.isNullOrEmpty() && leadText.isNotEmpty()
     val hasRuby = !ruby.isNullOrEmpty()
     val leadStyle = MaterialTheme.typography.headlineSmall.copy(
         fontSize = LyricsFontSize,
@@ -330,7 +351,7 @@ fun LyricsGlowLine(
                 bottom = insets.top,
             )
             .graphicsLayer {
-                this.alpha = alpha
+                if (blend == null) this.alpha = alpha
                 scaleX = scale
                 scaleY = scale
                 translationY = drop * LyricsWaitingDrop.toPx()
@@ -346,8 +367,34 @@ fun LyricsGlowLine(
                     pivotFractionY = 0.5f,
                 )
 
-                renderEffect = if (suppressEffects) null else blurEffectForRadius(blurRadius)
+                if (blend == null) renderEffect = if (suppressEffects) null else blurEffectForRadius(blurRadius)
             }
+            .then(
+                if (blend != null) {
+                    Modifier.softLightLine(
+                        blend = blend,
+                        // upcoming lines get the full fill, past and far ones keep their dimmer share of it; a sweeping line keeps its own soft copy under the plain one
+                        softAlpha = {
+                            val resting = SoftLightFill * alpha / UpcomingAlpha * (1f - waveAmplitude)
+                            val sung = if (sweepsWords) ActiveSoftFill * waveAmplitude else 0f
+                            (resting + sung).coerceIn(0f, 1f)
+                        },
+                        litAlpha = { waveAmplitude },
+                        // while the sweep is up its unsung words are faint, so the soft copy draws them back up to solid white; it eases off as the line lets go, or its translation snapped dim when the sweep ended
+                        softBoost = {
+                            when {
+                                !sweepsWords -> 1f
+                                state == LyricsLineState.ACTIVE -> SweepSoftBoost
+                                else -> 1f + (SweepSoftBoost - 1f) * waveAmplitude
+                            }
+                        },
+                        blur = { if (suppressEffects) null else blurEffectForRadius(blurRadius) },
+                        moving = { scale; drop },
+                    )
+                } else {
+                    Modifier
+                }
+            )
     ) {
     // The tap target and its highlight hug the text (rounded, as wide as the words) instead of
     // flashing a full-width bar from screen edge to screen edge.
@@ -377,12 +424,6 @@ fun LyricsGlowLine(
             .padding(horizontal = LyricsTapPadH, vertical = LyricsTapPadV)
             .then(steadyWrap.modifier),
     ) {
-
-        val waveAmplitude by animateFloatAsState(
-            targetValue = if (state == LyricsLineState.ACTIVE) 1f else 0f,
-            animationSpec = animSpec,
-            label = "lyricsWaveAmplitude",
-        )
 
         if (translationAbove) {
             TranslationSubText(translation, translationLoading, translationColor, textAlign, above = true)

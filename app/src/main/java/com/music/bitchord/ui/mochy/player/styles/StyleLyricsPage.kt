@@ -54,6 +54,7 @@ import com.music.bitchord.ui.mochy.player.LyricsHeaderArtX
 import com.music.bitchord.ui.mochy.player.LyricsScreen
 import com.music.bitchord.ui.mochy.player.QueueScreen
 import com.music.bitchord.ui.mochy.player.customize.PlayerBackgroundPreview
+import com.music.bitchord.ui.mochy.player.takesSoftLight
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
 import com.music.bitchord.ui.mochy.utils.stableStatusBarsPadding
@@ -75,12 +76,13 @@ fun StyleLyricsPage(
     onCoveredChange: (Boolean) -> Unit = {},
     onSwitchSource: (() -> Unit)? = null,
 ) {
-    StyleOverlayPage(open = open, onClose = onClose, modifier = modifier, onCoveredChange = onCoveredChange) { nav ->
+    StyleOverlayPage(open = open, onClose = onClose, modifier = modifier, onCoveredChange = onCoveredChange) { nav, backgroundStyle ->
         LyricsScreen(
             onClose = onClose,
             screenHeight = screenHeight,
             contentBottomInset = nav + 28.dp,
             onSwitchSource = onSwitchSource,
+            onCoverBackdrop = backgroundStyle.takesSoftLight,
             modifier = Modifier.fillMaxSize(),
         )
     }
@@ -94,7 +96,7 @@ fun StyleQueuePage(
     modifier: Modifier = Modifier,
     onCoveredChange: (Boolean) -> Unit = {},
 ) {
-    StyleOverlayPage(open = open, onClose = onClose, modifier = modifier, onCoveredChange = onCoveredChange) { nav ->
+    StyleOverlayPage(open = open, onClose = onClose, modifier = modifier, onCoveredChange = onCoveredChange) { nav, _ ->
         QueueScreen(
             onClose = onClose,
             contentBottomInset = nav + 28.dp,
@@ -111,7 +113,7 @@ private fun StyleOverlayPage(
     onClose: () -> Unit,
     modifier: Modifier,
     onCoveredChange: (Boolean) -> Unit,
-    content: @Composable (nav: Dp) -> Unit,
+    content: @Composable (nav: Dp, backgroundStyle: PlayerBackgroundStyle) -> Unit,
 ) {
     val shown = remember { Animatable(0f) }
     LaunchedEffect(open) {
@@ -200,7 +202,7 @@ private fun StyleOverlayPage(
                     }
                 }
             }
-            content(nav)
+            content(nav, backgroundStyle)
         }
     }
 }

@@ -317,6 +317,7 @@ const val PlayerStatusBarDefault = false
 // ---- Lyrics (Phase 3, verbatim from Mochy PreferenceKeys.kt:924,963-990) ----
 
 val LyricsHighBloomKey = booleanPreferencesKey("lyricsHighBloom")
+val LyricsSoftLightKey = booleanPreferencesKey("lyricsSoftLight")
 
 /**
  * How the active lyric line animates. A new key rather than [LyricsAnimationStyleKey]: that one

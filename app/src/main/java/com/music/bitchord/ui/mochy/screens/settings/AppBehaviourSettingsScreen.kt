@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DataSaverOn
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -76,6 +77,7 @@ import com.music.bitchord.ui.mochy.constants.LarpLevelKey
 import com.music.bitchord.ui.mochy.constants.LarpModeKey
 import com.music.bitchord.ui.mochy.constants.LocalSongAutoMetadataKey
 import com.music.bitchord.ui.mochy.constants.LyricsHighBloomKey
+import com.music.bitchord.ui.mochy.constants.LyricsSoftLightKey
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyleKey
 import com.music.bitchord.ui.mochy.constants.LyricsRomanizeAsMainKey
@@ -106,6 +108,7 @@ import com.music.bitchord.ui.mochy.i18n.AppLanguage
 import com.music.bitchord.ui.mochy.i18n.activityOrNull
 import com.music.bitchord.ui.mochy.menu.songedit.LabSelect
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
+import com.music.bitchord.ui.mochy.player.SoftLightSupported
 import com.music.bitchord.ui.mochy.player.LarpLevel
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.AppProxy
@@ -504,6 +507,7 @@ private fun playerLookItems(): List<SettingsItem> {
     val canvasOrder by AppSettings.canvasOrder.collectAsState()
     val canvasBest by AppSettings.canvasBestQuality.collectAsState()
     val (highBloom, onHighBloomChange) = rememberPreference(LyricsHighBloomKey, defaultValue = true)
+    val (softLightLyrics, onSoftLightLyricsChange) = rememberPreference(LyricsSoftLightKey, defaultValue = true)
     val (lyricsStyle) = rememberEnumPreference(LyricsMotionStyleKey, defaultValue = LyricsMotionStyle.MOTION)
     val (romanizeAsMain, onRomanizeAsMainChange) = rememberPreference(LyricsRomanizeAsMainKey, defaultValue = false)
     val (floatingLyrics, onFloatingLyricsChange) = rememberFloatingLyricsSwitch()
@@ -606,6 +610,16 @@ private fun playerLookItems(): List<SettingsItem> {
             checked = highBloom,
             onCheckedChange = onHighBloomChange,
             visible = lyricsStyle.shaded,
+        ),
+        // soft light only exists as a layer blend from Android 10, older phones keep the plain dimmed lines
+        switchItem(
+            key = "Tinted lyrics",
+            title = stringResource(R.string.appearance_lyrics_soft_light),
+            description = stringResource(R.string.appearance_lyrics_soft_light_desc),
+            icon = rememberVectorPainter(Icons.Rounded.Palette),
+            checked = softLightLyrics,
+            onCheckedChange = onSoftLightLyricsChange,
+            visible = SoftLightSupported,
         ),
         switchItem(
             key = "Romanisation as the main line",
