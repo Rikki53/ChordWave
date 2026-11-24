@@ -1,19 +1,11 @@
+<!-- Material Symbols "auto_awesome" (feedback 24 Nov: Mochy icon replaced) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:tint="@android:color/white"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="960"
+    android:viewportHeight="960">
     <path
-        android:pathData="M11,3l1.7,4.3L17,9l-4.3,1.7L11,15l-1.7,-4.3L5,9l4.3,-1.7Z"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M18,15l0.8,2.2L21,18l-2.2,0.8L18,21l-0.8,-2.2L15,18l2.2,-0.8Z"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:fillColor="@android:color/white"
+        android:pathData="M772,325 L729,225 L625,179 L729,134 L772,39 L815,134 L919,179 L815,225 L772,325 Z M772,920 L729,824 L625,779 L729,734 L772,633 L815,734 L919,779 L815,824 L772,920 Z M333,766 L241,569 L40,479 L241,389 L333,193 L426,389 L626,479 L426,569 L333,766 Z M333,618 L381,522 L479,479 L381,436 L333,340 L286,436 L187,479 L286,522 L333,618 Z M333,479 Z" />
 </vector>

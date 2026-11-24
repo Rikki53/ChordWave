@@ -1,16 +1,11 @@
+<!-- Material Symbols "arrow_back" (feedback 24 Nov: Mochy icon replaced) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24.0dip"
     android:height="24.0dip"
     android:autoMirrored="true"
-    android:viewportWidth="68.0"
-    android:viewportHeight="68.0">
-    <group
-        android:scaleX="3.0"
-        android:scaleY="3.0"
-        android:translateX="-1.5"
-        android:translateY="-2.5">
-        <path
-            android:fillColor="@android:color/white"
-            android:pathData="M20,11L7.8,11l5.6,-5.6L12,4l-8,8l8,8l1.4,-1.4L7.8,13L20,13L20,11z" />
-    </group>
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M313,520 L537,744 L480,800 L160,480 L480,160 L537,216 L313,440 L800,440 L800,520 L313,520 Z" />
 </vector>

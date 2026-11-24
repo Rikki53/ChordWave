@@ -1,7 +1,10 @@
-<vector android:width="43dp" android:height="44dp" android:viewportWidth="43" android:viewportHeight="44" xmlns:android="http://schemas.android.com/apk/res/android">
-  <group>
-    <clip-path android:pathData="M0 0h43v44h-43z"/>
-    <path android:strokeColor="#ffffff" android:strokeWidth="5" android:pathData="M17 2.5a14.5 14.5 0 1 0 0 29a14.5 14.5 0 1 0 0 -29z" android:fillColor="#00000000"/>
-    <path android:strokeColor="#ffffff" android:strokeWidth="5" android:strokeLineCap="round" android:pathData="M28.5355 30L40 41.4645" android:fillColor="#00000000"/>
-  </group>
+<!-- Material Symbols "search" (feedback 24 Nov: Mochy icon replaced) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="43dp"
+    android:height="44dp"
+    android:viewportWidth="960"
+    android:viewportHeight="982.33">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M784,851.16 L532,599.16 Q502,623.16,463,637.16 Q424,651.16,380,651.16 Q271,651.16,195.5,575.66 Q120,500.17,120,391.17 Q120,282.17,195.5,206.67 Q271,131.17,380,131.17 Q489,131.17,564.5,206.67 Q640,282.17,640,391.17 Q640,435.17,626,474.17 Q612,513.16,588,543.16 L840,795.16 L784,851.16 Z M380,571.16 Q455,571.16,507.5,518.66 Q560,466.17,560,391.17 Q560,316.17,507.5,263.67 Q455,211.17,380,211.17 Q305,211.17,252.5,263.67 Q200,316.17,200,391.17 Q200,466.17,252.5,518.66 Q305,571.16,380,571.16 Z" />
 </vector>

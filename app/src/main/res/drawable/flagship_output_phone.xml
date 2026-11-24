@@ -1,0 +1,10 @@
+<!-- Material Symbols "smartphone" (feedback 24 Nov: Mochy icon replaced) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M280,920 Q247,920,223.5,896.5 Q200,873,200,840 L200,120 Q200,87,223.5,63.5 Q247,40,280,40 L680,40 Q713,40,736.5,63.5 Q760,87,760,120 L760,840 Q760,873,736.5,896.5 Q713,920,680,920 L280,920 Z M280,800 L280,840 L680,840 L680,800 L280,800 Z M280,720 L680,720 L680,240 L280,240 L280,720 Z M280,160 L680,160 L680,120 L280,120 L280,160 Z M280,160 L280,120 L280,160 Z M280,800 L280,840 L280,800 Z" />
+</vector>

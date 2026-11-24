@@ -1,14 +1,10 @@
+<!-- Material Symbols "explicit" (feedback 24 Nov: Mochy icon replaced) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="33dp"
     android:height="34dp"
-    android:viewportWidth="33"
-    android:viewportHeight="34">
-    <path
-        android:strokeColor="#ffffff"
-        android:strokeWidth="2"
-        android:pathData="M10 1h13a9 9 0 0 1 9,9v14a9 9 0 0 1 -9,9h-13a9 9 0 0 1 -9,-9v-14a9 9 0 0 1 9,-9z"
-        android:fillColor="#00000000" />
+    android:viewportWidth="960"
+    android:viewportHeight="989.09">
     <path
         android:fillColor="#ffffff"
-        android:pathData="M12.5154 23V9.90909H20.7227V11.6094H14.4905V15.598H20.2945V17.2919H14.4905V21.2997H20.7995V23H12.5154Z" />
+        android:pathData="M360,694.55 L600,694.55 L600,614.55 L440,614.55 L440,534.55 L600,534.55 L600,454.55 L440,454.55 L440,374.55 L600,374.55 L600,294.55 L360,294.55 L360,694.55 Z M200,854.55 Q167,854.55,143.5,831.05 Q120,807.55,120,774.55 L120,214.55 Q120,181.55,143.5,158.05 Q167,134.55,200,134.55 L760,134.55 Q793,134.55,816.5,158.05 Q840,181.55,840,214.55 L840,774.55 Q840,807.55,816.5,831.05 Q793,854.55,760,854.55 L200,854.55 Z M200,774.55 L760,774.55 L760,214.55 L200,214.55 L200,774.55 Z M200,214.55 L200,774.55 L200,214.55 Z" />
 </vector>
