@@ -23,6 +23,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -65,7 +67,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -81,6 +85,7 @@ import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.ChipsRow
 import com.music.bitchord.ui.mochy.component.EmptyPlaceholder
 import com.music.bitchord.ui.mochy.component.GlassState
+import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.SwipeActionsBox
 import com.music.bitchord.ui.mochy.component.coverTransitionKey
@@ -101,6 +106,10 @@ import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
+import com.music.bitchord.ui.mochy.player.menu.YouTubeAlbumMenu
+import com.music.bitchord.ui.mochy.player.menu.YouTubeArtistMenu
+import com.music.bitchord.ui.mochy.player.menu.YouTubePlaylistMenu
+import com.music.bitchord.ui.mochy.player.menu.YouTubeSongMenu
 import com.music.bitchord.ui.mochy.utils.YouTubeUrlParser
 import com.music.bitchord.ui.mochy.utils.isLandscapeLayout
 import com.music.bitchord.ui.mochy.utils.rememberPreference
@@ -459,6 +468,26 @@ internal fun SearchActiveContent(
 ) {
     val playerConnection = LocalPlayerConnection.current
     val offlineMode by rememberPreference(OfflineModeKey, defaultValue = false)
+    val menuState = LocalMenuState.current
+    val haptic = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
+    // Long-press on a live result opens the same menu the full results page
+    // gives its rows (song/album/artist/playlist actions).
+    val onItemLongClick: (YTItem) -> Unit = { item ->
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        menuState.show {
+            when (item) {
+                is SongItem -> YouTubeSongMenu(item, navigator, menuState::dismiss)
+                is AlbumItem -> YouTubeAlbumMenu(item, navigator, menuState::dismiss)
+                is ArtistItem -> YouTubeArtistMenu(item, menuState::dismiss)
+                is PlaylistItem -> YouTubePlaylistMenu(
+                    playlist = item,
+                    coroutineScope = coroutineScope,
+                    onDismiss = menuState::dismiss,
+                )
+            }
+        }
+    }
     val bottomInset = LocalPlayerAwareWindowInsets.current
         .asPaddingValues()
         .calculateBottomPadding()
@@ -554,6 +583,7 @@ internal fun SearchActiveContent(
                                 is PlaylistItem -> navigator.navigate("online_playlist/${item.id}")
                             }
                         },
+                        onLongClick = { onItemLongClick(item) },
                     )
                 }
             }
@@ -620,6 +650,7 @@ private fun RowGlyph(icon: Int, onClick: () -> Unit) {
 private fun SuggestionResultRow(
     item: YTItem,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val subtitle = when (item) {
         is SongItem -> item.artists.joinToString { it.name }
@@ -638,7 +669,7 @@ private fun SuggestionResultRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .padding(horizontal = SearchHorizontalPadding, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
