@@ -101,6 +101,44 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
     private val _librarySignedOut = MutableStateFlow(false)
     private var libraryLoadJob: Job? = null
 
+    /** The Library filter's inputs, ready to apply (see [libraryFilter]). */
+    private data class LibraryFilterInputs(
+        val library: Set<String> = emptySet(),
+        val failed: Boolean = false,
+        val signedOut: Boolean = false,
+    )
+
+    /**
+     * The Library filter's inputs: the effective library ids (fetched ids
+     * layered with this session's like changes the way
+     * MainViewModel.likeStatuses does — a like this session counts even
+     * before the next fetch, an unlike removes even a fetched id; signed
+     * out, nothing counts) plus the load state.
+     *
+     * Kept as its own five-flow combine: the seven-flow form would not
+     * resolve here (the compiler fell back to the vararg overload and
+     * could not infer the transform), while five-flow combines are used
+     * across this codebase without trouble.
+     */
+    private val libraryFilter: StateFlow<LibraryFilterInputs> = combine(
+        _libraryIds,
+        LikeState.overrides,
+        _libraryLoadFailed,
+        _librarySignedOut,
+        SignedIn.state(context),
+    ) { ids, overrides, failed, signedOut, signedIn ->
+        LibraryFilterInputs(
+            library = buildSet {
+                if (signedIn) ids?.let { addAll(it) }
+                overrides.forEach { (id, status) ->
+                    if (status == LikeStatus.LIKE) add(id) else remove(id)
+                }
+            },
+            failed = failed,
+            signedOut = signedOut || !signedIn,
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, LibraryFilterInputs())
+
     /**
      * The suggestion state with the Library filter applied. The filter only
      * ever narrows [SearchSuggestionViewState.items] — history and text
@@ -111,33 +149,19 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
     val viewState: StateFlow<SearchSuggestionViewState> = combine(
         _viewState,
         libraryOnly,
-        _libraryIds,
-        LikeState.overrides,
-        _libraryLoadFailed,
-        _librarySignedOut,
-        SignedIn.state(context),
-    ) { base, only, ids, overrides, failed, signedOut, signedIn ->
+        libraryFilter,
+    ) { base, only, filter ->
         val available = only || base.items.isNotEmpty()
         if (!only) {
             base.copy(libraryFilterAvailable = available)
         } else {
-            // The fetched ids, layered with this session's like changes the
-            // way MainViewModel.likeStatuses does: a like this session counts
-            // even before the next fetch, an unlike removes even a fetched id.
-            // Signed out, nothing counts — there is no library to check.
-            val library = buildSet {
-                if (signedIn) ids?.let { addAll(it) }
-                overrides.forEach { (id, status) ->
-                    if (status == LikeStatus.LIKE) add(id) else remove(id)
-                }
-            }
-            val filtered = base.items.filter { it is SongItem && it.id in library }
+            val filtered = base.items.filter { it is SongItem && it.id in filter.library }
             base.copy(
                 items = filtered,
                 libraryFilterAvailable = available,
                 libraryFilterEmpty = base.items.isNotEmpty() && filtered.isEmpty(),
-                libraryLoadFailed = failed,
-                librarySignedOut = signedOut || !signedIn,
+                libraryLoadFailed = filter.failed,
+                librarySignedOut = filter.signedOut,
             )
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SearchSuggestionViewState())
