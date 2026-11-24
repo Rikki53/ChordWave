@@ -1,37 +1,11 @@
+<!-- Material Symbols "graphic_eq" (feedback 24 Nov: Mochy icon replaced) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:tint="@android:color/white"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="960"
+    android:viewportHeight="960">
     <path
-        android:pathData="M4,10v4"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M8,7v10"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M12,4v16"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M16,7v10"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M20,10v4"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:fillColor="@android:color/white"
+        android:pathData="M280,720 L280,240 L360,240 L360,720 L280,720 Z M440,880 L440,80 L520,80 L520,880 L440,880 Z M120,560 L120,400 L200,400 L200,560 L120,560 Z M600,720 L600,240 L680,240 L680,720 L600,720 Z M760,560 L760,400 L840,400 L840,560 L760,560 Z" />
 </vector>

@@ -1,0 +1,10 @@
+<!-- Material Symbols "queue_music" (feedback 24 Nov: Mochy icon replaced) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M640,800 Q590,800,555,765 Q520,730,520,680 Q520,630,555,595 Q590,560,640,560 Q651,560,661,561.5 Q671,563,680,568 L680,240 L880,240 L880,320 L760,320 L760,680 Q760,730,725,765 Q690,800,640,800 Z M120,640 L120,560 L440,560 L440,640 L120,640 Z M120,480 L120,400 L600,400 L600,480 L120,480 Z M120,320 L120,240 L600,240 L600,320 L120,320 Z" />
+</vector>

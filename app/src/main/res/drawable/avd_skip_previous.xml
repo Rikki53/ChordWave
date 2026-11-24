@@ -6,17 +6,17 @@
             <group android:translateX="25" android:translateY="16">
                 <!-- Left triangle (starts at left, moves left and fades out) -->
                 <group android:name="left_triangle_group" android:pivotX="25" android:pivotY="16">
-                    <path android:name="left_triangle_path" android:pathData="M3.9052 10.1619c-3.6671 2.0192-3.6671 7.3532 0 9.3724l17.2661 9.5073c3.507 1.9312 7.776.6416 7.776-4.6862V5.34085c0-4.04458-4.269-6.61727-7.776-4.686182L3.9052 10.1619z" android:fillColor="#ffffff"/>
+                    <path android:name="left_triangle_path" android:pathData="M28.95,0 L1.15,14.95 L28.95,29.89 Z" android:fillColor="#ffffff"/>
                 </group>
 
                 <!-- Middle triangle (starts at right, moves left and fades in) -->
                 <group android:name="middle_triangle_group" android:pivotX="25" android:pivotY="16">
-                    <path android:name="middle_triangle_path" android:pathData="M24.9579 10.1619c-3.6671 2.0192-3.6671 7.3532 0 9.3724l17.2661 9.5073c3.507 1.9312 7.776.6416 7.776-4.6862V5.34085c0-4.04458-4.269-6.61727-7.776-4.686182L24.9579 10.1619z" android:fillColor="#ffffff" android:fillAlpha="0"/>
+                    <path android:name="middle_triangle_path" android:pathData="M50,0 L22.21,14.95 L50,29.89 Z" android:fillColor="#ffffff" android:fillAlpha="0"/>
                 </group>
 
                 <!-- Right triangle (static) -->
                 <group android:name="right_triangle_group" android:pivotX="25" android:pivotY="16">
-                    <path android:pathData="M24.9579 10.1619c-3.6671 2.0192-3.6671 7.3532 0 9.3724l17.2661 9.5073c3.507 1.9312 7.776.6416 7.776-4.6862V5.34085c0-4.04458-4.269-6.61727-7.776-4.686182L24.9579 10.1619z" android:fillColor="#ffffff"/>
+                    <path android:pathData="M50,0 L22.21,14.95 L50,29.89 Z" android:fillColor="#ffffff"/>
                 </group>
             </group>
         </vector>

@@ -1,14 +1,10 @@
+<!-- Material Symbols "all_inclusive" (feedback 24 Nov: Mochy icon replaced) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <!-- Infinity: the queue's "keep playing similar music" toggle. -->
+    android:viewportWidth="960"
+    android:viewportHeight="960">
     <path
-        android:strokeColor="@android:color/white"
-        android:strokeWidth="2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:fillColor="#00000000"
-        android:pathData="M12,12C10.2,9.3 8.4,8 6.6,8C4.6,8 3,9.8 3,12C3,14.2 4.6,16 6.6,16C8.4,16 10.2,14.7 12,12C13.8,9.3 15.6,8 17.4,8C19.4,8 21,9.8 21,12C21,14.2 19.4,16 17.4,16C15.6,16 13.8,14.7 12,12Z" />
+        android:fillColor="@android:color/white"
+        android:pathData="M220,700 Q128,700,64,636 Q0,572,0,480 Q0,388,64,324 Q128,260,220,260 Q257,260,291,273 Q325,286,352,310 L420,372 L360,426 L298,370 Q282,356,262,348 Q242,340,220,340 Q162,340,121,381 Q80,422,80,480 Q80,538,121,579 Q162,620,220,620 Q242,620,262,612 Q282,604,298,590 L608,310 Q635,286,669,273 Q703,260,740,260 Q832,260,896,324 Q960,388,960,480 Q960,572,896,636 Q832,700,740,700 Q703,700,669,687 Q635,674,608,650 L540,588 L600,534 L662,590 Q678,604,698,612 Q718,620,740,620 Q798,620,839,579 Q880,538,880,480 Q880,422,839,381 Q798,340,740,340 Q718,340,698,348 Q678,356,662,370 L352,650 Q325,674,291,687 Q257,700,220,700 Z" />
 </vector>

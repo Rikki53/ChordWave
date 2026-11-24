@@ -1,37 +1,11 @@
+<!-- Material Symbols "palette" (feedback 24 Nov: Mochy icon replaced) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:tint="@android:color/white"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="960"
+    android:viewportHeight="960">
     <path
-        android:pathData="M12,3a9,9 0 1,0 0,18a1.5,1.5 0 0,0 1.1,-2.5a1.5,1.5 0 0,1 1.1,-2.5H16a5,5 0 0,0 5,-5c0,-4.4 -4,-8 -9,-8z"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M7.5,11h0.01"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M10,7.5h0.01"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M14.5,7.5h0.01"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M17.5,11h0.01"
-        android:strokeWidth="2"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:fillColor="@android:color/white"
+        android:pathData="M480,880 Q398,880,325,848.5 Q252,817,197.5,762.5 Q143,708,111.5,635 Q80,562,80,480 Q80,397,112.5,324 Q145,251,200.5,197 Q256,143,330,111.5 Q404,80,488,80 Q568,80,639,107.5 Q710,135,763.5,183.5 Q817,232,848.5,298.5 Q880,365,880,442 Q880,557,810,618.5 Q740,680,640,680 L566,680 Q557,680,553.5,685 Q550,690,550,696 Q550,708,565,730.5 Q580,753,580,782 Q580,832,552.5,856 Q525,880,480,880 Z M480,480 Z M260,520 Q286,520,303,503 Q320,486,320,460 Q320,434,303,417 Q286,400,260,400 Q234,400,217,417 Q200,434,200,460 Q200,486,217,503 Q234,520,260,520 Z M380,360 Q406,360,423,343 Q440,326,440,300 Q440,274,423,257 Q406,240,380,240 Q354,240,337,257 Q320,274,320,300 Q320,326,337,343 Q354,360,380,360 Z M580,360 Q606,360,623,343 Q640,326,640,300 Q640,274,623,257 Q606,240,580,240 Q554,240,537,257 Q520,274,520,300 Q520,326,537,343 Q554,360,580,360 Z M700,520 Q726,520,743,503 Q760,486,760,460 Q760,434,743,417 Q726,400,700,400 Q674,400,657,417 Q640,434,640,460 Q640,486,657,503 Q674,520,700,520 Z M480,800 Q489,800,494.5,795 Q500,790,500,782 Q500,768,485,749 Q470,730,470,692 Q470,650,499,625 Q528,600,570,600 L640,600 Q706,600,753,561.5 Q800,523,800,442 Q800,321,707.5,240.5 Q615,160,488,160 Q352,160,256,253 Q160,346,160,480 Q160,613,253.5,706.5 Q347,800,480,800 Z" />
 </vector>

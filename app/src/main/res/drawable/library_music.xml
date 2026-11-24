@@ -1,16 +1,11 @@
+<!-- Material Symbols "library_music" (feedback 24 Nov: Mochy icon replaced) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:tint="@android:color/white"
-    android:viewportWidth="24.0"
-    android:viewportHeight="24.0">
+    android:viewportWidth="960"
+    android:viewportHeight="960">
     <path
         android:fillColor="@android:color/white"
-        android:pathData="M16,6v2h-2v5c0,1.1 -0.9,2 -2,2s-2,-0.9 -2,-2s0.9,-2 2,-2c0.37,0 0.7,0.11 1,0.28V6H16z" />
-    <path
-        android:fillColor="@android:color/white"
-        android:pathData="M18,20H4V6H3v15h15V20zM21,3H6v15h15V3zM7,4h13v13H7V4z"
-        android:strokeWidth="1.0"
-        android:strokeColor="@android:color/white"
-        android:strokeLineCap="butt" />
+        android:pathData="M500,600 Q542,600,571,571 Q600,542,600,500 L600,280 L720,280 L720,200 L560,200 L560,420 Q547,410,532,405 Q517,400,500,400 Q458,400,429,429 Q400,458,400,500 Q400,542,429,571 Q458,600,500,600 Z M320,720 Q287,720,263.5,696.5 Q240,673,240,640 L240,160 Q240,127,263.5,103.5 Q287,80,320,80 L800,80 Q833,80,856.5,103.5 Q880,127,880,160 L880,640 Q880,673,856.5,696.5 Q833,720,800,720 L320,720 Z M320,640 L800,640 L800,160 L320,160 L320,640 Z M160,880 Q127,880,103.5,856.5 Q80,833,80,800 L80,240 L160,240 L160,800 L720,800 L720,880 L160,880 Z M320,160 L320,640 L320,160 Z" />
 </vector>
