@@ -6,6 +6,8 @@
      audiopass_now_inexact). -->
 <resources>
     <string name="remove_from_queue">Remove from queue</string>
+    <string name="queue_deselect_all">Deselect all</string>
+    <string name="queue_stop_selecting">Stop selecting</string>
     <string name="repeat">Repeat</string>
 
     <string name="about_song_nothing_yet">%1$s doesn\'t have anything about this song yet.</string>
