@@ -22,6 +22,13 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- Coarse location, for the Radio tab's "Di Sekitar Kamu" section
+         only: ranking nearby Indonesian stations needs a city-level fix,
+         never a precise one. Requested only when the user taps the
+         location card on the Radio page; everything else in the app works
+         without it, and the section simply stays hidden when denied. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Touch feedback. The system's own haptics switch is honoured on top of
          this, so granting it doesn't override a user who turned buzzing off. -->
     <uses-permission android:name="android.permission.VIBRATE" />

@@ -35,9 +35,13 @@ data class RadioStation(
     val streamUrl: String,
     val favicon: String? = null,
     val country: String? = null,
+    val state: String? = null,
     val tags: String? = null,
     val bitrate: Int = 0,
     val votes: Int = 0,
+    /** Radio Browser geo_lat / geo_long; null for stations without coordinates. */
+    val geoLat: Double? = null,
+    val geoLong: Double? = null,
 ) {
     fun asSong(): Song = Song(
         videoId = streamUrl,
@@ -58,9 +62,12 @@ private data class RadioStationDto(
     val url_resolved: String = "",
     val favicon: String? = null,
     val country: String? = null,
+    val state: String? = null,
     val tags: String? = null,
     val bitrate: Int = 0,
     val votes: Int = 0,
+    val geo_lat: Double? = null,
+    val geo_long: Double? = null,
 )
 
 private fun RadioStationDto.toStation(): RadioStation? {
@@ -72,9 +79,12 @@ private fun RadioStationDto.toStation(): RadioStation? {
         streamUrl = stream,
         favicon = favicon,
         country = country,
+        state = state,
         tags = tags,
         bitrate = bitrate,
         votes = votes,
+        geoLat = geo_lat,
+        geoLong = geo_long,
     )
 }
 
@@ -112,8 +122,17 @@ object RadioBrowserApi {
     suspend fun topStations(limit: Int = 40): List<RadioStation> =
         fetch("/json/stations/topvote/$limit?hidebroken=true")
 
+    /** Most-clicked stations: a different ranking from topvote, so the
+     * "Top worldwide" rows are not a repeat of the "Top stations" cards. */
+    suspend fun topClickedStations(limit: Int = 40): List<RadioStation> =
+        fetch("/json/stations/topclick/$limit?hidebroken=true")
+
     suspend fun stationsForCountry(country: String, limit: Int = 60): List<RadioStation> =
         fetch("/json/stations/bycountry/$country?order=votes&reverse=true&hidebroken=true&limit=$limit")
+
+    /** Stations carrying a Radio Browser tag ("pop", "dangdut", …), best-voted first. */
+    suspend fun stationsForTag(tag: String, limit: Int = 20): List<RadioStation> =
+        fetch("/json/stations/bytag/$tag?order=votes&reverse=true&hidebroken=true&limit=$limit")
 
     suspend fun search(query: String, limit: Int = 60): List<RadioStation> =
         fetch("/json/stations/search?name=$query&order=votes&reverse=true&hidebroken=true&limit=$limit")

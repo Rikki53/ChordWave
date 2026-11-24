@@ -4,11 +4,22 @@
 // RadioFavorites, via ui.mochy.viewmodels.RadioViewModel); only the
 // presentation is new.
 //
-// Layout: a fixed header (back + "Radio" + Mochy search field) over a
-// LazyColumn — Top stations as swipeable Mochy grid cards, then
-// Favourites and Indonesia rows, then Top worldwide as Mochy track rows
+// Layout: the Modern tabs' big bold title ("Radio", Home's 32sp Inter —
+// no back arrow, Radio is a top-level tab) + the Mochy search field over
+// a LazyColumn. Sections, in order: "Di Sekitar Kamu" (nearest Indonesian
+// stations, only when location is granted and stations with coordinates
+// sit within 150 km), Favourites, Indonesia, Top stations as swipeable
+// Mochy grid cards, Pop and Dangdut rows, then Top worldwide (the
+// most-clicked ranking, not a repeat of Top stations) as Mochy track rows
 // with a heart and a menu per station. A submitted search swaps the whole
 // body for its results; clearing the field goes back to browsing.
+//
+// Location is coarse-only and opt-in: while permission is neither
+// granted nor asked for, a small card above the sections offers to turn
+// it on; a "no" dismisses the card for good (a second "no" stops Android
+// showing the dialog at all, so re-asking would be a dead button) and
+// the page works fully without it. Lists refresh when the tab is
+// returned to, at most once per 10 minutes (RadioViewModel.refreshIfStale).
 //
 // Playback: a tap on the station already on air toggles play/pause (the
 // Modern convention everywhere else); any other station plays through
@@ -18,13 +29,17 @@
 
 package com.music.bitchord.ui.mochy.screens.radio
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -36,11 +51,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,27 +75,32 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.music.bitchord.R
 import com.music.bitchord.radio.RadioStation
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.NavigationTitle
-import com.music.bitchord.ui.mochy.component.RemoteFocus
+import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.component.detail.PlaylistTrackBones
 import com.music.bitchord.ui.mochy.component.detail.PlaylistTrackRow
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.screens.search.SearchField
+import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.viewmodels.RadioViewModel
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RadioScreen(
     navigator: MochyNavigator,
@@ -95,6 +114,10 @@ fun RadioScreen(
 
     val indonesia by viewModel.indonesia.collectAsState()
     val top by viewModel.top.collectAsState()
+    val topClicked by viewModel.topClicked.collectAsState()
+    val pop by viewModel.pop.collectAsState()
+    val dangdut by viewModel.dangdut.collectAsState()
+    val nearby by viewModel.nearby.collectAsState()
     val results by viewModel.results.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val failed by viewModel.failed.collectAsState()
@@ -109,6 +132,10 @@ fun RadioScreen(
     // video id, never a URL, so it can never collide.
     val currentStationUrl = mediaMetadata?.id
 
+    // The nearby section's subtitles ("Bandung · 68 km") need each
+    // station's distance back; look them up by uuid at render time.
+    val nearbyByUuid = remember(nearby) { nearby.associateBy { it.station.uuid } }
+
     var field by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
     }
@@ -116,6 +143,50 @@ fun RadioScreen(
     val resultsListState = rememberLazyListState()
     val bottomPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
         .calculateBottomPadding()
+
+    // Coarse location, for the "Di Sekitar Kamu" section only. The
+    // permission state is re-read on every resume, so granting it in
+    // Settings while away still fills the section on the way back.
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    // The prompt card goes away after the first ask: a second "no" stops
+    // Android showing the dialog at all, so re-asking would be a dead
+    // button — and the page works fully without location.
+    var locationPrompted by rememberSaveable { mutableStateOf(false) }
+
+    val locationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        hasLocationPermission = granted
+        locationPrompted = true
+        if (granted) {
+            viewModel.refreshNearbyFromDevice()
+        } else {
+            TopToaster.show(
+                text = context.getString(R.string.mochy_radio_location_denied),
+                iconRes = R.drawable.explore_outlined,
+                actionLabel = "Settings",
+                onAction = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                },
+            )
+        }
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        hasLocationPermission =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+        if (hasLocationPermission) viewModel.refreshNearbyFromDevice()
+        viewModel.refreshIfStale()
+    }
 
     fun isFavorite(station: RadioStation) = favorites.any { it.uuid == station.uuid }
 
@@ -162,46 +233,23 @@ fun RadioScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        // Header: GenreScreen's circle back button + the title.
-        Row(
+        // Header: the Modern tabs' big bold title (Home's 32sp Inter).
+        // No back arrow — Radio is a top-level tab, like Home and Library.
+        Text(
+            text = stringResource(R.string.radio_title),
+            style = TextStyle(
+                fontFamily = InterFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 32.sp,
+                letterSpacing = (-0.06).em,
+            ),
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(start = 16.dp, end = 16.dp, top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.10f))
-                    .combinedClickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = RemoteFocus,
-                        onClick = { navigator.popBackStack() },
-                        onLongClick = { navigator.clearDetails() },
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.arrow_back),
-                    contentDescription = stringResource(R.string.back),
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Text(
-                text = stringResource(R.string.radio_title),
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        )
 
         SearchField(
             value = field,
@@ -283,21 +331,34 @@ fun RadioScreen(
                     state = browseListState,
                     contentPadding = PaddingValues(bottom = bottomPadding),
                 ) {
-                    if (top.isNotEmpty()) {
-                        item(key = "hero_title") {
-                            NavigationTitle(
-                                title = stringResource(R.string.mochy_radio_top_stations),
+                    if (!hasLocationPermission && !locationPrompted) {
+                        item(key = "location_prompt") {
+                            LocationPromptCard(
+                                onClick = {
+                                    locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                                },
                             )
                         }
-                        item(key = "hero_row") {
+                    }
+                    if (nearby.isNotEmpty()) {
+                        item(key = "nearby_title") {
+                            NavigationTitle(
+                                title = stringResource(R.string.mochy_radio_nearby),
+                            )
+                        }
+                        item(key = "nearby_row") {
                             StationCardsRow(
-                                stations = top.take(8),
+                                stations = nearby.map { it.station },
                                 isCurrent = { it.streamUrl == currentStationUrl },
                                 isPlaying = isPlaying,
                                 isFavorite = ::isFavorite,
                                 onStationClick = ::onStationClick,
                                 onStationLongClick = ::showStationMenu,
                                 onToggleFavorite = viewModel.favorites::toggle,
+                                subtitle = { station ->
+                                    nearbyByUuid[station.uuid]?.let(::nearbyMetaOf)
+                                        ?: metaOf(station)
+                                },
                             )
                         }
                     }
@@ -338,12 +399,66 @@ fun RadioScreen(
                         }
                     }
                     if (top.isNotEmpty()) {
+                        item(key = "hero_title") {
+                            NavigationTitle(
+                                title = stringResource(R.string.mochy_radio_top_stations),
+                            )
+                        }
+                        item(key = "hero_row") {
+                            StationCardsRow(
+                                stations = top.take(8),
+                                isCurrent = { it.streamUrl == currentStationUrl },
+                                isPlaying = isPlaying,
+                                isFavorite = ::isFavorite,
+                                onStationClick = ::onStationClick,
+                                onStationLongClick = ::showStationMenu,
+                                onToggleFavorite = viewModel.favorites::toggle,
+                            )
+                        }
+                    }
+                    if (pop.isNotEmpty()) {
+                        item(key = "pop_title") {
+                            NavigationTitle(
+                                title = stringResource(R.string.mochy_radio_pop),
+                            )
+                        }
+                        item(key = "pop_row") {
+                            StationCardsRow(
+                                stations = pop,
+                                isCurrent = { it.streamUrl == currentStationUrl },
+                                isPlaying = isPlaying,
+                                isFavorite = ::isFavorite,
+                                onStationClick = ::onStationClick,
+                                onStationLongClick = ::showStationMenu,
+                                onToggleFavorite = viewModel.favorites::toggle,
+                            )
+                        }
+                    }
+                    if (dangdut.isNotEmpty()) {
+                        item(key = "dangdut_title") {
+                            NavigationTitle(
+                                title = stringResource(R.string.mochy_radio_dangdut),
+                            )
+                        }
+                        item(key = "dangdut_row") {
+                            StationCardsRow(
+                                stations = dangdut,
+                                isCurrent = { it.streamUrl == currentStationUrl },
+                                isPlaying = isPlaying,
+                                isFavorite = ::isFavorite,
+                                onStationClick = ::onStationClick,
+                                onStationLongClick = ::showStationMenu,
+                                onToggleFavorite = viewModel.favorites::toggle,
+                            )
+                        }
+                    }
+                    if (topClicked.isNotEmpty()) {
                         item(key = "top_title") {
                             NavigationTitle(
                                 title = stringResource(R.string.radio_top_worldwide),
                             )
                         }
-                        items(top, key = { it.uuid }) { station ->
+                        items(topClicked, key = { it.uuid }) { station ->
                             StationRowItem(
                                 station = station,
                                 isCurrent = station.streamUrl == currentStationUrl,
@@ -359,6 +474,39 @@ fun RadioScreen(
                 }
             }
         }
+    }
+}
+
+/** Small "turn on location" card above the sections, shown only while
+ * location permission is neither granted nor asked for. */
+@Composable
+private fun LocationPromptCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.explore_outlined),
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(22.dp),
+        )
+        Text(
+            text = stringResource(R.string.mochy_radio_enable_location),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
