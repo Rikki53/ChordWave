@@ -69,17 +69,13 @@ internal fun metaOf(station: RadioStation): String = listOfNotNull(
     station.bitrate.takeIf { it > 0 }?.let { "$it kbps" },
 ).joinToString(" · ")
 
-/** "Bandung · 68 km" — the nearby section's card subtitle: city + distance. */
-internal fun nearbyMetaOf(nearby: NearbyStation): String {
-    val place = nearby.station.state?.takeIf { it.isNotBlank() }
+/** "Bandung" — the nearby section's card subtitle: place only, no distance.
+ * Distance still sorts the section behind the scenes (see RadioViewModel);
+ * it is just not shown — a number on every card is too busy. */
+internal fun nearbyMetaOf(nearby: NearbyStation): String =
+    nearby.station.state?.takeIf { it.isNotBlank() }
         ?: nearby.station.country?.takeIf { it.isNotBlank() }
-    return listOfNotNull(place, formatDistanceKm(nearby.distanceKm)).joinToString(" · ")
-}
-
-/** 0.4 km → "400 m", 68.2 km → "68 km". */
-internal fun formatDistanceKm(distanceKm: Double): String =
-    if (distanceKm < 1.0) "${(distanceKm * 1000).toInt().coerceAtLeast(1)} m"
-    else "${distanceKm.toInt()} km"
+        ?: ""
 
 /**
  * Muted dark gradient pairs for stations without artwork. The Classic
