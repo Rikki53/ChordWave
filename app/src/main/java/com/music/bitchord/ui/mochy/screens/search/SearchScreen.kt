@@ -110,6 +110,7 @@ fun SearchScreen(
     pureBlack: Boolean,
 ) {
     // on its side the field and its history stay in the pane at the left (SearchSidePane), so this side shows the categories
+    val browseListState = rememberLazyListState()
     if (isLandscapeLayout()) {
         Box(
             modifier = Modifier
@@ -117,7 +118,7 @@ fun SearchScreen(
                 .background(SearchColors.page(pureBlack))
         ) {
             SearchBrowseContent(
-                listState = rememberLazyListState(),
+                listState = browseListState,
                 navigator = navigator,
                 columns = 3,
                 topPadding = WindowInsets.stableStatusBars.asPaddingValues().calculateTopPadding() + SearchTopClearance,
@@ -145,8 +146,19 @@ fun SearchScreen(
         if (active) suggestionViewModel.query.value = query.text
     }
 
-    val browseListState = rememberLazyListState()
     val activeListState = rememberLazyListState()
+    // Tap the active tab again to scroll to the top (same pattern as Home).
+    LaunchedEffect(navigator) {
+        var first = true
+        navigator.scrollToTopRequests.collect {
+            if (first) {
+                first = false
+                return@collect
+            }
+            browseListState.animateScrollToItem(0)
+            activeListState.animateScrollToItem(0)
+        }
+    }
     val glassState = remember { GlassState() }
 
     val collapse = rememberCollapseProgress(browseListState)

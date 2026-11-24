@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.R
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.DefaultDialog
@@ -69,6 +70,9 @@ fun YouTubeSyncScreen(
     val (reportPlays, onReportPlaysChange) = rememberPreference(YtReportPlaysKey, true)
     val (pullHistory, onPullHistoryChange) = rememberPreference(YtPullHistoryKey, false)
     val (excludeImports, onExcludeImportsChange) = rememberPreference(YtExcludeImportsKey, false)
+    // v1.10: the listener's word that their YouTube account has Premium —
+    // playback takes the signed-in route that reaches Premium audio.
+    val youtubePremiumAudio by AppSettings.youtubePremiumAudio.collectAsState()
     val state by viewModel.youTubeState.collectAsState()
 
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -142,6 +146,23 @@ fun YouTubeSyncScreen(
                     checked = pullHistory,
                     enabled = signedIn,
                     onChange = onPullHistoryChange,
+                ),
+            ),
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        SettingsGroup(
+            title = "Audio",
+            style = SettingsGroupStyle.Grouped,
+            items = listOf(
+                toggleItem(
+                    title = stringResource(R.string.youtube_premium_audio),
+                    description = stringResource(R.string.youtube_premium_audio_subtitle),
+                    icon = R.drawable.graphic_eq,
+                    checked = youtubePremiumAudio,
+                    enabled = signedIn,
+                    onChange = AppSettings::setYoutubePremiumAudio,
                 ),
             ),
         )

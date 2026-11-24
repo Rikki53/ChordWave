@@ -59,6 +59,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -141,6 +142,18 @@ fun RadioScreen(
     }
     val browseListState = rememberLazyListState()
     val resultsListState = rememberLazyListState()
+    // Tap the active tab again to scroll to the top (same pattern as Home).
+    LaunchedEffect(navigator) {
+        var first = true
+        navigator.scrollToTopRequests.collect {
+            if (first) {
+                first = false
+                return@collect
+            }
+            browseListState.animateScrollToItem(0)
+            resultsListState.animateScrollToItem(0)
+        }
+    }
     val bottomPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
         .calculateBottomPadding()
 

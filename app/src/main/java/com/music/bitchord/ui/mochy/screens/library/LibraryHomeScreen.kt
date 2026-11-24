@@ -135,6 +135,17 @@ fun LibraryHomeScreen(
     }
 
     val listState = rememberLazyListState()
+    // Tap the active tab again to scroll to the top (same pattern as Home).
+    LaunchedEffect(navigator) {
+        var first = true
+        navigator.scrollToTopRequests.collect {
+            if (first) {
+                first = false
+                return@collect
+            }
+            listState.animateScrollToItem(0)
+        }
+    }
     val glassState = remember { GlassState() }
     val collapse = rememberCollapseProgress(listState)
     val bottomInset = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()

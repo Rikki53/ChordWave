@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.SubSettingsScaffold
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
@@ -95,6 +96,8 @@ fun StorageScreen(navigator: MochyNavigator, viewModel: StorageViewModel = hiltV
         )
         Spacer(Modifier.height(10.dp))
         ClearButtons(viewModel, downloadCount = downloads?.size ?: 0)
+        Spacer(Modifier.height(10.dp))
+        AutoDownloadCard()
 
         Spacer(Modifier.height(26.dp))
         SectionText(stringResource(R.string.storage_or))
@@ -206,6 +209,60 @@ private fun SmartHint(usage: StorageUsage, downloadCount: Int) {
 }
 
 @Composable
+// v1.10 auto-downloads: keep liked songs downloaded + re-check downloaded
+// playlists for new songs. Both off by default: they spend data and storage
+// without being asked each time (see AppSettings).
+@Composable
+private fun AutoDownloadCard() {
+    val syncPlaylists by AppSettings.syncDownloadedPlaylists.collectAsState()
+    val downloadLiked by AppSettings.downloadLikedSongs.collectAsState()
+    StorageCardColumn {
+        AutoDownloadRow(
+            icon = R.drawable.sync,
+            title = stringResource(R.string.sync_downloaded_playlists),
+            description = stringResource(R.string.sync_downloaded_playlists_subtitle),
+            checked = syncPlaylists,
+            onCheckedChange = AppSettings::setSyncDownloadedPlaylists,
+        )
+        Spacer(Modifier.height(14.dp))
+        AutoDownloadRow(
+            icon = R.drawable.download,
+            title = stringResource(R.string.download_liked_songs),
+            description = stringResource(R.string.download_liked_songs_subtitle),
+            checked = downloadLiked,
+            onCheckedChange = AppSettings::setDownloadLikedSongs,
+        )
+    }
+}
+
+@Composable
+private fun AutoDownloadRow(
+    icon: Int,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFDADADA)),
+        ) {
+            Icon(painterResource(icon), contentDescription = null, tint = StorageCard, modifier = Modifier.size(16.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = storageText(15f, FontWeight.SemiBold))
+            Text(description, style = storageText(12f, FontWeight.Medium, StorageMuted, 0f))
+        }
+        Spacer(Modifier.width(12.dp))
+        AppSwitch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
 private fun CacheLimitCard(limit: Int, onLimitChange: (Int) -> Unit) {
     StorageCardColumn {
         Row(verticalAlignment = Alignment.CenterVertically) {

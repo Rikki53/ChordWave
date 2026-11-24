@@ -9,7 +9,9 @@ import android.net.ConnectivityManager
 import androidx.core.content.getSystemService
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
+import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.model.Song as CwSong
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.utils.DataSaver
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -2015,7 +2017,8 @@ private fun CoverCanvasLayer(
     var canvasArtwork by remember(trackInfo.mediaId) { mutableStateOf<CanvasArtwork?>(null) }
     val canvasEnabled = rememberPreference(CanvasThumbnailAnimationKey, defaultValue = true).value && !alternateStyle
     val canvasWifiOnly by rememberPreference(CanvasWifiOnlyKey, defaultValue = true)
-    LaunchedEffect(trackInfo.mediaId, trackInfo.title, trackInfo.artist, trackInfo.album, canvasEnabled, canvasWifiOnly) {
+    val disableSpotifyCanvas by AppSettings.disableSpotifyCanvas.collectAsState()
+    LaunchedEffect(trackInfo.mediaId, trackInfo.title, trackInfo.artist, trackInfo.album, canvasEnabled, canvasWifiOnly, disableSpotifyCanvas) {
         val mediaId = trackInfo.mediaId
         val titleStr = trackInfo.title
         val artistStr = trackInfo.artist
@@ -2024,6 +2027,8 @@ private fun CoverCanvasLayer(
         if (canvasWifiOnly && connectivityManager?.isActiveNetworkMetered == true) return@LaunchedEffect
         // data saver keeps the cover still, a canvas is a video loop
         if (DataSaver.isActive(context)) return@LaunchedEffect
+        // v1.10: with Spotify Canvas disabled, a Spotify clip is no clip —
+        // the still cover stays instead (same rule as Classic DetailScreen).
         canvasArtwork = CanvasRepository.canvasFor(
             CwSong(
                 videoId = mediaId,
@@ -2032,7 +2037,7 @@ private fun CoverCanvasLayer(
                 thumbnailUrl = trackInfo.thumbnailUrl,
                 albumName = trackInfo.album.takeIf { it.isNotBlank() },
             )
-        )
+        )?.takeUnless { disableSpotifyCanvas && it.source == CanvasSource.SPOTIFY }
     }
 
     val mountedHolder = remember { booleanArrayOf(false) }

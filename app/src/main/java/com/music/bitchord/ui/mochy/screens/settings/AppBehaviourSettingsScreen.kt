@@ -506,6 +506,14 @@ private fun playerLookItems(): List<SettingsItem> {
     val (canvasWifiOnly, onCanvasWifiOnlyChange) = rememberPreference(CanvasWifiOnlyKey, defaultValue = true)
     val canvasOrder by AppSettings.canvasOrder.collectAsState()
     val canvasBest by AppSettings.canvasBestQuality.collectAsState()
+    val disableSpotifyCanvas by AppSettings.disableSpotifyCanvas.collectAsState()
+    // v1.10 "show total duration" drives the same choice the Studio sheet
+    // offers (end timestamp: total vs time left) — one source of truth, the
+    // Mochy pref; AppSettings is mirrored for the desktop player.
+    val (endTimestamp, onEndTimestampChange) = rememberEnumPreference(
+        com.music.bitchord.ui.mochy.constants.PlayerEndTimestampKey,
+        defaultValue = com.music.bitchord.ui.mochy.constants.PlayerEndTimestamp.END_TIME,
+    )
     val (highBloom, onHighBloomChange) = rememberPreference(LyricsHighBloomKey, defaultValue = true)
     val (softLightLyrics, onSoftLightLyricsChange) = rememberPreference(LyricsSoftLightKey, defaultValue = true)
     val (lyricsStyle) = rememberEnumPreference(LyricsMotionStyleKey, defaultValue = LyricsMotionStyle.MOTION)
@@ -600,6 +608,26 @@ private fun playerLookItems(): List<SettingsItem> {
             checked = canvasBest,
             onCheckedChange = AppSettings::setCanvasBestQuality,
             subOptionOf = canvasEnabled,
+        ),
+        switchItem(
+            key = "Disable Spotify Canvas",
+            title = stringResource(R.string.disable_spotify_canvas),
+            description = stringResource(R.string.disable_spotify_canvas_subtitle),
+            icon = painterResource(R.drawable.sparks),
+            checked = disableSpotifyCanvas,
+            onCheckedChange = AppSettings::setDisableSpotifyCanvas,
+            subOptionOf = canvasEnabled,
+        ),
+        switchItem(
+            key = "Show total duration",
+            title = stringResource(R.string.show_total_duration),
+            description = stringResource(R.string.show_total_duration_subtitle),
+            icon = painterResource(R.drawable.history),
+            checked = endTimestamp == com.music.bitchord.ui.mochy.constants.PlayerEndTimestamp.END_TIME,
+            onCheckedChange = { on ->
+                onEndTimestampChange(if (on) com.music.bitchord.ui.mochy.constants.PlayerEndTimestamp.END_TIME else com.music.bitchord.ui.mochy.constants.PlayerEndTimestamp.TIME_LEFT)
+                AppSettings.setShowTotalDuration(on)
+            },
         ),
         // only the shaded lyric styles have a bloom to make softer
         switchItem(

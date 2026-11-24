@@ -15,6 +15,7 @@ import coil3.request.allowHardware
 import coil3.request.transformations
 import coil3.toBitmap
 import com.music.bitchord.data.canvas.CanvasRepository
+import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
@@ -145,6 +146,7 @@ internal suspend fun loadAnimatedCover(context: Context, session: SongShareSessi
         session.animatedCover = Fetched.Missing
         return
     }
+    // Same guard as the player: no Spotify clip when Spotify Canvas is off.
     val artwork = CanvasRepository.canvasFor(
         CwSong(
             videoId = song.id,
@@ -153,7 +155,7 @@ internal suspend fun loadAnimatedCover(context: Context, session: SongShareSessi
             thumbnailUrl = song.thumbnailUrl,
             albumName = song.album?.title,
         )
-    )
+    )?.takeUnless { AppSettings.disableSpotifyCanvas.value && it.source == CanvasSource.SPOTIFY }
     session.animatedCover = artwork?.url?.let { Fetched.Found(it) } ?: Fetched.Missing
 }
 
