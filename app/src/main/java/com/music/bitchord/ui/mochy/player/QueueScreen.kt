@@ -7,12 +7,19 @@
 // - `queueSnapshot.title` is a non-null String in ChordWave's QueueState;
 //   it is passed on as null when blank, as Mochy's nullable title was.
 // - Queue mutation (move/remove/play-next) calls the connection methods,
-//   which are Phase 3 stubs in MochyPlayerConnection (Timber.w, no-op).
+//   which delegate to the MediaController in MochyPlayerConnection.
+// - Multi-select (feedback 11b-D): long-press a row to pick songs, like
+//   AlbumScreen's selection mode; batch remove and play-next go through
+//   the same connection methods as the single-item swipe actions. The
+//   song playing is never selectable.
 
 package com.music.bitchord.ui.mochy.player
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,9 +45,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,13 +75,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastForEachReversed
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.PlayingIndicatorBox
+import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.SwipeAction
 import com.music.bitchord.ui.mochy.component.SwipeActionsBox
 import com.music.bitchord.ui.mochy.component.SwipeQueueColor
 import com.music.bitchord.ui.mochy.component.SwipeSaveColor
+import com.music.bitchord.ui.mochy.component.detail.PlaylistSelectTick
+import com.music.bitchord.ui.mochy.component.pressBounce
 import com.music.bitchord.ui.mochy.constants.PlayerHorizontalPadding
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.player.models.QueueItemData
@@ -153,6 +168,24 @@ fun QueueScreen(
     val liked = metadata?.liked == true
     val haptic = LocalHapticFeedback.current
 
+    // Multi-select, AlbumScreen's pattern: long-press a row to enter, tap
+    // rows to toggle, Back (or the bar's close button) to leave. The song
+    // playing is never selectable, so it can never be removed from here.
+    var inSelectMode by rememberSaveable { mutableStateOf(false) }
+    val selection = rememberSaveable(
+        saver = listSaver<MutableList<Int>, Int>(
+            save = { it.toList() },
+            restore = { it.toMutableStateList() },
+        ),
+    ) { mutableStateListOf() }
+    val onExitSelectionMode = {
+        inSelectMode = false
+        selection.clear()
+    }
+    if (inSelectMode) {
+        BackHandler(onBack = onExitSelectionMode)
+    }
+
     val playerRows = remember(queueItems, currentIndex) { buildQueueRows(queueItems, currentIndex) }
 
     // The list's own copy while a drag is reordering it. Moves land here straight away and reach
@@ -162,6 +195,43 @@ fun QueueScreen(
     var draggingSection by remember { mutableStateOf<QueueSection?>(null) }
     var awaitingCommit by remember { mutableStateOf(false) }
     val rows = localRows ?: playerRows
+
+    // Every row but Now Playing can be picked. Recomputed from the rows on
+    // screen, so a song that starts playing (or leaves the queue) drops out
+    // of the selection with it.
+    val selectableUids = remember(rows) {
+        rows.mapNotNull { row ->
+            (row as? QueueRow.Song)?.takeIf { it.section != QueueSection.NOW_PLAYING }?.item?.uid
+        }.toSet()
+    }
+    LaunchedEffect(selectableUids) {
+        selection.fastForEachReversed { uid ->
+            if (uid !in selectableUids) selection.remove(uid)
+        }
+    }
+
+    fun toggleSelection(uid: Int) {
+        if (uid in selection) selection.remove(uid) else selection.add(uid)
+    }
+
+    /** The picked songs, in queue order, moved right after the song playing. */
+    fun playSelectedNext() {
+        if (selection.isEmpty()) return
+        val picked = selection.toSet()
+        // Latest first, so each lands right after the song playing and the
+        // picked songs end up in queue order.
+        queueItems.mapNotNull { item -> item.uid.takeIf { it in picked } }
+            .asReversed()
+            .forEach { playerConnection.playQueueItemNext(it) }
+        onExitSelectionMode()
+    }
+
+    /** Batch remove through the same call the swipe action uses. */
+    fun removeSelected() {
+        if (selection.isEmpty()) return
+        playerConnection.removeQueueItems(selection.toList())
+        onExitSelectionMode()
+    }
 
     // The committed order comes back from the player as a new playerRows: switch back to it then.
     LaunchedEffect(playerRows) {
@@ -299,6 +369,21 @@ fun QueueScreen(
             )
         }
 
+        if (inSelectMode) {
+            QueueSelectionBar(
+                count = selection.size,
+                allSelected = selection.isNotEmpty() && selection.size == selectableUids.size,
+                onToggleAll = {
+                    val selectAll = selection.size != selectableUids.size
+                    selection.clear()
+                    if (selectAll) selection.addAll(selectableUids)
+                },
+                onPlayNext = { playSelectedNext() },
+                onRemove = { removeSelected() },
+                onClose = onExitSelectionMode,
+            )
+        }
+
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(top = 2.dp, bottom = controlsClearance + 8.dp),
@@ -404,14 +489,16 @@ fun QueueScreen(
                         modifier = enter,
                         // Only rows of the section being dragged in take part, so a song can't be
                         // dropped into another section (or into History) by dragging past a header.
-                        enabled = row.section.reorderable &&
+                        // No dragging while picking: a row's tap toggles it instead.
+                        enabled = row.section.reorderable && !inSelectMode &&
                             (draggingSection == null || draggingSection == row.section),
                     ) { isDragging ->
                         val uid = row.item.uid
                         val nowPlaying = row.section == QueueSection.NOW_PLAYING
                         SwipeActionsBox(
-                            // The song playing can't be removed or moved next.
-                            enabled = draggingSection == null && !nowPlaying,
+                            // The song playing can't be removed or moved next;
+                            // while picking, a swipe would fight the tap-to-toggle.
+                            enabled = draggingSection == null && !nowPlaying && !inSelectMode,
                             start = {
                                 SwipeAction(
                                     icon = R.drawable.remove,
@@ -432,10 +519,33 @@ fun QueueScreen(
                                 dimmed = row.section == QueueSection.HISTORY,
                                 nowPlaying = nowPlaying,
                                 isDragging = isDragging,
+                                selected = inSelectMode && uid in selection,
                                 onClick = {
-                                    if (nowPlaying) playerConnection.togglePlayPause() else playerConnection.playQueueItem(uid)
+                                    when {
+                                        inSelectMode && !nowPlaying -> toggleSelection(uid)
+                                        inSelectMode -> Unit
+                                        nowPlaying -> playerConnection.togglePlayPause()
+                                        else -> playerConnection.playQueueItem(uid)
+                                    }
                                 },
-                                handle = if (!row.section.reorderable) {
+                                onLongClick = {
+                                    // Long-press enters selection mode, AlbumScreen's
+                                    // way in; the song playing stays unpickable.
+                                    if (!inSelectMode && !nowPlaying && draggingSection == null) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        inSelectMode = true
+                                        selection.add(uid)
+                                    }
+                                },
+                                handle = if (inSelectMode) {
+                                    // The tick replaces the drag handle while
+                                    // picking; the song playing shows neither.
+                                    if (nowPlaying) {
+                                        null
+                                    } else {
+                                        { PlaylistSelectTick(checked = uid in selection) }
+                                    }
+                                } else if (!row.section.reorderable) {
                                     null
                                 } else {
                                     {
@@ -470,6 +580,121 @@ fun QueueScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * The bar above the list while picking songs: how many are picked, select
+ * all, and the batch actions. Same visual language as AlbumScreen's select
+ * bar - count, pill, 30dp circles - laid out for this page, whose header
+ * belongs to the cover morph and stays untouched.
+ */
+@Composable
+private fun QueueSelectionBar(
+    count: Int,
+    allSelected: Boolean,
+    onToggleAll: () -> Unit,
+    onPlayNext: () -> Unit,
+    onRemove: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = LyricsHeaderArtX, end = PlayerHorizontalPadding, top = 2.dp, bottom = 6.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.queue_selected_count, count),
+            fontSize = 17.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        // Select all / Deselect all, the pill from the detail mode bar.
+        val pillInteraction = remember { MutableInteractionSource() }
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .pressBounce(pillInteraction)
+                .height(30.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.24f))
+                .clickable(
+                    interactionSource = pillInteraction,
+                    indication = RemoteFocus,
+                    onClick = onToggleAll,
+                )
+                .padding(horizontal = 14.dp),
+        ) {
+            Text(
+                text = stringResource(if (allSelected) R.string.queue_deselect_all else R.string.select_all),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        QueueSelectionCircleButton(
+            icon = R.drawable.playlist_play,
+            contentDescription = stringResource(R.string.play_next),
+            enabled = count > 0,
+            onClick = onPlayNext,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        QueueSelectionCircleButton(
+            icon = R.drawable.remove,
+            contentDescription = stringResource(R.string.remove_from_queue),
+            enabled = count > 0,
+            onClick = onRemove,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        QueueSelectionCircleButton(
+            icon = R.drawable.close,
+            contentDescription = stringResource(R.string.queue_stop_selecting),
+            onClick = onClose,
+        )
+    }
+}
+
+/** A 30dp round button like the detail mode bar's; dimmed while it has nothing to do. */
+@Composable
+private fun QueueSelectionCircleButton(
+    icon: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val alpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (enabled) 1f else 0.4f,
+        label = "queueSelectButtonAlpha",
+    )
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .pressBounce(interaction)
+            .graphicsLayer { this.alpha = alpha }
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.24f))
+            .clickable(
+                interactionSource = interaction,
+                indication = RemoteFocus,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = contentDescription,
+            tint = Color.White,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
@@ -614,6 +839,7 @@ private fun QueueSectionHeader(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun QueueSongRow(
     item: QueueItemData,
@@ -621,7 +847,10 @@ private fun QueueSongRow(
     /** The song playing: a light highlight and the playing bars over its cover. */
     nowPlaying: Boolean,
     isDragging: Boolean,
+    /** Picked in selection mode: a stronger highlight, plus the tick at the end. */
+    selected: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     handle: (@Composable () -> Unit)?,
 ) {
     val artwork = remember(item.artworkUri) { item.artworkUri?.toString()?.resize(RowArtPx, RowArtPx) }
@@ -644,15 +873,17 @@ private fun QueueSongRow(
             .background(
                 when {
                     isDragging -> Color.White.copy(alpha = 0.12f)
+                    selected -> Color.White.copy(alpha = 0.16f)
                     nowPlaying -> Color.White.copy(alpha = 0.07f)
                     else -> Color.Transparent
                 }
             )
-            .clickable(
+            .combinedClickable(
                 enabled = !isDragging,
                 interactionSource = interactionSource,
                 indication = ripple(color = Color.White),
                 onClick = onClick,
+                onLongClick = onLongClick,
             )
             .padding(start = LyricsHeaderArtX - RowHighlightInset, end = RowEndPadding - RowHighlightInset),
     ) {
