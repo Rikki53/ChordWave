@@ -51,6 +51,7 @@ import com.music.bitchord.radio.RadioStation
 import com.music.bitchord.ui.mochy.component.GridItem
 import com.music.bitchord.ui.mochy.component.PlayingIndicatorBox
 import com.music.bitchord.ui.mochy.constants.GridThumbnailCornerRadius
+import com.music.bitchord.ui.mochy.viewmodels.NearbyStation
 import kotlin.math.abs
 
 /** "Prambors FM" → "PF", "RRI Pro 1" → "RP", "Bens Radio" → "BR". */
@@ -67,6 +68,18 @@ internal fun metaOf(station: RadioStation): String = listOfNotNull(
     station.tags?.split(',')?.firstOrNull()?.trim()?.takeIf { it.isNotBlank() },
     station.bitrate.takeIf { it > 0 }?.let { "$it kbps" },
 ).joinToString(" · ")
+
+/** "Bandung · 68 km" — the nearby section's card subtitle: city + distance. */
+internal fun nearbyMetaOf(nearby: NearbyStation): String {
+    val place = nearby.station.state?.takeIf { it.isNotBlank() }
+        ?: nearby.station.country?.takeIf { it.isNotBlank() }
+    return listOfNotNull(place, formatDistanceKm(nearby.distanceKm)).joinToString(" · ")
+}
+
+/** 0.4 km → "400 m", 68.2 km → "68 km". */
+internal fun formatDistanceKm(distanceKm: Double): String =
+    if (distanceKm < 1.0) "${(distanceKm * 1000).toInt().coerceAtLeast(1)} m"
+    else "${distanceKm.toInt()} km"
 
 /**
  * Muted dark gradient pairs for stations without artwork. The Classic
@@ -148,7 +161,9 @@ private fun FavoriteChip(isFavorite: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** One station as a Mochy grid card: artwork, name, meta, heart chip. */
+/** One station as a Mochy grid card: artwork, name, meta, heart chip.
+ * [subtitle] overrides the country · tag · bitrate line (the nearby
+ * section passes "city · distance" instead). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StationCard(
@@ -160,6 +175,7 @@ fun StationCard(
     onLongClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
 ) {
     GridItem(
         modifier = modifier.combinedClickable(
@@ -167,7 +183,7 @@ fun StationCard(
             onLongClick = onLongClick,
         ),
         title = station.name,
-        subtitle = metaOf(station),
+        subtitle = subtitle ?: metaOf(station),
         thumbnailContent = {
             StationArtwork(station = station, modifier = Modifier.fillMaxSize())
             PlayingIndicatorBox(
@@ -186,7 +202,8 @@ fun StationCard(
     )
 }
 
-/** A swipeable row of station cards, Mochy Explore's LazyRow shape. */
+/** A swipeable row of station cards, Mochy Explore's LazyRow shape.
+ * [subtitle] overrides every card's meta line when given. */
 @Composable
 fun StationCardsRow(
     stations: List<RadioStation>,
@@ -197,6 +214,7 @@ fun StationCardsRow(
     onStationLongClick: (RadioStation) -> Unit,
     onToggleFavorite: (RadioStation) -> Unit,
     modifier: Modifier = Modifier,
+    subtitle: ((RadioStation) -> String)? = null,
 ) {
     LazyRow(
         modifier = modifier,
@@ -213,6 +231,7 @@ fun StationCardsRow(
                 onClick = { onStationClick(station) },
                 onLongClick = { onStationLongClick(station) },
                 onToggleFavorite = { onToggleFavorite(station) },
+                subtitle = subtitle?.invoke(station),
             )
         }
     }

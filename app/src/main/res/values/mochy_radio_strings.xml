@@ -11,4 +11,9 @@
     <string name="mochy_radio_add_favourite">Add to favourites</string>
     <string name="mochy_radio_remove_favourite">Remove from favourites</string>
     <string name="mochy_radio_couldnt_play">Couldn\'t play this station</string>
+    <string name="mochy_radio_nearby">Di Sekitar Kamu</string>
+    <string name="mochy_radio_enable_location">Aktifkan lokasi untuk melihat radio di sekitarmu</string>
+    <string name="mochy_radio_location_denied">ChordWave tidak bisa menemukan radio terdekat tanpa akses lokasi</string>
+    <string name="mochy_radio_pop">Pop</string>
+    <string name="mochy_radio_dangdut">Dangdut</string>
 </resources>
