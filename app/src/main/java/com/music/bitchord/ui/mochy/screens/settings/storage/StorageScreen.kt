@@ -208,7 +208,6 @@ private fun SmartHint(usage: StorageUsage, downloadCount: Int) {
     )
 }
 
-@Composable
 // v1.10 auto-downloads: keep liked songs downloaded + re-check downloaded
 // playlists for new songs. Both off by default: they spend data and storage
 // without being asked each time (see AppSettings).
@@ -263,6 +262,7 @@ private fun AutoDownloadRow(
     }
 }
 
+@Composable
 private fun CacheLimitCard(limit: Int, onLimitChange: (Int) -> Unit) {
     StorageCardColumn {
         Row(verticalAlignment = Alignment.CenterVertically) {
