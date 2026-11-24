@@ -27,9 +27,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.backup.DriveBackup
 import com.music.bitchord.ui.mochy.component.DefaultDialog
 import com.music.bitchord.ui.mochy.component.SettingsGroup
 import com.music.bitchord.ui.mochy.component.SettingsGroupStyle
@@ -49,6 +52,7 @@ fun ImportSyncScreen(
     val progress by viewModel.importProgress.collectAsState()
     val exportMessage by viewModel.exportMessage.collectAsState()
     val signedIn = rememberYouTubeSignedIn()
+    val driveSettings by DriveBackup.settings.collectAsStateWithLifecycle()
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) viewModel.export(uri)
@@ -144,6 +148,23 @@ fun ImportSyncScreen(
                     icon = painterResource(R.drawable.backup),
                     iconShape = CircleShape,
                     onClick = { exportLauncher.launch("chordwave-library-${LocalDate.now()}.csv") },
+                ),
+                SettingsItem(
+                    title = { Text(stringResource(R.string.drive_backup_title)) },
+                    highlightKey = "Google Drive backup",
+                    descriptionText = when {
+                        driveSettings.account == null ->
+                            stringResource(R.string.drive_backup_row_subtitle)
+                        driveSettings.needsSignIn ->
+                            stringResource(R.string.drive_sign_in_again)
+                        driveSettings.needsDevice ->
+                            stringResource(R.string.drive_device_not_set)
+                        else -> driveSettings.frequency.label()
+                    },
+                    detail = stringResource(R.string.drive_backup_row_subtitle),
+                    icon = painterResource(R.drawable.cloud),
+                    iconShape = CircleShape,
+                    onClick = { navigator.navigate(DriveBackupRoute) },
                 ),
             ),
         )

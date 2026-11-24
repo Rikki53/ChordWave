@@ -69,6 +69,8 @@ const val ImportTuneMyMusicRoute = "import_tunemymusic"
 const val ImportProgressRoute = "import_progress"
 const val YouTubeSyncRoute = "youtube_sync"
 const val YouTubeLoginRoute = "youtube_login"
+const val DriveBackupRoute = "drive_backup"
+const val DriveDevicesRoute = "drive_devices"
 
 /** same surface as a grouped settings card, for content that isn't a list of rows */
 @Composable
