@@ -3,7 +3,7 @@
 // sources: YtMusicRepository.homeSupplement("FEmusic_explore") supplies the
 // new-release albums shelf (Mappers4.newReleaseAlbums) and moodAndGenres()
 // supplies the mood/genre buttons (Mappers4.toMoodAndGenresItems). Mochy's
-// behaviour is kept: load once in init on IO; sort new-release albums so
+// behaviour is kept: load in init on IO; sort new-release albums so
 // the user's most-played artists come first; apply filterExplicit with
 // HideExplicitKey.
 //
@@ -18,6 +18,11 @@
 // - A failed explore fetch keeps the previous page (Mochy reported the
 //   exception and kept null); a failed moods fetch only empties the
 //   moodAndGenres field, which the screen does not read.
+// - Refresh (feedback 24 Nov 2026, item 9): refresh() reloads when the
+//   page is missing or older than STALE_AFTER_MS; the screen calls it
+//   on every revisit (the tab is disposed on switch). homeSupplement is
+//   uncached, so a refresh truly refetches. A failed refresh leaves
+//   lastLoadedAt untouched, so the next revisit retries.
 
 package com.music.bitchord.ui.mochy.viewmodels
 
@@ -41,6 +46,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+/** An explore page older than this is refetched on revisit (15 minutes). */
+private const val STALE_AFTER_MS = 15 * 60 * 1000L
+
 @HiltViewModel
 class ExploreViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -50,9 +58,33 @@ class ExploreViewModel @Inject constructor(
     private val prefs get() = PreferencesCache.current(context.dataStore)
     private val hideExplicit get() = prefs[HideExplicitKey] ?: false
 
+    /** True while a load is in flight; guards refresh() against overlap. */
+    private var loading = false
+
+    /** Wall time of the last successful load; 0 until the first one lands. */
+    private var lastLoadedAt = 0L
+
     init {
+        refresh()
+    }
+
+    /**
+     * Reloads the explore page when it is missing or stale; a fresh page
+     * is left alone, so a quick tab hop costs no network. [force] (the
+     * screen's retry button) reloads regardless.
+     */
+    fun refresh(force: Boolean = false) {
+        if (loading) return
+        if (!force && explorePage.value != null &&
+            System.currentTimeMillis() - lastLoadedAt < STALE_AFTER_MS
+        ) return
+        loading = true
         viewModelScope.launch(Dispatchers.IO) {
-            load()
+            try {
+                load()
+            } finally {
+                loading = false
+            }
         }
     }
 
@@ -72,6 +104,7 @@ class ExploreViewModel @Inject constructor(
                 .filterExplicit(hideExplicit),
             moodAndGenres = moods,
         )
+        lastLoadedAt = System.currentTimeMillis()
     }
 
     /**

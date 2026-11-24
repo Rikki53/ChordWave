@@ -309,13 +309,17 @@ object YtMusicRepository {
      * The playlist shelves behind one mood/genre category. This result also
      * supplies its tile artwork, so caching it avoids a second request when a
      * user taps a category whose cover has already appeared.
+     *
+     * The cache never expires: a caller that needs fresh data (the charts
+     * page's stale reload) passes [forceRefresh] to skip the cached read
+     * and overwrite the entry with the new fetch.
      */
-    suspend fun moodGenreShelves(browseId: String, params: String?): Result<List<HomeShelf>> {
+    suspend fun moodGenreShelves(browseId: String, params: String?, forceRefresh: Boolean = false): Result<List<HomeShelf>> {
         val key = "$browseId:${params.orEmpty()}"
-        moodGenreShelfCache[key]?.let { return Result.success(it) }
+        if (!forceRefresh) moodGenreShelfCache[key]?.let { return Result.success(it) }
         return call("mood-genre:$browseId") {
             InnertubeParser.parseHome(Innertube.browse(browseId, params))
-        }.also { result -> result.getOrNull()?.let { moodGenreShelfCache.putIfAbsent(key, it) } }
+        }.also { result -> result.getOrNull()?.let { moodGenreShelfCache[key] = it } }
     }
 
     /** A category card borrows the first real cover from the playlists it opens. */

@@ -20,6 +20,12 @@
 // - ChartType.NEW_RELEASES is never assigned: Mochy gave it to grid
 //   sections, and CW's parseHome only reads carousel + plain shelves (see
 //   NEEDS.md).
+// - Refresh (feedback 24 Nov 2026, item 9): the Explore tab is disposed
+//   on switch, so the screen calls loadCharts() on every revisit — but
+//   a reload only fires when the page is missing or older than
+//   STALE_AFTER_MS. A reload bypasses the repository's
+//   moodGenreShelfCache (forceRefresh), which never expires on its own
+//   and would otherwise serve the first fetch forever.
 
 package com.music.bitchord.ui.mochy.viewmodels
 
@@ -38,6 +44,9 @@ import timber.log.Timber
 /** Mochy's getChartsPage params (YouTube.kt:951): the charts tab selector. */
 private const val CHARTS_PARAMS = "ggMGCgQIgAQ%3D"
 
+/** A charts page older than this is refetched on revisit (15 minutes). */
+private const val STALE_AFTER_MS = 15 * 60 * 1000L
+
 @HiltViewModel
 class ChartsViewModel @Inject constructor() : ViewModel() {
     private val _chartsPage = MutableStateFlow<ChartsPage?>(null)
@@ -49,21 +58,34 @@ class ChartsViewModel @Inject constructor() : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
 
-    fun loadCharts() {
+    /** Wall time of the last successful load; 0 until the first one lands. */
+    private var lastLoadedAt = 0L
+
+    /**
+     * Loads the charts page when it is missing or stale; a fresh page is
+     * left alone, so a quick tab hop costs no network. [forceRefresh]
+     * (the screen's retry button) reloads regardless.
+     */
+    fun loadCharts(forceRefresh: Boolean = false) {
         // Checked and set synchronously on the calling thread, so two calls
         // in the same frame cannot both slip through (Mochy set the flag
         // inside the launch, after the check had already passed).
         if (_isLoading.value) return
+        if (!forceRefresh && _chartsPage.value != null && !isStale()) return
         _isLoading.value = true
         _error.value = null
+        // A reload must bypass the repository cache (it never expires);
+        // the first load reads through it like any other caller.
+        val bypassCache = forceRefresh || _chartsPage.value != null
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                YtMusicRepository.moodGenreShelves("FEmusic_charts", CHARTS_PARAMS)
+                YtMusicRepository.moodGenreShelves("FEmusic_charts", CHARTS_PARAMS, forceRefresh = bypassCache)
                     .onSuccess { shelves ->
                         _chartsPage.value = ChartsPage(
                             sections = shelves.toChartSections(),
                             continuation = null,
                         )
+                        lastLoadedAt = System.currentTimeMillis()
                     }
                     .onFailure { e ->
                         _error.value = "Failed to load charts: ${e.message}"
@@ -74,4 +96,7 @@ class ChartsViewModel @Inject constructor() : ViewModel() {
             }
         }
     }
+
+    private fun isStale(): Boolean =
+        System.currentTimeMillis() - lastLoadedAt > STALE_AFTER_MS
 }
