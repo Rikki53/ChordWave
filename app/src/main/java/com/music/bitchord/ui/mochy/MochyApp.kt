@@ -136,6 +136,8 @@ import com.music.bitchord.ui.mochy.screens.settings.MochySettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.PlaybackDiagnosticsScreen
 import com.music.bitchord.ui.mochy.screens.settings.ProxySettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.importsync.AccountImportScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.DriveBackupScreen
+import com.music.bitchord.ui.mochy.screens.settings.importsync.DriveDevicesScreen
 import com.music.bitchord.ui.mochy.screens.settings.importsync.ImportProgressScreen
 import com.music.bitchord.ui.mochy.screens.settings.importsync.ImportProvidersScreen
 import com.music.bitchord.ui.mochy.screens.settings.importsync.ImportSyncScreen
@@ -883,6 +885,8 @@ private fun DetailContent(
         route == "import_progress" -> ImportProgressScreen(navigator = navigator)
         route == "youtube_sync" -> YouTubeSyncScreen(navigator = navigator)
         route == "youtube_login" -> YouTubeLoginScreen(navigator = navigator)
+        route == "drive_backup" -> DriveBackupScreen(navigator = navigator)
+        route == "drive_devices" -> DriveDevicesScreen(navigator = navigator)
         // ---- ChordWave-only restyles (Phase 5) ----
         route == "listen_together" -> ListenTogetherScreen(navigator = navigator)
         route == "sources" -> SourcesScreen(navigator = navigator)
