@@ -9,6 +9,9 @@
     <string name="suggestions">Suggestions</string>
     <string name="search_top_result">Top result</string>
     <string name="search_offline_no_matches">Offline mode: nothing in your library matches</string>
+    <string name="search_library_no_matches">Nothing in your library matches this search</string>
+    <string name="search_library_load_failed">Could not load your library</string>
+    <string name="search_library_sign_in">Sign in to filter by your library</string>
     <string name="recent_searches_clear">Clear</string>
     <string name="recent_search_song">Song · %1$s</string>
     <string name="recent_search_album">Album · %1$s</string>

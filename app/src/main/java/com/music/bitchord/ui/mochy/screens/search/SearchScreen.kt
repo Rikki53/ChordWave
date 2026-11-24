@@ -78,13 +78,18 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
+import com.music.bitchord.ui.mochy.component.ChipsRow
+import com.music.bitchord.ui.mochy.component.EmptyPlaceholder
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.RemoteFocus
+import com.music.bitchord.ui.mochy.component.SwipeActionsBox
 import com.music.bitchord.ui.mochy.component.coverTransitionKey
 import com.music.bitchord.ui.mochy.component.glassRoot
+import com.music.bitchord.ui.mochy.component.queueSwipeAction
 import com.music.bitchord.ui.mochy.constants.OfflineModeKey
 import com.music.bitchord.ui.mochy.constants.PauseSearchHistoryKey
 import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.SearchHistory
 import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
 import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
@@ -140,6 +145,7 @@ fun SearchScreen(
 
     val suggestionViewModel: OnlineSearchSuggestionViewModel = hiltViewModel()
     val suggestionState by suggestionViewModel.viewState.collectAsState()
+    val libraryOnly by suggestionViewModel.libraryOnly.collectAsState()
 
     LaunchedEffect(active, query.text) {
         if (active) suggestionViewModel.query.value = query.text
@@ -271,6 +277,8 @@ fun SearchScreen(
                             suggestionViewModel.deleteHistory(entry)
                         },
                         navigator = navigator,
+                        libraryOnly = libraryOnly,
+                        onLibraryOnlyChange = suggestionViewModel::setLibraryOnly,
                     )
                 }
             }
@@ -434,6 +442,8 @@ internal fun SearchActiveContent(
     onDeleteHistory: (SearchHistory) -> Unit,
     navigator: MochyNavigator,
     topPadding: Dp = searchTopBarHeight(withTitle = false),
+    libraryOnly: Boolean = false,
+    onLibraryOnlyChange: (Boolean) -> Unit = {},
 ) {
     val playerConnection = LocalPlayerConnection.current
     val offlineMode by rememberPreference(OfflineModeKey, defaultValue = false)
@@ -492,6 +502,23 @@ internal fun SearchActiveContent(
                 }
             }
 
+            // All / Library: the chip shows once there are top results to
+            // filter — and stays while the filter is on, so it can be
+            // turned off again from the empty state below.
+            if (state.libraryFilterAvailable) {
+                item(key = "library_filter_chips") {
+                    ChipsRow(
+                        chips = listOf(
+                            false to stringResource(R.string.filter_all),
+                            true to stringResource(R.string.filter_library),
+                        ),
+                        currentValue = libraryOnly,
+                        onValueUpdate = onLibraryOnlyChange,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+
             if (state.items.isNotEmpty()) {
                 item(key = "top_result_header") {
                     Spacer(modifier = Modifier.height(10.dp))
@@ -519,7 +546,24 @@ internal fun SearchActiveContent(
                 }
             }
 
-            if (state.suggestions.isEmpty() && state.items.isEmpty()) {
+            // The filter is on and none of the top results is in the
+            // library: say so plainly instead of leaving a bare list.
+            if (state.libraryFilterEmpty) {
+                item(key = "library_filter_empty") {
+                    EmptyPlaceholder(
+                        icon = R.drawable.library_music,
+                        text = stringResource(
+                            when {
+                                state.libraryLoadFailed -> R.string.search_library_load_failed
+                                state.librarySignedOut -> R.string.search_library_sign_in
+                                else -> R.string.search_library_no_matches
+                            },
+                        ),
+                    )
+                }
+            }
+
+            if (!libraryOnly && state.suggestions.isEmpty() && state.items.isEmpty()) {
                 item(key = "suggest_loading") {
                     Box(
                         modifier = Modifier.fillMaxWidth().height(180.dp),
@@ -574,38 +618,54 @@ private fun SuggestionResultRow(
         is PlaylistItem -> "Playlist" + (item.author?.name?.let { " • $it" } ?: "")
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = SearchHorizontalPadding, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SearchArtwork(
-            url = item.thumbnail,
-            size = 44.dp,
-            circle = item is ArtistItem,
-            sharedElementKey = coverTransitionKey(item),
-        )
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-                color = SearchColors.Primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+    // Songs slide left onto the end of the queue, the same swipe the full
+    // results page gives its rows; other rows have no swipe action. The
+    // swipe box and the tap live side by side here exactly as they do in
+    // OnlineSearchResult's rows.
+    val row: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = SearchHorizontalPadding, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SearchArtwork(
+                url = item.thumbnail,
+                size = 44.dp,
+                circle = item is ArtistItem,
+                sharedElementKey = coverTransitionKey(item),
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                color = SearchColors.Secondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    color = SearchColors.Primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = SearchColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
+    }
+
+    if (item is SongItem) {
+        SwipeActionsBox(
+            end = { queueSwipeAction { item.toMediaItem() } },
+        ) {
+            row()
+        }
+    } else {
+        row()
     }
 }
