@@ -94,6 +94,7 @@ fun SearchSidePane(
 
     val suggestionViewModel: OnlineSearchSuggestionViewModel = hiltViewModel()
     val suggestionState by suggestionViewModel.viewState.collectAsState()
+    val libraryOnly by suggestionViewModel.libraryOnly.collectAsState()
     LaunchedEffect(query.text) { suggestionViewModel.query.value = query.text }
 
     val listState = rememberLazyListState()
@@ -150,6 +151,8 @@ fun SearchSidePane(
                 },
                 navigator = navigator,
                 topPadding = searchTopBarHeight(withTitle = true),
+                libraryOnly = libraryOnly,
+                onLibraryOnlyChange = suggestionViewModel::setLibraryOnly,
             )
         }
 

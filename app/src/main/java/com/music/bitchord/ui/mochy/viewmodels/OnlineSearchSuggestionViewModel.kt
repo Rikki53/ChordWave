@@ -24,14 +24,22 @@
 // - History ids are index-based (0-based position, most recent first): CW's
 //   store has no stable numeric ids. The screen keys rows by query, so the
 //   id is never used for identity — see NEEDS.md.
+// - Library filter (Nov 2026): [libraryOnly] narrows the top-result items to
+//   songs in the account library — liked + added ids from
+//   YtMusicRepository.library(), layered with LikeState.overrides so a like
+//   or unlike this session counts at once. Only songs can match; albums,
+//   artists and playlists drop out while the chip is on.
 
 package com.music.bitchord.ui.mochy.viewmodels
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.music.bitchord.auth.SignedIn
+import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.EntityType
+import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.settings.SearchHistory as CwSearchHistory
 import com.music.bitchord.data.stats.ListeningStats
@@ -41,6 +49,7 @@ import com.music.bitchord.ui.mochy.constants.HideVideoSongsKey
 import com.music.bitchord.ui.mochy.constants.OfflineModeKey
 import com.music.bitchord.ui.mochy.models.SearchHistory
 import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
+import com.music.bitchord.ui.mochy.models.innertube.SongItem
 import com.music.bitchord.ui.mochy.models.innertube.YTItem
 import com.music.bitchord.ui.mochy.models.innertube.filterExplicit
 import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
@@ -53,11 +62,14 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -73,8 +85,62 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     val query = MutableStateFlow("")
+    // The unfiltered suggestion state; [viewState] layers the Library filter over it.
     private val _viewState = MutableStateFlow(SearchSuggestionViewState())
-    val viewState = _viewState.asStateFlow()
+
+    /**
+     * The "Library" chip: on, only top results already in the user's library
+     * stay (see [ensureLibraryIds] for what counts as "in the library").
+     * Off, the state is exactly what the query produced.
+     */
+    val libraryOnly = MutableStateFlow(false)
+
+    /** Video ids in the account library (liked + added). Null until fetched. */
+    private val _libraryIds = MutableStateFlow<Set<String>?>(null)
+    private val _libraryLoadFailed = MutableStateFlow(false)
+    private val _librarySignedOut = MutableStateFlow(false)
+    private var libraryLoadJob: Job? = null
+
+    /**
+     * The suggestion state with the Library filter applied. The filter only
+     * ever narrows [SearchSuggestionViewState.items] — history and text
+     * suggestions are the user's own words, not library membership — and only
+     * songs can match: albums, artists and playlists have no membership check
+     * to run, so they drop out while the chip is on.
+     */
+    val viewState: StateFlow<SearchSuggestionViewState> = combine(
+        _viewState,
+        libraryOnly,
+        _libraryIds,
+        LikeState.overrides,
+        _libraryLoadFailed,
+        _librarySignedOut,
+        SignedIn.state(context),
+    ) { base, only, ids, overrides, failed, signedOut, signedIn ->
+        val available = only || base.items.isNotEmpty()
+        if (!only) {
+            base.copy(libraryFilterAvailable = available)
+        } else {
+            // The fetched ids, layered with this session's like changes the
+            // way MainViewModel.likeStatuses does: a like this session counts
+            // even before the next fetch, an unlike removes even a fetched id.
+            // Signed out, nothing counts — there is no library to check.
+            val library = buildSet {
+                if (signedIn) ids?.let { addAll(it) }
+                overrides.forEach { (id, status) ->
+                    if (status == LikeStatus.LIKE) add(id) else remove(id)
+                }
+            }
+            val filtered = base.items.filter { it is SongItem && it.id in library }
+            base.copy(
+                items = filtered,
+                libraryFilterAvailable = available,
+                libraryFilterEmpty = base.items.isNotEmpty() && filtered.isEmpty(),
+                libraryLoadFailed = failed,
+                librarySignedOut = signedOut || !signedIn,
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, SearchSuggestionViewState())
 
     // Read live on every query, like HomeViewModel's flags, so a Settings
     // toggle takes effect without an app restart.
@@ -93,6 +159,76 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
                     flow { emit(buildState(text, history)) }
                 }
                 .collect { _viewState.value = it }
+        }
+        // A sign-out (or a sign-in as someone else) retires the cached
+        // library ids: they belong to the previous account. Re-fetch right
+        // away when the chip is on, so the filter never answers from the
+        // wrong library.
+        viewModelScope.launch {
+            SignedIn.state(context).collect { signedIn ->
+                _libraryIds.value = null
+                _libraryLoadFailed.value = false
+                _librarySignedOut.value = !signedIn
+                if (signedIn && libraryOnly.value) ensureLibraryIds()
+            }
+        }
+    }
+
+    /** Turns the Library chip on or off; turning it on fetches the library ids on first use. */
+    fun setLibraryOnly(enabled: Boolean) {
+        if (libraryOnly.value == enabled) return
+        libraryOnly.value = enabled
+        if (enabled) ensureLibraryIds()
+    }
+
+    /**
+     * The library's video ids, fetched once and cached for the screen's life.
+     * The same [YtMusicRepository.library] call the Library tab loads: liked
+     * songs (first page) plus songs added to the library, with the Liked
+     * Music continuation synced into [LikeState] in the background so a liked
+     * track past the first page still matches — the same pairing
+     * LibraryHomeViewModel runs. Session likes apply on top through
+     * [LikeState.overrides] in [viewState], so a like or unlike this session
+     * counts without a re-fetch.
+     *
+     * A failed fetch (or no sign-in) leaves an empty set and a flag, so the
+     * screen can say so instead of silently showing nothing; toggling the
+     * chip off and on retries.
+     */
+    private fun ensureLibraryIds() {
+        if (_libraryIds.value != null && !_libraryLoadFailed.value && !_librarySignedOut.value) return
+        if (libraryLoadJob?.isActive == true) return
+        libraryLoadJob = viewModelScope.launch(Dispatchers.IO) {
+            if (!SignedIn.state(context).value) {
+                _librarySignedOut.value = true
+                _libraryIds.value = emptySet()
+                return@launch
+            }
+            YtMusicRepository.library().fold(
+                onSuccess = { page ->
+                    _librarySignedOut.value = false
+                    _libraryLoadFailed.value = false
+                    _libraryIds.value = buildSet {
+                        page.likedSongs.mapTo(this) { it.videoId }
+                        page.librarySongs.mapTo(this) { it.videoId }
+                    }
+                    page.likedContinuation?.let { token ->
+                        launch {
+                            runCatching {
+                                YtMusicRepository.syncLikedMusic(token) { next ->
+                                    if (!SignedIn.state(context).value) null
+                                    else YtMusicRepository.moreSongs(next).getOrNull()
+                                }
+                            }.onFailure { Timber.w(it, "Search: liked sync failed") }
+                        }
+                    }
+                },
+                onFailure = {
+                    Timber.w(it, "Search: library fetch failed")
+                    _libraryLoadFailed.value = true
+                    _libraryIds.value = emptySet()
+                },
+            )
         }
     }
 
@@ -238,6 +374,14 @@ data class SearchSuggestionViewState(
     val suggestions: List<String> = emptyList(),
     val items: List<YTItem> = emptyList(),
     val isFromLink: Boolean = false,
+    /** The All/Library chip has results to filter (or the filter is on, so it must stay to turn off). */
+    val libraryFilterAvailable: Boolean = false,
+    /** The filter is on, results came back, and none of them is in the library. */
+    val libraryFilterEmpty: Boolean = false,
+    /** The library fetch failed; the empty state says so instead of "no matches". */
+    val libraryLoadFailed: Boolean = false,
+    /** No account is signed in, so there is no library to filter by. */
+    val librarySignedOut: Boolean = false,
 )
 
 /** how many of each kind offline search shows */
