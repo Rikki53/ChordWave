@@ -13,6 +13,24 @@
 // - This screen reads ExploreViewModel + ChartsViewModel (NEEDS.md B4) —
 //   NOT SuggestionsViewModel: no Mochy screen reads SuggestionsViewModel,
 //   and the Apple-Music suggestions engine has no screen of its own.
+//
+// Fixes (feedback 24 Nov 2026, item 9):
+// - Top inset: read off WindowInsets.statusBars, NOT
+//   LocalPlayerAwareWindowInsets — MochyApp provides that local with
+//   navigation bars + mini-player room only, so its top padding is 0
+//   and the first title sat under the clock. Mochy's own provider
+//   added the status bars + AppBarHeight (MainActivity:779); the port
+//   dropped both.
+// - Chart sections are no longer assumed to be songs: the "Top artists"
+//   shelf carries artist rows only (parseArtistRow), so the old
+//   filterIsInstance<SongItem> left its title over an empty
+//   fixed-height grid. Sections now render their songs as a grid and
+//   their cards (artists/albums/playlists) as a row, and a section
+//   with nothing renderable is skipped entirely.
+// - The two fetches are decoupled: charts and new releases render
+//   independently, and both failing shows a retry instead of shimmer
+//   forever. Loads refresh on revisit when the data is stale (the
+//   view models own the staleness check).
 
 package com.music.bitchord.ui.mochy.screens.search
 
@@ -37,6 +55,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -49,14 +68,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -66,6 +88,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.R
@@ -78,6 +101,10 @@ import com.music.bitchord.ui.mochy.component.shimmer.GridItemPlaceHolder
 import com.music.bitchord.ui.mochy.component.shimmer.ShimmerHost
 import com.music.bitchord.ui.mochy.component.shimmer.TextPlaceholder
 import com.music.bitchord.ui.mochy.constants.ListItemHeight
+import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
+import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
+import com.music.bitchord.ui.mochy.models.innertube.ChartsPage
+import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
 import com.music.bitchord.ui.mochy.models.innertube.SongItem
 import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
@@ -90,6 +117,7 @@ import com.music.bitchord.ui.mochy.utils.SnapLayoutInfoProvider
 import com.music.bitchord.ui.mochy.utils.listItemShape
 import com.music.bitchord.ui.mochy.viewmodels.ChartsViewModel
 import com.music.bitchord.ui.mochy.viewmodels.ExploreViewModel
+import kotlinx.coroutines.CoroutineScope
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -107,14 +135,18 @@ fun ExploreScreen(
     val explorePage by exploreViewModel.explorePage.collectAsState()
     val chartsPage by chartsViewModel.chartsPage.collectAsState()
     val isChartsLoading by chartsViewModel.isLoading.collectAsState()
+    val chartsError by chartsViewModel.error.collectAsState()
 
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
+    // The host composes only the current tab (MochyApp renders
+    // ExploreScreen under `currentTab == 1`), so this re-runs on every
+    // revisit. Both calls are cheap when the data is fresh: each view
+    // model reloads only when its page is missing or stale.
     LaunchedEffect(Unit) {
-        if (chartsPage == null) {
-            chartsViewModel.loadCharts()
-        }
+        chartsViewModel.loadCharts()
+        exploreViewModel.refresh()
     }
 
     // MochyNavigator.scrollToTopRequests; Explore scrolls its column to the top.
@@ -135,13 +167,26 @@ fun ExploreScreen(
         Column(
             modifier = Modifier.verticalScroll(scrollState),
         ) {
+            // Status bars directly, not LocalPlayerAwareWindowInsets:
+            // the host provides that local with navigation bars + the
+            // mini-player room only, so its top padding is 0 and the
+            // first title slid under the clock. (NewReleaseScreen reads
+            // the same source for its top padding.)
             Spacer(
                 Modifier.height(
-                    LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateTopPadding(),
+                    WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                 ),
             )
 
-            if (isChartsLoading || chartsPage == null || explorePage == null) {
+            // The two fetches are independent: charts failing must not
+            // hide working new releases, and vice versa. Shimmer only
+            // while neither page exists yet; both failing shows a retry
+            // instead of shimmering forever. A stale reload keeps the
+            // old content on screen (isChartsLoading no longer blanks
+            // the page) and swaps it when the new page lands.
+            val hasAnyContent = chartsPage != null || explorePage != null
+            val loadFailed = !hasAnyContent && !isChartsLoading && chartsError != null
+            if (!hasAnyContent && !loadFailed) {
                 ShimmerHost {
                     TextPlaceholder(
                         height = 36.dp,
@@ -228,102 +273,42 @@ fun ExploreScreen(
                             .width(250.dp),
                     )
                 }
+            } else if (loadFailed) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(320.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(horizontal = 32.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.explore_load_failed),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary,
+                            textAlign = TextAlign.Center,
+                        )
+                        Button(
+                            onClick = {
+                                chartsViewModel.loadCharts(forceRefresh = true)
+                                exploreViewModel.refresh(force = true)
+                            },
+                        ) {
+                            Text(text = stringResource(R.string.retry))
+                        }
+                    }
+                }
             } else {
                 chartsPage?.sections?.filter { it.title != "Top music videos" }?.forEach { section ->
-                    NavigationTitle(
-                        title = when (section.title) {
-                            "Trending" -> stringResource(R.string.trending)
-                            else -> section.title.ifEmpty { stringResource(R.string.charts) }
-                        },
-                    )
-                    BoxWithConstraints(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        val horizontalLazyGridItemWidthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.9f
-                        val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
-
-                        val sectionSongs = remember(section) {
-                            section.items.filterIsInstance<SongItem>().distinctBy { it.id }
-                        }
-                        val lazyGridState = rememberLazyGridState()
-                        val snapLayoutInfoProvider = remember(lazyGridState) {
-                            SnapLayoutInfoProvider(
-                                lazyGridState = lazyGridState,
-                                positionInLayout = { layoutSize, itemSize ->
-                                    (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
-                                },
-                            )
-                        }
-
-                        LazyHorizontalGrid(
-                            state = lazyGridState,
-                            rows = GridCells.Fixed(4),
-                            flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
-                            contentPadding = WindowInsets.systemBars
-                                .only(WindowInsetsSides.Horizontal)
-                                .asPaddingValues(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(ListItemHeight * 4),
-                        ) {
-                            itemsIndexed(
-                                items = sectionSongs,
-                                key = { _, it -> it.id },
-                            ) { index, song ->
-                                val active = song.id == mediaMetadata?.id
-                                YouTubeListItem(
-                                    item = song,
-                                    isActive = active,
-                                    isPlaying = active && isPlaying,
-                                    isSwipeable = false,
-                                    shape = listItemShape(index % 4, 4),
-                                    trailingContent = {
-                                        IconButton(
-                                            onClick = {
-                                                menuState.show {
-                                                    YouTubeSongMenu(
-                                                        song = song,
-                                                        navigator = navigator,
-                                                        onDismiss = menuState::dismiss,
-                                                    )
-                                                }
-                                            },
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.more_vert),
-                                                contentDescription = null,
-                                            )
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .width(horizontalLazyGridItemWidth)
-                                        .combinedClickable(
-                                            onClick = {
-                                                if (song.id == mediaMetadata?.id) {
-                                                    playerConnection.togglePlayPause()
-                                                } else {
-                                                    playerConnection.playQueue(
-                                                        YouTubeQueue(
-                                                            endpoint = WatchEndpoint(videoId = song.id),
-                                                            preloadItem = song.toMediaMetadata(),
-                                                        ),
-                                                    )
-                                                }
-                                            },
-                                            onLongClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                menuState.show {
-                                                    YouTubeSongMenu(
-                                                        song = song,
-                                                        navigator = navigator,
-                                                        onDismiss = menuState::dismiss,
-                                                    )
-                                                }
-                                            },
-                                        ),
-                                )
-                            }
-                        }
+                    key(section.title) {
+                        ChartSection(
+                            section = section,
+                            navigator = navigator,
+                            coroutineScope = coroutineScope,
+                        )
                     }
                 }
 
@@ -331,6 +316,7 @@ fun ExploreScreen(
                     val distinctNewReleases = remember(newReleaseAlbums) {
                         newReleaseAlbums.distinctBy { it.id }
                     }
+                    if (distinctNewReleases.isEmpty()) return@let
                     NavigationTitle(
                         title = stringResource(R.string.new_release_albums),
                         onClick = {
@@ -378,6 +364,7 @@ fun ExploreScreen(
                     val topVideos = remember(topVideosSection) {
                         topVideosSection.items.filterIsInstance<SongItem>().distinctBy { it.id }
                     }
+                    if (topVideos.isEmpty()) return@let
                     NavigationTitle(
                         title = stringResource(R.string.top_music_videos),
                     )
@@ -434,6 +421,166 @@ fun ExploreScreen(
                     LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
                 )
             )
+        }
+    }
+}
+
+/**
+ * One charts shelf: its songs as Mochy's snap-scrolling 4-row grid, its
+ * cards (artists, albums, playlists) as a row of grid items. A charts
+ * shelf is homogeneous in practice, but both halves are rendered when a
+ * shelf mixes them — and a shelf with nothing renderable renders nothing
+ * at all, not even its title: the old code rendered the title plus an
+ * empty fixed-height grid for the artist-only "Top artists" shelf
+ * ("Artis teratas"), which is a title over a black hole.
+ *
+ * Its own composable (rather than inline in the forEach) so the grid
+ * state and snap provider keep their own remember slots per section.
+ */
+@Composable
+private fun ChartSection(
+    section: ChartsPage.ChartSection,
+    navigator: MochyNavigator,
+    coroutineScope: CoroutineScope,
+) {
+    val menuState = LocalMenuState.current
+    val haptic = LocalHapticFeedback.current
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val isPlaying by playerConnection.isEffectivelyPlaying.collectAsState()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+
+    val sectionSongs = remember(section) {
+        section.items.filterIsInstance<SongItem>().distinctBy { it.id }
+    }
+    val sectionCards = remember(section) {
+        section.items.filter { it !is SongItem }.distinctBy { it.id }
+    }
+    if (sectionSongs.isEmpty() && sectionCards.isEmpty()) return
+
+    NavigationTitle(
+        title = when (section.title) {
+            "Trending" -> stringResource(R.string.trending)
+            else -> section.title.ifEmpty { stringResource(R.string.charts) }
+        },
+    )
+
+    if (sectionSongs.isNotEmpty()) {
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val horizontalLazyGridItemWidthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.9f
+            val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
+
+            val lazyGridState = rememberLazyGridState()
+            val snapLayoutInfoProvider = remember(lazyGridState) {
+                SnapLayoutInfoProvider(
+                    lazyGridState = lazyGridState,
+                    positionInLayout = { layoutSize, itemSize ->
+                        (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
+                    },
+                )
+            }
+
+            LazyHorizontalGrid(
+                state = lazyGridState,
+                rows = GridCells.Fixed(4),
+                flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
+                contentPadding = WindowInsets.systemBars
+                    .only(WindowInsetsSides.Horizontal)
+                    .asPaddingValues(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(ListItemHeight * 4),
+            ) {
+                itemsIndexed(
+                    items = sectionSongs,
+                    key = { _, it -> it.id },
+                ) { index, song ->
+                    val active = song.id == mediaMetadata?.id
+                    YouTubeListItem(
+                        item = song,
+                        isActive = active,
+                        isPlaying = active && isPlaying,
+                        isSwipeable = false,
+                        shape = listItemShape(index % 4, 4),
+                        trailingContent = {
+                            IconButton(
+                                onClick = {
+                                    menuState.show {
+                                        YouTubeSongMenu(
+                                            song = song,
+                                            navigator = navigator,
+                                            onDismiss = menuState::dismiss,
+                                        )
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.more_vert),
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .width(horizontalLazyGridItemWidth)
+                            .combinedClickable(
+                                onClick = {
+                                    if (song.id == mediaMetadata?.id) {
+                                        playerConnection.togglePlayPause()
+                                    } else {
+                                        playerConnection.playQueue(
+                                            YouTubeQueue(
+                                                endpoint = WatchEndpoint(videoId = song.id),
+                                                preloadItem = song.toMediaMetadata(),
+                                            ),
+                                        )
+                                    }
+                                },
+                                onLongClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    menuState.show {
+                                        YouTubeSongMenu(
+                                            song = song,
+                                            navigator = navigator,
+                                            onDismiss = menuState::dismiss,
+                                        )
+                                    }
+                                },
+                            ),
+                    )
+                }
+            }
+        }
+    }
+
+    if (sectionCards.isNotEmpty()) {
+        LazyRow(
+            contentPadding = WindowInsets.systemBars
+                .only(WindowInsetsSides.Horizontal)
+                .asPaddingValues(),
+        ) {
+            items(
+                items = sectionCards,
+                key = { it.id },
+            ) { card ->
+                YouTubeGridItem(
+                    item = card,
+                    coroutineScope = coroutineScope,
+                    modifier = Modifier
+                        .combinedClickable(
+                            onClick = {
+                                when (card) {
+                                    is ArtistItem -> navigator.navigate("artist/${card.id}")
+                                    is AlbumItem -> navigator.navigate("album/${card.id}")
+                                    is PlaylistItem -> navigator.navigate("online_playlist/${card.id}")
+                                    // Filtered out above; the when must stay exhaustive.
+                                    is SongItem -> Unit
+                                }
+                            },
+                        )
+                        .animateItem(),
+                )
+            }
         }
     }
 }
