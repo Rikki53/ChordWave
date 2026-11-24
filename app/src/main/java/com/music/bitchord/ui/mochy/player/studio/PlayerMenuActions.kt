@@ -37,7 +37,10 @@ enum class PlayerMenuAction(val label: String, @param:DrawableRes val icon: Int)
     ADD_TO_PLAYLIST("Add to playlist", R.drawable.playlist_add),
 
     // the turntable's own rotate button, added by the player rather than picked in the editor
-    ROTATE("Rotate", R.drawable.screen_rotation);
+    ROTATE("Rotate", R.drawable.screen_rotation),
+
+    // the lyrics page's share button, added by the player when the lyrics page is open, like ROTATE
+    SHARE_LYRICS("Share lyrics", R.drawable.share);
 
     companion object {
         val DefaultSlots = listOf(OTHER_MENU, SLEEP_TIMER, SEE_VIDEO, REPEAT)

@@ -14,8 +14,7 @@
 // like/library, radio, infinite queue, lyrics, stream facts.
 // SKIPPED (no CW equivalent, out of scope): MusicService-bound flows
 // (waitingForNetworkConnection, streamFailure — the flow exists as a
-// permanent-null stub so StreamFailureUi compiles, crossmix —
-// isCrossmixing is a permanent-false stub), cast, remote
+// permanent-null stub so StreamFailureUi compiles), cast, remote
 // control, SongEdits.
 //
 // Phase 3 adapter round (15 Nov 2026, staging/phase3-adapter-connection):
@@ -377,15 +376,12 @@ class MochyPlayerConnection(context: Context) {
     )
 
     /**
-     * STUB — always false. ChordWave DOES have a crossfade engine
-     * (CrossfadeController) plus Automix, and the Phase 4 crossmix
-     * settings drive them — but no signal yet reports "a mix is in
-     * progress right now", so nothing is wired here. MixingNote reads
-     * this to decide whether to show the "mixing" note; it never shows.
-     * TODO: wire to a real crossfade-in-progress signal from the
-     * crossfade controller (engine work, not a UI port).
+     * Whether Automix/a crossfade is mixing into the next track right
+     * now, straight from the engine's own signal ([AppSettings.smartMixInProgress],
+     * written by PlaybackService/CrossfadeController). MixingNote reads
+     * this to decide whether to show the "mixing" note.
      */
-    val isCrossmixing = MutableStateFlow(false)
+    val isCrossmixing: StateFlow<Boolean> = AppSettings.smartMixInProgress
 
     private val _studioRequests = MutableStateFlow(0L)
 

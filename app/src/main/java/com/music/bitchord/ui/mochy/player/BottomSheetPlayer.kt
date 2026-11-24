@@ -6,6 +6,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +48,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,7 +72,10 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -74,9 +83,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.joinAll
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
 import com.music.bitchord.R
 import com.music.bitchord.data.listentogether.ListenTogether
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.SleepTimer
+import com.music.bitchord.playback.toSong
+import com.music.bitchord.ui.replay.year.BestPartStart
+import com.music.bitchord.ui.replay.year.BestParts
 import com.music.bitchord.ui.mochy.constants.PlayerBackgroundStyle
 import com.music.bitchord.ui.mochy.constants.PlayerBackgroundStyleKey
 import com.music.bitchord.ui.mochy.constants.PlayerCoverStyle
@@ -311,6 +325,9 @@ private fun PlayerSheet(
     var showPlaybackSpeed by remember { mutableStateOf(false) }
     var showDeviceOutput by remember { mutableStateOf(false) }
     var showLyricsSource by remember { mutableStateOf(false) }
+    // Incremented when the lyrics menu's Share lyrics button is tapped; LyricsScreen
+    // consumes it (opens the share, then resets it through onShareRequestHandled).
+    var lyricsShareRequest by remember { mutableStateOf(0) }
 
     var showExpandMenu by remember { mutableStateOf(false) }
     var seeVideo by remember { mutableStateOf(false) }
@@ -912,6 +929,7 @@ private fun PlayerSheet(
                 com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.OUTPUT -> showDeviceOutput = true
                 com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.FULL_VIDEO -> enterVideoMode()
                 com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.ROTATE -> styleTurn.toggle()
+                com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.SHARE_LYRICS -> lyricsShareRequest++
                 else -> menuExtras.run(action)
             }
         }
@@ -1041,6 +1059,23 @@ private fun PlayerSheet(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = statusBarTopInset + 24.dp)
+                        .zIndex(2f),
+                )
+            }
+
+            // Best Part, same perch as the Listen Together pill: while the
+            // best part is still ahead, the pill floats over the artwork and
+            // skips to it on tap. It drops a row when the party pill is up,
+            // so the two never stack.
+            if (pillStyleOk && playerOpen && !onTv && !studio.engaged &&
+                transition.page == PlayerPage.NONE && !styleLyricsOpen && !styleQueueOpen &&
+                !showExpandMenu && !showActionMenu
+            ) {
+                BestPartPlayerPill(
+                    playerConnection = playerConnection,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = statusBarTopInset + 24.dp + if (ltState.inParty) 36.dp else 0.dp)
                         .zIndex(2f),
                 )
             }
@@ -1262,6 +1297,8 @@ private fun PlayerSheet(
             if (lyricsPageMounted && sheetShowing) {
                 LyricsScreen(
                     onClose = { transition.close() },
+                    shareRequest = lyricsShareRequest,
+                    onShareRequestHandled = { lyricsShareRequest = 0 },
                     screenHeight = screenHeight,
 
                     contentBottomInset = lyricsBottomInset,
@@ -1779,8 +1816,10 @@ private fun PlayerSheet(
                 // with a youtube video on the cover, the full video mode goes on top unless it's already one of the four
                 val fullVideo = com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.FULL_VIDEO
                 val withVideo = if (videoShowing && fullVideo !in set) listOf(fullVideo) + set else set
+                // share lyrics sits before rotate while the lyrics page is open, so the menu gains it there
+                val withShare = if (showLyrics) withVideo + com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.SHARE_LYRICS else withVideo
                 // the turntable's rotate button sits last, the way the other styles keep theirs at the end
-                if (isTurntable && styleCanTurn) withVideo + com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.ROTATE else withVideo
+                if (isTurntable && styleCanTurn) withShare + com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.ROTATE else withShare
             },
             isActive = ::menuActionActive,
             onAction = onMenuAction,
@@ -2332,3 +2371,94 @@ private fun ListenTogetherPlayerPill(
         }
     }
 }
+
+/**
+ * "Best Part": a pill on the artwork that skips to the part of the song
+ * people replay most, or failing that to its chorus. Ported from Classic's
+ * BestPartPill (sharedUi PlayerControls): offered only while the best part
+ * is still ahead, never for a track with no best part known.
+ */
+@Composable
+private fun BestPartPlayerPill(
+    playerConnection: MochyPlayerConnection,
+    modifier: Modifier = Modifier,
+) {
+    val enabled by AppSettings.showBestPart.collectAsState()
+    if (!enabled) return
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val mediaId = mediaMetadata?.id ?: return
+    val context = LocalContext.current
+    val start by produceState<Long?>(null, mediaId) {
+        value = runCatching {
+            val song = playerConnection.player?.currentMediaItem?.toSong() ?: return@runCatching null
+            BestParts.startFor(context, song)
+                .takeIf { it.source != BestPartStart.Source.FALLBACK }?.startMs
+        }.getOrNull()
+    }
+    // Remembered per track: having been heard is what puts the button away.
+    var heard by remember(mediaId) { mutableStateOf(false) }
+    val progress by playerConnection.progressState.collectAsState()
+    val at = start
+    // Read through derivedStateOf, so the pill recomposes as the playhead
+    // crosses the best part, not on every tick of it.
+    val ahead by remember(at, progress.position) {
+        derivedStateOf { at != null && progress.position < at - AHEAD_SLACK_MS }
+    }
+    val reaching by remember(at, progress.position) {
+        // Only a playhead inside the best part counts as hearing it. Further on
+        // is a reading left over from the last track, or a skip past it, and
+        // the button should come back for a seek to before it.
+        derivedStateOf { at != null && progress.position in (at - AHEAD_SLACK_MS)..(at + HEARD_WINDOW_MS) }
+    }
+    LaunchedEffect(reaching) { if (reaching) heard = true }
+    // Not while Automix is mixing into the next track: what is ahead then is
+    // the next song, not this one's best part.
+    val mixing by AppSettings.smartMixInProgress.collectAsState()
+    val label = stringResource(R.string.best_part)
+    val description = stringResource(R.string.best_part_description)
+    AnimatedVisibility(
+        visible = at != null && ahead && !heard && !mixing,
+        enter = expandVertically(tween(BEST_PART_FADE_MS)) +
+            fadeIn(tween(BEST_PART_FADE_MS, delayMillis = BEST_PART_FADE_MS / 2)),
+        exit = fadeOut(tween(BEST_PART_FADE_MS)) +
+            shrinkVertically(tween(BEST_PART_FADE_MS, delayMillis = BEST_PART_FADE_MS / 2)),
+        modifier = modifier,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.55f))
+                .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape)
+                .clickable {
+                    val target = at ?: return@clickable
+                    heard = true
+                    playerConnection.seekTo(target)
+                }
+                .semantics { contentDescription = description }
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.music_note),
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+/** Just short of the best part already counts as there, so the pill doesn't flash back on a late reading. */
+private const val AHEAD_SLACK_MS = 400L
+
+/** How far into the best part a playhead still counts as having heard it. */
+private const val HEARD_WINDOW_MS = 20_000L
+
+private const val BEST_PART_FADE_MS = 280

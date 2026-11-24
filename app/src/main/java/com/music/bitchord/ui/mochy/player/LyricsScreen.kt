@@ -80,6 +80,7 @@ import coil3.request.allowHardware
 import coil3.toBitmap
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.R
+import android.widget.Toast
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.music.bitchord.ui.mochy.constants.LyricsHighBloomKey
 import com.music.bitchord.ui.mochy.constants.LyricsSoftLightKey
@@ -197,6 +198,12 @@ fun LyricsScreen(
     // unsung lines take on the cover's colours (soft light) instead of plain
     // dimming, when the switch is on and the phone supports it (Android 10+)
     onCoverBackdrop: Boolean = false,
+
+    /** Incremented by the player to open the lyrics share from the menu; consumed via [onShareRequestHandled]. */
+    shareRequest: Int = 0,
+
+    /** Called after a share request is handled, so the player can reset it (a remount must not reopen the share). */
+    onShareRequestHandled: () -> Unit = {},
 
     modifier: Modifier = Modifier,
 ) {
@@ -521,6 +528,33 @@ fun LyricsScreen(
                 )
             },
         )
+    }
+
+    // The menu's Share lyrics button opens the same share, with the line now
+    // playing already picked (the share needs one line to start from). No
+    // flight: the line lifts from nowhere instead of out of its place.
+    val startShareFromMenu by rememberUpdatedState {
+        val meta = mediaMetadata ?: return@rememberUpdatedState
+        val shareable = lines.mapIndexedNotNull { i, e -> e.text.trim().takeIf { it.isNotEmpty() }?.let { i to it } }
+        if (shareable.isEmpty()) {
+            Toast.makeText(context, R.string.lyrics_not_found, Toast.LENGTH_SHORT).show()
+            return@rememberUpdatedState
+        }
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        val held = shareable.indexOfFirst { it.first == currentIndex }.takeIf { it >= 0 } ?: 0
+        shareSession = LyricsShareSession(
+            song = ShareSong(meta.title, meta.artists.joinToString { it.name }, meta.thumbnailUrl),
+            lines = shareable.map { it.second },
+            entries = shareable.map { lines[it.first] },
+            held = held,
+            flightSource = null,
+        )
+    }
+    LaunchedEffect(shareRequest) {
+        if (shareRequest > 0) {
+            startShareFromMenu()
+            onShareRequestHandled()
+        }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
