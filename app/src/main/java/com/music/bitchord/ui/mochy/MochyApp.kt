@@ -93,6 +93,7 @@ import com.music.bitchord.ui.mochy.screens.artist.ArtistSimilarScreen
 import com.music.bitchord.ui.mochy.screens.artist.ArtistSongsScreen
 import com.music.bitchord.ui.mochy.screens.library.LibraryAlbumsScreen
 import com.music.bitchord.ui.mochy.screens.library.LibraryArtistsScreen
+import com.music.bitchord.ui.mochy.screens.library.LibraryGenreScreen
 import com.music.bitchord.ui.mochy.screens.library.LibraryHomeScreen
 import com.music.bitchord.ui.mochy.screens.library.LibraryImportedScreen
 import com.music.bitchord.ui.mochy.screens.library.LibraryPlaylistsScreen
@@ -675,6 +676,13 @@ private fun DetailContent(
         // navigate("explore") switches to it instead of pushing; this
         // branch stays as the safety net for a stacked "explore" route.
         route == "explore" -> ExploreScreen(navigator = navigator)
+        route.startsWith("local_genre/") -> {
+            val name = Uri.decode(route.removePrefix("local_genre/"))
+            LibraryGenreScreen(
+                navigator = navigator,
+                genreName = name,
+            )
+        }
         route.startsWith("library/imported/") -> {
             val rest = route.removePrefix("library/imported/")
             val source = ImportSource.fromKey(rest.substringBefore("/"))

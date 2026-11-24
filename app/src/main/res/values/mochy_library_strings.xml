@@ -6,6 +6,10 @@
 <resources>
     <string name="cached">Cached</string>
     <string name="filter_library">Library</string>
+    <string name="lib_genre_search">Find a song in this genre</string>
+    <string name="lib_genres_local_empty">No genres yet. Import local music with genre tags and they\'ll sort themselves in here.</string>
+    <string name="lib_history_all">All history</string>
+    <string name="lib_history_empty">Nothing played yet. Songs show up here as you listen.</string>
     <string name="library_albums_search">Find an album listed here</string>
     <string name="library_albums_subtitle">Albums you saved, and the ones the songs you added come from.</string>
     <string name="library_all_search">Search your library</string>
@@ -20,6 +24,7 @@
     <string name="library_pinned">Pinned</string>
     <string name="library_recently_added">Recently added</string>
     <string name="library_tab_all">All</string>
+    <string name="library_tab_genres">Genres</string>
     <string name="library_tab_imported">Imported</string>
     <string name="library_tab_local">Local</string>
 </resources>

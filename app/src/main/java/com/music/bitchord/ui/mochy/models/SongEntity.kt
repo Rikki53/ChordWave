@@ -2,7 +2,8 @@
 // Room-free: plain data class. Room annotations
 // and indices are stripped; field names, types and defaults
 // are unchanged. toggleLike()/toggleLibrary() are dropped — they fire
-// YouTube network requests (see NEEDS.md).
+// YouTube network requests (see NEEDS.md). The `genre` field is restored:
+// Mochy's SongEntity has it (its Genres tab reads it); the first port dropped it.
 
 package com.music.bitchord.ui.mochy.models
 
@@ -17,6 +18,9 @@ data class SongEntity(
     val thumbnailUrl: String? = null,
     val albumId: String? = null,
     val albumName: String? = null,
+    // the genre tag of an imported file ("Rock; Pop" sits in both); null for
+    // everything else — the Genres tab only ever sees tagged local files
+    val genre: String? = null,
     val explicit: Boolean = false,
     val year: Int? = null,
     val date: LocalDateTime? = null,

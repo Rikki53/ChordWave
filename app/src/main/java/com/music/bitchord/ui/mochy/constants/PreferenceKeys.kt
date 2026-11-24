@@ -72,6 +72,7 @@ val ProfilePicUriKey = stringPreferencesKey("profilePicUri")
 // the adapter does not read them yet (no LAST_LISTEN source, network always
 // runs, no liked-play tracking).
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
+val HideLibraryImportBannerKey = booleanPreferencesKey("hideLibraryImportBanner")
 val HideVideoSongsKey = booleanPreferencesKey("hideVideoSongs")
 val HideYoutubeShortsKey = booleanPreferencesKey("hideYoutubeShorts")
 val DisableAiFilterKey = booleanPreferencesKey("disableAiFilter")

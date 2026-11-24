@@ -3,10 +3,11 @@
 // Mochy packages -> com.music.bitchord.ui.mochy.* staged equivalents. See NEEDS.md.
 // LibraryHomeScreen.kt
 //
-// The Library tab's landing page: collapsing title + search, then All / Local / Cached / Imported.
-// All has the import banner, Pinned, the four category cards, Recently added and Liked; the others
-// are in LibraryLocalTab.kt, LibraryCachedTab.kt and LibraryImportedTab.kt. While songs download or
-// files come in from the phone, a progress card sits at the top of All and Local.
+// The Library tab's landing page: collapsing title + search, then All / Local / Cached / History /
+// Genres / Imported. All has the import banner, Pinned, the four category cards, Recently
+// added and Liked; the others are in LibraryLocalTab.kt, LibraryCachedTab.kt, LibraryMoreTabs.kt and
+// LibraryImportedTab.kt. While songs download or files come in from the phone, a progress card sits
+// at the top of All and Local.
 
 package com.music.bitchord.ui.mochy.screens.library
 
@@ -41,6 +42,7 @@ import com.music.bitchord.ui.mochy.player.menu.rememberResyncAll
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.constants.HideLibraryImportBannerKey
 import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
@@ -54,8 +56,10 @@ import com.music.bitchord.ui.mochy.screens.search.SearchAvatar
 import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.screens.search.rememberCollapseProgress
 import com.music.bitchord.ui.mochy.utils.rememberPreference
+import com.music.bitchord.ui.mochy.viewmodels.HistoryViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LibraryHomeViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LibraryImportViewModel
+import com.music.bitchord.ui.mochy.viewmodels.LocalGenresViewModel
 import com.music.bitchord.ui.mochy.models.innertube.SongItem
 import com.music.bitchord.ui.mochy.models.innertube.YTItem
 import com.music.bitchord.ui.mochy.component.coverTransitionKey
@@ -99,11 +103,23 @@ fun LibraryHomeScreen(
     val shelfData = tab.shelf?.let { collectShelfTabData(viewModel, it) }
     val localActions = rememberLocalImportActions(importViewModel)
 
-    // read inside the Cached tab's rows only, so playback changes don't recompose this screen
+    // the History and Genres tabs only load once they're opened: one reads every play, the other every local song's genre
+    val historyViewModel: HistoryViewModel? = if (tab == LibraryTab.History) hiltViewModel<HistoryViewModel>() else null
+    val historyEvents = historyViewModel?.events?.collectAsState()?.value
+    val historyLoaded = historyViewModel?.loaded?.collectAsState()?.value ?: false
+    val genres = if (tab == LibraryTab.Genres) {
+        hiltViewModel<LocalGenresViewModel>().genres.collectAsState().value
+    } else {
+        null
+    }
+    LaunchedEffect(historyViewModel) { historyViewModel?.load() }
+
+    // read inside the Cached and History tabs' rows only, so playback changes don't recompose this screen
     val nowPlaying = playerConnection?.mediaMetadata?.collectAsState()
     val isPlaying = playerConnection?.isEffectivelyPlaying?.collectAsState()
 
     val profilePicStr by rememberPreference(ProfilePicUriKey, defaultValue = "")
+    val (hideImportBanner, onHideImportBannerChange) = rememberPreference(HideLibraryImportBannerKey, defaultValue = false)
 
     var query by remember { mutableStateOf(TextFieldValue()) }
     val results = remember(query.text, songs, artists, albums, playlists, tab, shelfData) {
@@ -209,13 +225,18 @@ fun LibraryHomeScreen(
                         isLoading = isLoading,
                         loadFailed = loadFailed,
                         signedIn = signedIn,
-                        importBanner = {
-                            LibraryImportBanner(
-                                progress = importProgress,
-                                onOpenSheet = openImportSheet,
-                                onOpenProgress = openImportProgress,
-                                modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
-                            )
+                        importBanner = if (!hideImportBanner || importProgress.isRunning) {
+                            {
+                                LibraryImportBanner(
+                                    progress = importProgress,
+                                    onOpenSheet = openImportSheet,
+                                    onOpenProgress = openImportProgress,
+                                    onDismiss = { onHideImportBannerChange(true) },
+                                    modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+                                )
+                            }
+                        } else {
+                            null
                         },
                         onOpen = { item -> openLibraryItem(item, navigator, playerConnection, songs) },
                         onUnpin = viewModel::unpin,
@@ -269,6 +290,10 @@ fun LibraryHomeScreen(
                     )
                 }
 
+                LibraryTab.History -> libraryHistoryTab(historyEvents, historyLoaded, nowPlaying, isPlaying, playerConnection, navigator)
+
+                LibraryTab.Genres -> libraryGenresTab(genres, navigator)
+
                 LibraryTab.Imported -> libraryImportedTab(
                     importProgress = importProgress,
                     services = services,
@@ -319,7 +344,7 @@ private fun LazyListScope.libraryAllTab(
     isLoading: Boolean,
     loadFailed: Boolean,
     signedIn: Boolean,
-    importBanner: @Composable () -> Unit,
+    importBanner: (@Composable () -> Unit)?,
     onOpen: (YTItem) -> Unit,
     onUnpin: (String) -> Unit,
     onRetry: () -> Unit,
@@ -329,9 +354,11 @@ private fun LazyListScope.libraryAllTab(
 ) {
     // Even in a library with nothing in it - that is when it matters most. Opens the import sheet,
     // and is the import's progress bar while one runs.
-    item(key = "import_banner") {
-        importBanner()
-        Spacer(modifier = Modifier.height(16.dp))
+    if (importBanner != null) {
+        item(key = "import_banner") {
+            importBanner()
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 
     // Account data (liked songs, playlists, albums, artists) vs what's on

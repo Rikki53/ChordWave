@@ -1,12 +1,16 @@
 // the app version sheet: the app, the version you're on, what's newer, and what you can do about it
 // Ported from Mochy Music (GPL-3.0). The updater engine is NOT Mochy's: everything here reads
-// ChordWave's own AppUpdateChecker (GitHub releases, Rikki53/ChordWave). ChordWave ships one
-// release channel, so Mochy's nightly/release switch, downgrade row and DevSpace hook are gone;
-// the donate row is gone too (Donate is out of scope for the clone).
+// ChordWave's own AppUpdateChecker (GitHub releases, Rikki53/ChordWave). Two channels: Release
+// (stable tags) and Dev (the rolling dev-mochy-ui pre-release, installed as the separate
+// ChordWave Dev app). The downgrade row offers the previous stable release; "Help us!" opens
+// the repo on GitHub (there is no donate link). Mochy's DevSpace hook is gone.
+// Every text here carries its own white: the sheets' ambient content colour renders dark
+// on device, so nothing here relies on it.
 
 package com.music.bitchord.ui.mochy.screens.update
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -47,7 +51,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,12 +80,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
 import androidx.core.graphics.drawable.toBitmap
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.AppUpdateChecker.DownloadState
+import com.music.bitchord.data.AppUpdateChecker.UpdateChannel
 import com.music.bitchord.data.AppUpdateChecker.UpdateInfo
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.component.BetaBadge
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.RemoteFocus
@@ -100,31 +106,41 @@ sealed interface UpdateState {
 
 @Composable
 fun rememberUpdateState(): State<UpdateState> {
+    val context = LocalContext.current
+    val channel by AppSettings.updateChannel.collectAsState()
     val available by AppUpdateChecker.available.collectAsState()
     val state = remember { mutableStateOf<UpdateState>(UpdateState.Checking) }
-    LaunchedEffect(Unit) {
-        AppUpdateChecker.check()
-        state.value = AppUpdateChecker.available.value?.let { UpdateState.Available(it) }
-            ?: UpdateState.UpToDate
+    LaunchedEffect(channel) {
+        state.value = checkUpdateFor(channel, context)
     }
     // a check elsewhere (launch-time, another sheet) finding an update while this one is open
     LaunchedEffect(available) {
         // Local copy: `available` is a delegated property, which the
         // compiler cannot smart-cast after the null check.
         val info = available
-        if (info != null && state.value !is UpdateState.Available) {
+        // the launch-time check only follows the release channel, so its
+        // result means nothing while the dev channel is selected
+        if (channel == UpdateChannel.RELEASE && info != null && state.value !is UpdateState.Available) {
             state.value = UpdateState.Available(info)
         }
     }
     return state
 }
 
-/** asks github whether a newer release is out. AppUpdateChecker swallows check errors, so a
+/** asks github whether a newer build is out on [channel]. AppUpdateChecker swallows check errors, so a
  * failed check reads as up to date here — Failed only exists for the card's error state. */
-private suspend fun checkUpdate(): UpdateState {
-    AppUpdateChecker.check()
-    return AppUpdateChecker.available.value?.let { UpdateState.Available(it) }
-        ?: UpdateState.UpToDate
+private suspend fun checkUpdateFor(channel: UpdateChannel, context: Context): UpdateState {
+    return when (channel) {
+        UpdateChannel.RELEASE -> {
+            AppUpdateChecker.check()
+            AppUpdateChecker.available.value?.let { UpdateState.Available(it) }
+                ?: UpdateState.UpToDate
+        }
+        UpdateChannel.DEV -> {
+            AppUpdateChecker.checkDev(context)?.let { UpdateState.Available(it) }
+                ?: UpdateState.UpToDate
+        }
+    }
 }
 
 /** shows the app version sheet as a PopupSheet, see docs/popup-sheet.skill.md */
@@ -161,7 +177,7 @@ internal fun SheetPrimaryButton(text: String, onClick: () -> Unit) {
             .clickable(interactionSource = interaction, indication = RemoteFocus, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = text, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
+        Text(text = text, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp, color = Color.White)
     }
 }
 
@@ -177,11 +193,19 @@ private fun ColumnScope.UpdateSheetContent(
     initialState: UpdateState,
     popup: PopupSheetState,
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf(initialState) }
+    val channel by AppSettings.updateChannel.collectAsState()
+    // the previous stable release, for the downgrade row; dev builds have no
+    // "previous" (the dev pre-release is a single rolling build)
+    var previous by remember { mutableStateOf<UpdateInfo?>(null) }
+    LaunchedEffect(channel) {
+        previous = if (channel == UpdateChannel.RELEASE) AppUpdateChecker.getPreviousRelease() else null
+    }
 
     suspend fun refresh() {
-        state = checkUpdate()
+        state = checkUpdateFor(channel, context)
     }
     val checkAgain: () -> Unit = {
         if (state !is UpdateState.Checking) {
@@ -223,7 +247,7 @@ private fun ColumnScope.UpdateSheetContent(
             }
 
             Spacer(Modifier.height(14.dp))
-            Text("ChordWave", fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+            Text("ChordWave", fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = Color.White)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     installed,
@@ -231,6 +255,7 @@ private fun ColumnScope.UpdateSheetContent(
                     lineHeight = 46.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-2).sp,
+                    color = Color.White,
                 )
                 Spacer(Modifier.width(14.dp))
                 ChannelBadge()
@@ -244,7 +269,7 @@ private fun ColumnScope.UpdateSheetContent(
             )
 
             Spacer(Modifier.height(22.dp))
-            Text("Actions", fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+            Text("Actions", fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = Color.White)
             Spacer(Modifier.height(10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ActionRow(
@@ -253,10 +278,36 @@ private fun ColumnScope.UpdateSheetContent(
                     spinning = state is UpdateState.Checking,
                     onClick = checkAgain,
                 )
+                AnimatedVisibility(visible = previous != null) {
+                    previous?.let { prev ->
+                        ActionRow(
+                            icon = R.drawable.download,
+                            label = "Downgrade to ${shortVersion(prev.version)}",
+                            onClick = { popup.showUpdateDetailSheet(prev) },
+                        )
+                    }
+                }
+                ActionRow(
+                    icon = R.drawable.sync,
+                    label = if (channel == UpdateChannel.RELEASE) "Switch to dev" else "Switch to release",
+                    onClick = {
+                        popup.showPathChangeSheet(toNightly = channel == UpdateChannel.RELEASE) {
+                            val next = if (channel == UpdateChannel.RELEASE) UpdateChannel.DEV else UpdateChannel.RELEASE
+                            AppSettings.setUpdateChannel(next)
+                            state = UpdateState.Checking
+                            scope.launch { state = checkUpdateFor(next, context) }
+                        }
+                    },
+                )
                 ActionRow(
                     icon = R.drawable.info,
                     label = "About app",
                     onClick = { popup.showAboutSheet() },
+                )
+                ActionRow(
+                    icon = R.drawable.ic_untitled_heart,
+                    label = "Help us!",
+                    onClick = { context.openUrl(ChordWaveRepoUrl) },
                 )
             }
             Spacer(Modifier.height(6.dp))
@@ -264,11 +315,12 @@ private fun ColumnScope.UpdateSheetContent(
     }
 }
 
-/** which channel this build is: a "-suffix" dev build is beta, the rest is stable */
+/** which channel this build is: the dev flavour installs as its own app, the rest is stable */
 @Composable
 private fun ChannelBadge() {
-    // dev builds carry a versionNameSuffix ("-beta2"); plain releases have none
-    val label = if ('-' in BuildConfig.VERSION_NAME) "BETA" else StableLabel
+    // the dev flavour's package ends in .dev; a "-betaN" suffix alone says
+    // nothing (a sideloaded release beta carries one too)
+    val label = if (BuildConfig.APPLICATION_ID.endsWith(".dev")) "DEV" else StableLabel
     AnimatedContent(
         targetState = label,
         transitionSpec = {
@@ -346,13 +398,14 @@ private fun StatusRow(
     }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, color = Color.White)
             Text(
                 big,
                 fontSize = 40.sp,
                 lineHeight = 42.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-1.8).sp,
+                color = Color.White,
                 maxLines = 1,
                 modifier = Modifier.graphicsLayer { alpha = pulse?.value ?: 1f },
             )
@@ -364,6 +417,7 @@ private fun StatusRow(
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
                 letterSpacing = 0.6.sp,
+                color = Color.White,
                 modifier = Modifier
                     .pressBounce(interaction)
                     .clip(CircleShape)
@@ -508,6 +562,7 @@ private fun ColumnScope.UpdateDetailContent(
             text = "ChordWave ${release.version}",
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
+            color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
@@ -523,12 +578,12 @@ private fun ColumnScope.UpdateDetailContent(
             .padding(16.dp)
             .animateContentSize()
     ) {
-        Text(text = "Changelog", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(text = "Changelog", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(modifier = Modifier.height(4.dp))
         ChangelogMarkdown(
             markdown = release.notes.orEmpty(),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            strongColor = MaterialTheme.colorScheme.onSurface,
+            color = Color.White.copy(alpha = 0.8f),
+            strongColor = Color.White,
         )
     }
 
@@ -536,7 +591,7 @@ private fun ColumnScope.UpdateDetailContent(
 
     Text(
         text = "To Be Installed -",
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = Color.White.copy(alpha = 0.55f),
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
     )
@@ -554,15 +609,16 @@ private fun ColumnScope.UpdateDetailContent(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "ChordWave-v${release.version}.apk",
+                text = release.fileName ?: "ChordWave-v${release.version}.apk",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "${BuildConfig.APPLICATION_ID} · v${release.version}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "${release.packageName} · v${release.version}",
+                color = Color.White.copy(alpha = 0.55f),
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -570,9 +626,18 @@ private fun ColumnScope.UpdateDetailContent(
         }
     }
 
+    if (release.packageName != BuildConfig.APPLICATION_ID) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Installs as a separate app alongside this one.",
+            color = Color.White.copy(alpha = 0.55f),
+            fontSize = 12.sp,
+        )
+    }
+
     error?.let {
         Spacer(modifier = Modifier.height(10.dp))
-        Text(text = it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+        Text(text = it, color = Color(0xFFF2B8B5), fontSize = 12.sp)
     }
 
     Spacer(modifier = Modifier.height(18.dp))
@@ -611,7 +676,7 @@ private fun ColumnScope.UpdateDetailContent(
                 .align(Alignment.CenterStart)
                 .fillMaxHeight()
                 .fillMaxWidth(fraction = animatedProgress)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                .background(Color(0xFFE0E0E0).copy(alpha = 0.3f))
         )
         Text(
             text = when {
@@ -623,6 +688,7 @@ private fun ColumnScope.UpdateDetailContent(
             },
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
+            color = Color.White,
         )
     }
 
@@ -642,7 +708,7 @@ private fun ColumnScope.UpdateDetailContent(
                 onClick = { context.openUrl(release.releaseUrl) },
             )
     ) {
-        Text(text = "Open the web", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(text = "Open the web", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
     }
     }
 }

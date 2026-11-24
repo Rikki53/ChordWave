@@ -523,8 +523,7 @@ fun HomeSectionBones(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(HomeCardSpacing),
             modifier = Modifier
                 .fillMaxWidth()
-                .wrapContentWidth(Alignment.Start, unbounded = true)
-                .padding(start = HomeContentInset),
+                .wrapContentWidth(Alignment.Start, unbounded = true),
         ) {
             repeat(3) {
                 Column {
@@ -625,8 +624,7 @@ fun HomeCompactTopBones(
     val radius = (HomeCardCornerRadius * 0.65f).coerceIn(0.dp, 18.dp)
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = HomeContentInset),
+            .fillMaxWidth(),
     ) {
         Bone(width = 148.dp, height = 16.dp)
         Spacer(Modifier.height(14.dp))

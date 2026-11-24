@@ -10,6 +10,7 @@ import android.net.NetworkCapabilities
 import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
+import com.music.bitchord.data.AppUpdateChecker.UpdateChannel
 import com.music.bitchord.data.canvas.CanvasOrder
 import com.music.bitchord.data.canvas.CanvasSearchSource
 import com.music.bitchord.data.canvas.SpotifyToken
@@ -696,6 +697,15 @@ object AppSettings {
      */
     val canvasOrder = MutableStateFlow(CanvasOrder.APPLE_TIDAL_SPOTIFY)
 
+    /**
+     * Which release feed the updater follows: Release (stable tags) or Dev
+     * (the rolling dev-mochy-ui pre-release). A dev build defaults to Dev,
+     * the release app to Release; the Version sheet's channel switch writes it.
+     */
+    val updateChannel = MutableStateFlow(
+        if (BuildConfig.APPLICATION_ID.endsWith(".dev")) UpdateChannel.DEV else UpdateChannel.RELEASE,
+    )
+
     /** Plays the sharpest animated cover there is, up to 4K. */
     val canvasBestQuality = MutableStateFlow(true)
 
@@ -1307,6 +1317,9 @@ object AppSettings {
         if (storedOrder == null) {
             prefs.edit().putString(KEY_CANVAS_ORDER, canvasOrder.value.name).apply()
         }
+        updateChannel.value = prefs.getString(KEY_UPDATE_CHANNEL, null)
+            ?.let { name -> runCatching { UpdateChannel.valueOf(name) }.getOrNull() }
+            ?: updateChannel.value
         canvasBestQuality.value = prefs.getBoolean(KEY_CANVAS_BEST_QUALITY, true)
         updateEffectiveSpotifyCanvasSettings()
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
@@ -2160,6 +2173,11 @@ object AppSettings {
             .apply()
     }
 
+    fun setUpdateChannel(channel: UpdateChannel) {
+        updateChannel.value = channel
+        prefs.edit().putString(KEY_UPDATE_CHANNEL, channel.name).apply()
+    }
+
     fun setCanvasBestQuality(value: Boolean) {
         canvasBestQuality.value = value
         prefs.edit().putBoolean(KEY_CANVAS_BEST_QUALITY, value).apply()
@@ -2849,6 +2867,7 @@ object AppSettings {
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
     private const val KEY_CANVAS_ORDER = "canvas_order"
+    private const val KEY_UPDATE_CHANNEL = "update_channel"
     private const val KEY_CANVAS_BEST_QUALITY = "canvas_best_quality"
     private const val KEY_SIGNATURE_API_ENABLED = "signature_api_enabled"
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"

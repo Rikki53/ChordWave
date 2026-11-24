@@ -1,5 +1,7 @@
 // about app, upstream credits and license sheets pushed from the version sheet
 // Ported from Mochy Music (GPL-3.0). Rebranded to ChordWave with ChordWave's own lineage:
+// Every text here carries its own white: the sheets' ambient content colour renders dark
+// on device, so nothing here relies on it.
 // BitChord (kushagrasinghx) ← Metrolist ← RiMusic, and Mochy Music for the Modern UI design.
 // The donate row and the DevSpace hook are gone (both out of scope for the clone);
 // lead-dev rows open the GitHub profile like every other credit.
@@ -67,7 +69,7 @@ import java.net.URL
 
 private const val ChordWaveOwner = "Rikki53"
 private const val ChordWaveRepo = "ChordWave"
-private const val ChordWaveRepoUrl = "https://github.com/$ChordWaveOwner/$ChordWaveRepo"
+internal const val ChordWaveRepoUrl = "https://github.com/$ChordWaveOwner/$ChordWaveRepo"
 
 @Immutable
 private data class LeadDevEntry(
@@ -272,6 +274,7 @@ private fun ColumnScope.AboutSheetContent(
                     lineHeight = 38.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-1.4).sp,
+                    color = Color.White,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -297,6 +300,7 @@ private fun ColumnScope.AboutSheetContent(
                     lineHeight = 19.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.4).sp,
+                    color = Color.White,
                 )
             }
 
@@ -380,6 +384,7 @@ private fun ColumnScope.LicenseSheetContent() {
             lineHeight = 38.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-1.4).sp,
+            color = Color.White,
         )
         Spacer(Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -424,6 +429,7 @@ private fun AboutPillRow(text: String, onClick: () -> Unit) {
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.4).sp,
+            color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -449,6 +455,7 @@ private fun AboutCardButton(text: String, onClick: () -> Unit) {
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.4).sp,
+            color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -485,6 +492,7 @@ private fun PersonRow(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.4).sp,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -537,6 +545,7 @@ private fun LicenseCard(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (-0.4).sp,
+                color = Color.White,
             )
             Spacer(Modifier.height(2.dp))
             Text(

@@ -17,6 +17,8 @@ package com.music.bitchord.ui.mochy.importer
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import com.music.bitchord.data.model.Song as CwSong
 import com.music.bitchord.ui.mochy.models.ArtistEntity
 import com.music.bitchord.ui.mochy.models.Song
@@ -40,6 +42,7 @@ object LocalImportStore {
         val title: String,
         val artist: String?,
         val album: String?,
+        val genre: String?,
         val durationMs: Long,
         val artworkUri: String?,
         val addedAtMs: Long,
@@ -48,6 +51,8 @@ object LocalImportStore {
 
     private const val PREFS_NAME = "mochy_local_imports"
     private const val KEY_RECORDS = "records_json"
+    /** Set once the one-time genre backfill has run, so it never re-reads every file. */
+    private const val KEY_GENRES_BACKFILLED = "genres_backfilled_v1"
 
     private lateinit var prefs: SharedPreferences
     private var records: List<Record> = emptyList()
@@ -108,6 +113,41 @@ object LocalImportStore {
         return removed
     }
 
+    /**
+     * One-time pass over files imported before genre tags were read: their
+     * records have no genre, so the Genres tab would miss them. Reads each
+     * file's tag once and never runs again. Blocking — call from a
+     * background thread. Files with no genre tag stay genre-less; files
+     * imported after this get their genre at import time.
+     */
+    fun backfillGenres(context: Context) {
+        if (!isReady) init(context)
+        if (prefs.getBoolean(KEY_GENRES_BACKFILLED, false)) return
+        val retriever = MediaMetadataRetriever()
+        try {
+            var changed = false
+            records = records.map { record ->
+                if (record.genre != null) return@map record
+                val genre = runCatching {
+                    retriever.setDataSource(context, Uri.parse(record.uri))
+                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
+                        ?.takeIf { it.isNotBlank() }
+                }.getOrNull()
+                if (genre == null) record else {
+                    changed = true
+                    record.copy(genre = genre)
+                }
+            }
+            if (changed) {
+                persist()
+                publish()
+            }
+        } finally {
+            runCatching { retriever.release() }
+            prefs.edit().putBoolean(KEY_GENRES_BACKFILLED, true).apply()
+        }
+    }
+
     /** The record for [uri] (either form), as the CW Song OfflinePlaylists needs to file it. */
     fun cwSong(uri: String): CwSong? {
         val record = records.firstOrNull { it.uri == uri || it.altUri == uri } ?: return null
@@ -137,6 +177,7 @@ object LocalImportStore {
                 duration = (durationMs / 1_000).toInt().takeIf { it > 0 } ?: -1,
                 thumbnailUrl = artworkUri,
                 albumName = album,
+                genre = genre,
                 inLibrary = addedAt,
                 isLocal = true,
                 localUri = uri,
@@ -157,6 +198,7 @@ object LocalImportStore {
             json.put("title", record.title)
             putOpt(json, "artist", record.artist)
             putOpt(json, "album", record.album)
+            putOpt(json, "genre", record.genre)
             json.put("durationMs", record.durationMs)
             putOpt(json, "artworkUri", record.artworkUri)
             json.put("addedAtMs", record.addedAtMs)
@@ -177,6 +219,7 @@ object LocalImportStore {
                 title = json.optString("title", "Unknown song"),
                 artist = getOpt(json, "artist"),
                 album = getOpt(json, "album"),
+                genre = getOpt(json, "genre"),
                 durationMs = json.optLong("durationMs", 0L),
                 artworkUri = getOpt(json, "artworkUri"),
                 addedAtMs = json.optLong("addedAtMs", 0L),

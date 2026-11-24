@@ -77,8 +77,10 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
+import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.RemoteFocus
@@ -87,6 +89,7 @@ import com.music.bitchord.ui.mochy.constants.ProfileJoinedEpochDayKey
 import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
 import com.music.bitchord.ui.mochy.constants.UsernameKey
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
+import com.music.bitchord.ui.mochy.screens.settings.importsync.YouTubeSyncRoute
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.ProfileIdCard
 import com.music.bitchord.ui.mochy.screens.update.UpdateHeadline
 import com.music.bitchord.ui.mochy.screens.update.UpdateState
@@ -118,11 +121,15 @@ private val PageTitle = TextStyle(
 )
 
 @Composable
-fun ProfileScreen(navigator: MochyNavigator) {
+fun ProfileScreen(
+    navigator: MochyNavigator,
+    mainViewModel: MainViewModel = viewModel(),
+) {
     val context = LocalContext.current
     val menuState = LocalMenuState.current
     val updateState by rememberUpdateState()
     val profileViewModel: UserProfileViewModel = hiltViewModel()
+    val account by mainViewModel.account.collectAsState()
     val listens by profileViewModel.listens.collectAsState()
     val totalListeningMs = listens?.firstOrNull()?.playTimeMs ?: 0L
 
@@ -153,6 +160,11 @@ fun ProfileScreen(navigator: MochyNavigator) {
         joinedDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
     )
     val photo: Any? = profilePicUri.takeIf { it.isNotBlank() }?.let { if (it.contains("://")) it else "file://$it" }
+    // signed in, the card wears the Google account (name + avatar); signed
+    // out, it falls back to the local profile. The card number and join date
+    // stay local either way — they belong to this device, not the account.
+    val displayName = account?.name?.takeIf { it.isNotBlank() } ?: username
+    val displayPhoto: Any? = account?.thumbnailUrl?.takeIf { it.isNotBlank() } ?: photo
     val greetingRes = remember {
         listOf(
             R.string.profile_greeting_hello_again,
@@ -187,15 +199,16 @@ fun ProfileScreen(navigator: MochyNavigator) {
             text = stringResource(
                 R.string.profile_greeting_format,
                 stringResource(greetingRes),
-                username.ifBlank { stringResource(R.string.profile_greeting_fallback) },
+                displayName.ifBlank { stringResource(R.string.profile_greeting_fallback) },
             ),
             style = PageTitle,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(20.dp))
-        // the card: tapping it opens the editor (Mochy morphs into a full
-        // profile page here; the simplified page edits in place instead)
+        // the card: signed out, tapping it opens the editor (Mochy morphs into a full
+        // profile page here; the simplified page edits in place instead); signed in,
+        // the card shows the Google account and tapping it opens the account screen
         Box(
             modifier = Modifier
                 .widthIn(max = 380.dp)
@@ -204,16 +217,19 @@ fun ProfileScreen(navigator: MochyNavigator) {
                 .clickable(
                     interactionSource = cardPress,
                     indication = RemoteFocus,
-                    onClick = { menuState.showEditProfileSheet(username, photo) },
+                    onClick = {
+                        if (account != null) navigator.navigate(YouTubeSyncRoute)
+                        else menuState.showEditProfileSheet(username, photo)
+                    },
                 ),
         ) {
             ProfileIdCard(
-                username = username,
-                photo = photo,
+                username = displayName,
+                photo = displayPhoto,
                 cardNumber = cardNumber,
                 joinedText = joinedText,
                 showIdCardOf = true,
-                showEditHint = true,
+                showEditHint = account == null,
                 pressed = { cardPressed },
             )
         }

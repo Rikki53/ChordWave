@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.music.bitchord.R
+import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.playback.SleepTimer
@@ -134,6 +135,7 @@ fun PlayerActionMenu(
     // only a song autoplay picked is ours to stop recommending, a song you chose yourself stays as it is
     val queue by playerConnection.queueSnapshot.collectAsState()
     val isAutoplaySong = queue.items.getOrNull(queue.currentIndex)?.isAutoplay == true
+    val ltState by ListenTogether.state.collectAsState()
 
     var showChoosePlaylistDialog by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
@@ -355,6 +357,24 @@ fun PlayerActionMenu(
                 )
                 // a linked tv with mochy open: play there, line it up there, or work it as a remote
                 DeviceMenuRows(onDismiss = onDismiss)
+                Spacer(modifier = Modifier.height(8.dp))
+                MenuRow(
+                    icon = R.drawable.group,
+                    title = "Listen Together",
+                    onClick = {
+                        onDismiss()
+                        onOpenRoute?.invoke("listen_together")
+                    },
+                    trailing = {
+                        if (ltState.inParty) {
+                            Text(
+                                text = "${ltState.members.size} in party",
+                                color = Color(0xFF9A9A9A),
+                                fontSize = 12.sp,
+                            )
+                        }
+                    },
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 SleepTimerRow(onClick = { showSleepTimer = true })
                 // Karaoke sits next to the sleep timer, as in Classic.

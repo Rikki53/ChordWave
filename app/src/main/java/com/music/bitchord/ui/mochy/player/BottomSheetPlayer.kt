@@ -7,6 +7,7 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,8 +31,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -66,11 +69,13 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.joinAll
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.R
+import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.playback.SleepTimer
 import com.music.bitchord.ui.mochy.constants.PlayerBackgroundStyle
 import com.music.bitchord.ui.mochy.constants.PlayerBackgroundStyleKey
@@ -1010,6 +1015,35 @@ private fun PlayerSheet(
             },
             collapsedContent = {},
         ) {
+            // Listen Together, one place for every style: while a party is live
+            // the pill floats under the handle, over whichever style is showing.
+            // The fullscreen styles (video, iPod, bedside) have no header to
+            // hang it on, so it stays off there; it also hides while a page,
+            // the studio or a menu covers the player.
+            val ltState by ListenTogether.state.collectAsState()
+            val pillStyleOk = playerStyle.flagshipFamily ||
+                playerStyle == PlayerStyle.POSTER ||
+                playerStyle == PlayerStyle.TIMELINE ||
+                playerStyle == PlayerStyle.LYRICS
+            val playerOpen by remember(state) {
+                derivedStateOf { state.isExpanded || (state.isExpandedOrExpanding && state.progress > 0.9f) }
+            }
+            if (ltState.inParty && pillStyleOk && playerOpen && !onTv && !studio.engaged &&
+                transition.page == PlayerPage.NONE && !styleLyricsOpen && !styleQueueOpen &&
+                !showExpandMenu && !showActionMenu
+            ) {
+                ListenTogetherPlayerPill(
+                    state = ltState,
+                    onClick = {
+                        navigator.navigate("listen_together")
+                        state.collapseSoft()
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = statusBarTopInset + 24.dp)
+                        .zIndex(2f),
+                )
+            }
 
             // Alternate styles replace the player outright rather than drawing over it, so none
             // of the default composition - blur, morphing cover, controls - runs while one is
@@ -2241,6 +2275,60 @@ private fun ExpandMenuOverlay(
                     }
                 )
             }
+        }
+    }
+}
+
+/** the party pill over the player: who is listening together, live, and whether controls are locked */
+@Composable
+private fun ListenTogetherPlayerPill(
+    state: ListenTogether.State,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isHost = state.you?.isHost == true
+    val liveDot = when (state.connection) {
+        ListenTogether.Connection.LIVE -> Color(0xFF34C759)
+        ListenTogether.Connection.CONNECTING -> Color(0xFFFF9F0A)
+        ListenTogether.Connection.OFFLINE -> Color.White.copy(alpha = 0.4f)
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.55f))
+            .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(liveDot),
+        )
+        Spacer(Modifier.width(7.dp))
+        Icon(
+            painter = painterResource(R.drawable.group),
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.size(14.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = (if (isHost) "Hosting" else "Party") + " \u2022 ${state.members.size}",
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (state.controlsLocked) {
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                painter = painterResource(R.drawable.lock),
+                contentDescription = "Controls locked",
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(12.dp),
+            )
         }
     }
 }

@@ -1,8 +1,6 @@
 // "path change": the meme across the top, are you sure, then yes or no
 // Ported from Mochy Music (GPL-3.0) — package + imports only.
-// NOTE: ChordWave ships one release channel, so nothing calls this sheet yet. It lands as the
-// ready-made confirm sheet for the day a beta/nightly channel exists; until then it is dead
-// code kept for the design, and it still needs R.drawable.path_change copied (see NEEDS.md).
+// The Version sheet's confirm sheet for switching update channels (Release <-> Dev).
 package com.music.bitchord.ui.mochy.screens.update
 
 import androidx.compose.foundation.Image

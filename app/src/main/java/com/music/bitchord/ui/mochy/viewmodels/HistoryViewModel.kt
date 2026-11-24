@@ -84,6 +84,10 @@ class HistoryViewModel @Inject constructor(
     private val _events = MutableStateFlow<Map<DateAgo, List<EventWithSong>>>(emptyMap())
     val events: StateFlow<Map<DateAgo, List<EventWithSong>>> = _events
 
+    private val _loaded = MutableStateFlow(false)
+    /** True once the first load has finished, so a tab can tell loading from never played. */
+    val loaded: StateFlow<Boolean> = _loaded
+
     private var loadJob: Job? = null
 
     /** Builds the grouped history from local listening stats. Safe to call again to refresh. */
@@ -113,6 +117,7 @@ class HistoryViewModel @Inject constructor(
                 )
             }
             _events.value = group(items)
+            _loaded.value = true
         }
     }
 
@@ -145,6 +150,7 @@ class HistoryViewModel @Inject constructor(
             }
             .filter { !hideVideoSongs || !it.song.song.isVideo }
         _events.value = group(items)
+        _loaded.value = true
     }
 
     /** Mochy's grouping, verbatim: day buckets, then month-start Others, oldest last. */

@@ -208,6 +208,8 @@ object LocalImportEngine {
                 ?.takeIf { it.isNotBlank() }?.let { artist = it }
             album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
                 ?.takeIf { it.isNotBlank() }
+            val genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
+                ?.takeIf { it.isNotBlank() }
             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull()?.let { durationMs = it }
             val embedded = retriever.embeddedPicture
@@ -231,6 +233,7 @@ object LocalImportEngine {
             title = title,
             artist = artist,
             album = album,
+            genre = genre,
             durationMs = durationMs,
             artworkUri = artworkUri,
             addedAtMs = System.currentTimeMillis(),
