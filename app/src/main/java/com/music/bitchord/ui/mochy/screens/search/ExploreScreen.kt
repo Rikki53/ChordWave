@@ -437,6 +437,7 @@ fun ExploreScreen(
  * Its own composable (rather than inline in the forEach) so the grid
  * state and snap provider keep their own remember slots per section.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChartSection(
     section: ChartsPage.ChartSection,

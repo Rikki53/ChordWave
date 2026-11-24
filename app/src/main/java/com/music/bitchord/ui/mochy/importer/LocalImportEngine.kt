@@ -197,6 +197,7 @@ object LocalImportEngine {
         var title = input.title
         var artist = input.artist
         var album: String? = null
+        var genre: String? = null
         var durationMs = input.durationMs ?: 0L
         var artworkUri = input.artworkUri
         val retriever = MediaMetadataRetriever()
@@ -208,7 +209,7 @@ object LocalImportEngine {
                 ?.takeIf { it.isNotBlank() }?.let { artist = it }
             album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
                 ?.takeIf { it.isNotBlank() }
-            val genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
+            genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
                 ?.takeIf { it.isNotBlank() }
             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull()?.let { durationMs = it }

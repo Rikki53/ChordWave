@@ -96,7 +96,7 @@ object AppUpdateChecker {
             val release = fetchRelease(LATEST_RELEASE_URL) ?: return@runCatching
             val tag = release["tag_name"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
             val url = release["html_url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
-            val (fileName, apkUrl) = releaseApkAsset(release)
+            val (fileName, apkUrl) = releaseApkAsset(release) ?: return@runCatching
             val notes = release["body"]?.jsonPrimitive?.contentOrNull
             val latest = tag.removePrefix("v")
             if (isNewer(latest, BuildConfig.VERSION_NAME)) {
@@ -170,7 +170,7 @@ object AppUpdateChecker {
                 .maxWithOrNull(Comparator { a, b -> compareVersions(a.second, b.second) })
                 ?.let { (obj, version) ->
                     val url = obj["html_url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching null
-                    val (fileName, apkUrl) = releaseApkAsset(obj)
+                    val (fileName, apkUrl) = releaseApkAsset(obj) ?: return@runCatching null
                     val notes = obj["body"]?.jsonPrimitive?.contentOrNull
                     UpdateInfo(
                         version = version,
