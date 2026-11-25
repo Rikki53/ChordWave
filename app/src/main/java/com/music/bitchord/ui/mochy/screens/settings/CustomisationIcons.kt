@@ -2,11 +2,9 @@
 //
 // Ported from Mochy Music (GPL-3.0): ui/screens/gesture/CustomisationIcons.kt,
 // reworked for ChordWave's own icon set (see NEEDS.md):
-// - ChordWave's AppIcon is a flat enum of 23 activity-alias icons (root
-//   package), with no families, custom colours or splash sync: the
-//   families here are grouped by name prefix (Default, Monochrome,
-//   Liquid Glass, Samsung Glass, Pixel Glass, Neon, Samsung Neon,
-//   Pixel Neon), and the custom-colour picker is gone.
+// - ChordWave's AppIcon is a single Default icon now (25 Nov 2026): the 22
+//   upstream BitChord alternative icons were removed for 100% ChordWave
+//   branding, so the picker shows one family with one icon.
 // - Art is the icon's preview foreground where it has one, else the icon
 //   itself, drawn full-bleed in the tile (no background/foreground split).
 package com.music.bitchord.ui.mochy.screens.settings
@@ -83,31 +81,6 @@ private class IconFamily(@StringRes val title: Int, val icons: List<AppIcon>)
 
 private val IconFamilies = listOf(
     IconFamily(R.string.customise_icons_family_default, listOf(AppIcon.Default)),
-    IconFamily(R.string.customise_icons_family_monochrome, listOf(AppIcon.Monochrome)),
-    IconFamily(
-        R.string.customise_icons_family_liquid_glass,
-        listOf(AppIcon.LiquidGlass, AppIcon.LiquidGlassDark, AppIcon.LiquidGlassClear, AppIcon.LiquidGlassClearDark),
-    ),
-    IconFamily(
-        R.string.customise_icons_family_samsung_glass,
-        listOf(AppIcon.SamsungGlass, AppIcon.SamsungGlassDark, AppIcon.SamsungGlassClear, AppIcon.SamsungGlassClearDark),
-    ),
-    IconFamily(
-        R.string.customise_icons_family_pixel_glass,
-        listOf(AppIcon.PixelGlass, AppIcon.PixelGlassDark, AppIcon.PixelGlassClear, AppIcon.PixelGlassClearDark),
-    ),
-    IconFamily(
-        R.string.customise_icons_family_neon,
-        listOf(AppIcon.NeonSilver, AppIcon.NeonCyan, AppIcon.NeonViolet),
-    ),
-    IconFamily(
-        R.string.customise_icons_family_samsung_neon,
-        listOf(AppIcon.SamsungNeonSilver, AppIcon.SamsungNeonCyan, AppIcon.SamsungNeonViolet),
-    ),
-    IconFamily(
-        R.string.customise_icons_family_pixel_neon,
-        listOf(AppIcon.PixelNeonSilver, AppIcon.PixelNeonCyan, AppIcon.PixelNeonViolet),
-    ),
 )
 
 private fun AppIcon.family(): IconFamily = IconFamilies.first { it.icons.contains(this) }
