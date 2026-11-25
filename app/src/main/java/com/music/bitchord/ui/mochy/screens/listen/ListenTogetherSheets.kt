@@ -514,45 +514,44 @@ private fun InviteSheetContent(code: String, link: String) {
             },
         )
         Spacer(Modifier.height(24.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+        // The square big and in the middle (batch 30): this sheet is pulled
+        // up to be scanned, so the code is the biggest thing on it, with
+        // the words and the invite code centred under it.
+        QrCode(content = link, size = 240.dp)
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = stringResource(R.string.listen_together_scan_qr),
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.listen_together_scan_qr_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.55f),
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(10.dp))
+        // The code under the square, because the square is useless to
+        // somebody on the phone the party was made on — reading six
+        // characters out is still the fastest way into a party in the
+        // same room.
+        TextButton(
+            onClick = {
+                clipboard.setText(AnnotatedString(code))
+                TopToaster.show(context.getString(R.string.copy_code))
+            },
+            contentPadding = PaddingValues(0.dp),
         ) {
-            Column(Modifier.weight(1f).padding(end = 16.dp)) {
-                Text(
-                    text = stringResource(R.string.listen_together_scan_qr),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.listen_together_scan_qr_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.55f),
-                )
-                Spacer(Modifier.height(10.dp))
-                // The code under the square, because the square is useless to
-                // somebody on the phone the party was made on — reading six
-                // characters out is still the fastest way into a party in the
-                // same room.
-                TextButton(
-                    onClick = {
-                        clipboard.setText(AnnotatedString(code))
-                        TopToaster.show(context.getString(R.string.copy_code))
-                    },
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    Text(
-                        text = code,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 3.sp,
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-            QrCode(content = link, size = 132.dp)
+            Text(
+                text = code,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 3.sp,
+                ),
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
         Spacer(Modifier.height(12.dp + navBottom))
     }

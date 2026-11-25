@@ -14,7 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas
@@ -38,13 +37,14 @@ import kotlinx.coroutines.withContext
  *
  * Drawn rather than decoded into a bitmap. ZXing hands back a bit matrix and
  * this paints it, which costs nothing extra — the matrix is the expensive part
- * — and buys the two things a stock QR bitmap cannot give: the modules are
- * rounded to match every other shape in the app, and the colours come from the
- * theme instead of being baked black on white.
+ * — and buys the two things a stock QR bitmap cannot give: the colours come
+ * from the theme instead of being baked in, and the painting happens once,
+ * off the main thread. The modules themselves are plain solid squares
+ * (batch 30): rounded dots looked grey and scanned worse.
  *
  * Painted once, off the main thread, into an [ImageBitmap]. Both halves of the
  * work are too heavy to sit in a frame: encoding walks the matrix several times
- * over, and a version-7 code is two thousand rounded rectangles, which is two
+ * over, and a version-7 code is two thousand rectangles, which is two
  * thousand draw calls on *every* frame of the sheet sliding up if the painting
  * happens in a [androidx.compose.foundation.Canvas]. Once it is a bitmap the
  * sheet's animation is blitting one image, and the encode has already happened
@@ -130,20 +130,17 @@ private fun renderQr(
     val side = sidePx.toFloat()
     CanvasDrawScope().draw(density, LayoutDirection.Ltr, Canvas(image), Size(side, side)) {
         val cell = side / modules
-        // Slightly smaller than the cell so neighbouring modules read as
-        // separate dots rather than merging into a solid block, which is what
-        // makes a rounded code still scan.
-        val dot = cell * 0.86f
-        val radius = CornerRadius(dot * 0.3f, dot * 0.3f)
-        val inset = (cell - dot) / 2f
+        // Solid square modules, edge to edge (batch 30): the rounded dots
+        // this used to draw read as grey dither at a glance and gave phone
+        // cameras less to lock onto. Pure foreground on pure background is
+        // what a QR reader wants.
         for (y in 0 until modules) {
             for (x in 0 until modules) {
                 if (!matrix.get(x, y)) continue
-                drawRoundRect(
+                drawRect(
                     color = foreground,
-                    topLeft = Offset(x * cell + inset, y * cell + inset),
-                    size = Size(dot, dot),
-                    cornerRadius = radius,
+                    topLeft = Offset(x * cell, y * cell),
+                    size = Size(cell, cell),
                 )
             }
         }
