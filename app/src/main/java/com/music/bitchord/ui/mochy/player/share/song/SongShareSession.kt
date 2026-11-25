@@ -261,10 +261,15 @@ internal class SongShareSession(val song: MediaMetadata) {
         background = video
     }
 
-    // pick which provider's animated cover plays; the preview and the export both read [animatedCover]
+    // pick which provider's animated cover plays; the preview and the export both read [animatedCover].
+    // Picking a clip also makes it the background: a clip on its own changes nothing on screen, and
+    // the style page's video choice has no background pager to do that step for it. The dim is kept
+    // from the video showing now (or the last one), so re-picking a source never resets it.
     fun pickAnimatedCover(source: CanvasSource, url: String) {
         animatedCoverSource = source
         animatedCover = Fetched.Found(url)
+        val dim = (background as? SongBackground.Video)?.dim ?: lastVideo?.dim ?: 0.85f
+        setVideo(SongBackground.Video(ShareVideoSource.AnimatedCover, dim))
     }
 
     // the song position for this frame: the preview's, or a loop of the window while there's no sound yet

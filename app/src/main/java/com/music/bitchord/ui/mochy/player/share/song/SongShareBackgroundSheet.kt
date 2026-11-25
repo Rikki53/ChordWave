@@ -334,19 +334,26 @@ private fun TextAction(text: String, onClick: () -> Unit) {
 // which provider's animated cover plays: Apple and Spotify are always
 // shown, greyed out with the reason when the song has none — the same
 // choice the classic share sheet offers; another provider's clip only
-// when there is one
+// when there is one. While the clips are still loading the rows stay
+// visible but unusable, so the choice never looks absent — only the
+// reason changes. Shared with the style page (batch 12).
 @Composable
-private fun CanvasSourcePicker(session: SongShareSession) {
+internal fun CanvasSourcePicker(session: SongShareSession) {
     val clips = session.animatedCoverClips
     val selected = session.animatedCoverSource
+    // still looking and nothing arrived yet: unusable, but shown
+    val looking = session.animatedCover is Fetched.Looking && clips.isEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         CanvasSourceRow(
             label = stringResource(R.string.lyrics_share_apple_canvas),
             hint = stringResource(
-                if (CanvasSource.APPLE in clips) R.string.song_share_bg_canvas_apple_hint
-                else R.string.song_share_bg_canvas_apple_missing,
+                when {
+                    looking -> R.string.song_share_bg_canvas_looking
+                    CanvasSource.APPLE in clips -> R.string.song_share_bg_canvas_apple_hint
+                    else -> R.string.song_share_bg_canvas_apple_missing
+                },
             ),
-            enabled = CanvasSource.APPLE in clips,
+            enabled = !looking && CanvasSource.APPLE in clips,
             selected = selected == CanvasSource.APPLE,
             onClick = { clips[CanvasSource.APPLE]?.let { session.pickAnimatedCover(CanvasSource.APPLE, it.url) } },
         )
@@ -354,12 +361,13 @@ private fun CanvasSourcePicker(session: SongShareSession) {
             label = stringResource(R.string.lyrics_share_spotify_canvas),
             hint = stringResource(
                 when {
+                    looking -> R.string.song_share_bg_canvas_looking
                     CanvasSource.SPOTIFY in clips -> R.string.song_share_bg_canvas_spotify_hint
                     AppSettings.disableSpotifyCanvas.value -> R.string.song_share_bg_canvas_spotify_off
                     else -> R.string.song_share_bg_canvas_spotify_missing
                 },
             ),
-            enabled = CanvasSource.SPOTIFY in clips,
+            enabled = !looking && CanvasSource.SPOTIFY in clips,
             selected = selected == CanvasSource.SPOTIFY,
             onClick = { clips[CanvasSource.SPOTIFY]?.let { session.pickAnimatedCover(CanvasSource.SPOTIFY, it.url) } },
         )

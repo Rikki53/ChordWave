@@ -209,7 +209,7 @@ internal fun PopupSheetState.showCardStyle(session: SongShareSession) {
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+internal fun SectionLabel(text: String) {
     Text(text, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = (-0.4).sp, color = Color.White)
 }
 

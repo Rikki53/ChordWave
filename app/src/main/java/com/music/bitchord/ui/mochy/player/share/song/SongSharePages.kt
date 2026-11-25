@@ -154,6 +154,13 @@ internal fun PopupSheetState.showStylePage(session: SongShareSession) {
                 ) { TilePicture(session, SongShareKind.Lyrics, style) }
             }
         }
+        // the video choice, here on the share page itself: which provider's
+        // animated cover plays behind the words — no detour through Edit
+        // background (batch 12; that path still works unchanged)
+        SectionLabel(stringResource(R.string.song_share_type_video))
+        Spacer(Modifier.height(10.dp))
+        CanvasSourcePicker(session)
+        Spacer(Modifier.height(20.dp))
         ReadingSwitches(session)
     }
 }
