@@ -15,6 +15,9 @@
 
 package com.music.bitchord.ui.mochy.screens.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -39,6 +42,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,6 +59,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.canvas.CanvasOrder
 import com.music.bitchord.data.canvas.CanvasSearchSource
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.FloatingLyricsService
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.DefaultPlayerSeekBarSlider
 import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
@@ -691,17 +697,49 @@ private fun playerLookItems(): List<SettingsItem> {
     )
 }
 
-// CHORDWAVE STUB: Mochy's floating-lyrics overlay bubble (overlay permission +
-// a floating window service) has no ChordWave engine. The row stays visible
-// but off; tapping it says so instead of silently doing nothing.
+// The floating-lyrics bubble (batch 32): a real switch over
+// [FloatingLyricsService]. Turning it on needs the "display over other apps"
+// grant, which a sideloaded app never gets silently — the switch sends the
+// listener to the system screen and re-checks on the way back.
 @Composable
-private fun rememberFloatingLyricsSwitch(): Pair<Boolean, (Boolean) -> Unit> {
-    val unavailable = stringResource(R.string.settings_floating_lyrics_unavailable)
-    val onChange: (Boolean) -> Unit = {
-        Timber.w("Floating lyrics are not available in ChordWave")
-        TopToaster.show(unavailable, iconRes = R.drawable.lyrics)
+internal fun rememberFloatingLyricsSwitch(): Pair<Boolean, (Boolean) -> Unit> {
+    val context = LocalContext.current
+    val enabled by AppSettings.floatingLyricsEnabled.collectAsState()
+    val permissionNeeded = stringResource(R.string.settings_floating_lyrics_permission_needed)
+    var pendingEnable by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (pendingEnable) {
+            pendingEnable = false
+            if (Settings.canDrawOverlays(context)) {
+                AppSettings.setFloatingLyricsEnabled(true)
+                FloatingLyricsService.start(context)
+            } else {
+                TopToaster.show(permissionNeeded, iconRes = R.drawable.lyrics)
+            }
+        }
     }
-    return false to onChange
+    val onChange: (Boolean) -> Unit = { on ->
+        if (on) {
+            if (Settings.canDrawOverlays(context)) {
+                AppSettings.setFloatingLyricsEnabled(true)
+                FloatingLyricsService.start(context)
+            } else {
+                pendingEnable = true
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + context.packageName),
+                        ),
+                    )
+                }.onFailure { pendingEnable = false }
+            }
+        } else {
+            AppSettings.setFloatingLyricsEnabled(false)
+            FloatingLyricsService.stop(context)
+        }
+    }
+    return enabled to onChange
 }
 
 // how sharp youtube videos play, on the cover and in the full video mode

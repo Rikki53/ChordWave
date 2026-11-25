@@ -62,6 +62,7 @@ import com.music.bitchord.ui.mochy.screens.setup.onboarding.CardInfo
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.DoneStep
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.HelloCardStep
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.ImportAskPage
+import com.music.bitchord.ui.mochy.screens.setup.onboarding.PermissionsPage
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.ImportModePage
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.LastOnePage
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.Onb
@@ -85,7 +86,7 @@ import kotlinx.coroutines.launch
 import com.music.bitchord.ui.mochy.component.backdropClick
 
 private enum class Step {
-    Welcome, ImportAsk, ImportMode, Restoring, Providers, ProviderSetup, WhatToSync, SyncOptions,
+    Welcome, Permissions, ImportAsk, ImportMode, Restoring, Providers, ProviderSetup, WhatToSync, SyncOptions,
     Profile, Hello, BlurWarning, LastOne, Done,
 }
 
@@ -331,11 +332,15 @@ fun SetupWizardScreen(
                                     isLeavingWelcome = true
                                     scope.launch {
                                         delay(400)
-                                        go(Step.ImportAsk)
+                                        go(Step.Permissions)
                                         isLeavingWelcome = false
                                     }
                                 }
                             },
+                        )
+
+                        Step.Permissions -> PermissionsPage(
+                            onContinue = { go(Step.ImportAsk) },
                         )
 
                         Step.ImportAsk -> ImportAskPage(

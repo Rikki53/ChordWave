@@ -339,6 +339,9 @@ object AppSettings {
      * See [com.music.bitchord.playback.smart.TransitionPlanner].
      */
     val smartFadeEnabled = MutableStateFlow(false)
+
+    /** The floating-lyrics bubble over other apps (batch 32). Off by default. */
+    val floatingLyricsEnabled = MutableStateFlow(false)
     private val _autoMixArtwork = MutableStateFlow(AutoMixArtworkPreferences())
     val autoMixArtwork = _autoMixArtwork.asStateFlow()
     val sleepTimerFadeOut = MutableStateFlow(true)
@@ -1201,6 +1204,7 @@ object AppSettings {
         downloadLikedSongs.value = prefs.getBoolean(KEY_DOWNLOAD_LIKED_SONGS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
+        floatingLyricsEnabled.value = prefs.getBoolean(KEY_FLOATING_LYRICS, false)
         _autoMixArtwork.value = AutoMixArtworkPreferences(
             artTransition = prefs.getBoolean(KEY_AUTOMIX_ART_TRANSITION, false),
             miniPlayerTransition = prefs.getBoolean(KEY_AUTOMIX_MINI_ART_TRANSITION, false),
@@ -1594,6 +1598,11 @@ object AppSettings {
         }
         smartFadeEnabled.value = value
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
+    }
+
+    fun setFloatingLyricsEnabled(value: Boolean) {
+        floatingLyricsEnabled.value = value
+        prefs.edit().putBoolean(KEY_FLOATING_LYRICS, value).apply()
     }
 
     fun setAutoMixArtTransition(value: Boolean) {
@@ -2789,6 +2798,7 @@ object AppSettings {
     private const val KEY_DOWNLOAD_LIKED_SONGS = "download_liked_songs"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
+    private const val KEY_FLOATING_LYRICS = "floating_lyrics_enabled"
     private const val KEY_AUTOMIX_ART_TRANSITION = "automix_art_transition"
     private const val KEY_AUTOMIX_MINI_ART_TRANSITION = "automix_mini_art_transition"
     private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"

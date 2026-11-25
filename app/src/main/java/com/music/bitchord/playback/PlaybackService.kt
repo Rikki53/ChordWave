@@ -1055,6 +1055,13 @@ class PlaybackService : MediaLibraryService() {
                 consecutiveErrorSkips = 0
             }
             if (isPlaying) registerCurrentPlay()
+            // The floating-lyrics bubble follows playback when its toggle is
+            // on (batch 32); the service itself decides when to show.
+            if (isPlaying && AppSettings.floatingLyricsEnabled.value &&
+                android.provider.Settings.canDrawOverlays(this@PlaybackService)
+            ) {
+                FloatingLyricsService.start(this@PlaybackService)
+            }
             // Nothing to read ahead for while paused, and a pause is often
             // the last thing that happens before the process goes idle.
             if (isPlaying) prefetchAround(exoPlayer) else cancelPrefetch()

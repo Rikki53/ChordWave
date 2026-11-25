@@ -28,6 +28,11 @@
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- The floating-lyrics bubble (batch 32). Special access: the listener
+         grants it on the system "Display over other apps" screen; the app
+         never draws anything until then. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <!-- Karaoke remote on the LAN (NSD discovery listens for multicast),
          QR-code party join, and the phone-as-microphone stream. The camera
          and microphone permissions are only ever *requested* at the moment
@@ -882,6 +887,13 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+
+        <!-- The floating-lyrics bubble over other apps (batch 32). Plain
+             started service, no notification; started by its settings
+             toggle and by PlaybackService while the toggle is on. -->
+        <service
+            android:name=".playback.FloatingLyricsService"
+            android:exported="false" />
 
         <!--
           Commands from the BitChord watch app (wearos/). Exported because Play

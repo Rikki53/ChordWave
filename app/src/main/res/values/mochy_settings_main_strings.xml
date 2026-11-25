@@ -113,7 +113,7 @@
     <string name="settings_dont_skip_failure_desc">Stay on a failed stream instead of skipping</string>
     <string name="settings_dont_skip_failure_detail">When a stream fails, stay on it instead of skipping to the next track after a few seconds</string>
     <string name="settings_floating_lyrics_desc">Keep the line being sung in a little bubble over other apps</string>
-    <string name="settings_floating_lyrics_detail">Tap the cover to open ChordWave, or hold it for play and pause. Drag the bubble anywhere, or drop it on the cross to hide it until you come back to ChordWave.</string>
+    <string name="settings_floating_lyrics_detail">The bubble follows the line being sung. Tap it to open ChordWave, hold it for play and pause, or drag it anywhere.</string>
     <string name="settings_hide_bottom_bar">Hide Bottom Bar</string>
     <string name="settings_hide_bottom_bar_desc">The phone\'s navigation bar under the player, in Customize</string>
     <string name="settings_hide_descriptions">Disable description on settings</string>
@@ -169,5 +169,5 @@
     <string name="settings_ui_mode_desc">Switch between the Classic look and the Modern look anytime.</string>
     <string name="settings_account_sign_in">Sign in to YouTube</string>
     <string name="settings_account_sign_in_desc">Playlists, likes and history stay in step</string>
-    <string name="settings_floating_lyrics_unavailable">Floating lyrics aren’t available in ChordWave yet.</string>
+    <string name="settings_floating_lyrics_permission_needed">Allow “Display over other apps” for ChordWave to use floating lyrics.</string>
 </resources>

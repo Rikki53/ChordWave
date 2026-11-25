@@ -3,6 +3,27 @@
 
 package com.music.bitchord.ui.mochy.screens.setup.onboarding
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.PictureInPictureAlt
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.music.bitchord.ui.mochy.component.rememberDeviceTilt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
@@ -65,6 +86,119 @@ import com.music.bitchord.ui.mochy.viewmodels.TransferStep
 import com.music.bitchord.ui.mochy.viewmodels.YouTubeSyncChoices
 
 private const val GoBack = "hell nah, go back"
+
+
+// ---- 0. permissions ----
+
+/**
+ * The permissions ChordWave actually uses, right after the welcome page
+ * (batch 32). Every row can be granted here or left for later — Continue
+ * always works — and each row shows its live status, refreshed when the
+ * listener comes back from a system screen.
+ */
+@Composable
+internal fun PermissionsPage(onContinue: () -> Unit) {
+    val context = LocalContext.current
+    var refresh by remember { mutableIntStateOf(0) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh++ }
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { refresh++ }
+
+    // reading refresh keeps the statuses live after a grant or a trip to
+    // the system settings
+    @Suppress("UNUSED_EXPRESSION") refresh
+    fun granted(permission: String): Boolean =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+    val notificationsGranted =
+        Build.VERSION.SDK_INT < 33 || granted(Manifest.permission.POST_NOTIFICATIONS)
+    val musicPermission =
+        if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO
+        else Manifest.permission.READ_EXTERNAL_STORAGE
+
+    OnboardingPage(
+        badge = { PageBadge(painterResource(R.drawable.lock)) },
+        title = "Permissions",
+        subtitle = "ChordWave only asks for what it uses. Allow what you like now, or skip and decide later.",
+        footer = { OnbButton("Continue", onClick = onContinue) },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            PermissionRow(
+                icon = rememberVectorPainter(Icons.Rounded.Notifications),
+                title = "Notifications",
+                description = "Playback controls and alerts about your music",
+                granted = notificationsGranted,
+                onAllow = {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+            )
+            PermissionRow(
+                icon = rememberVectorPainter(Icons.Rounded.LibraryMusic),
+                title = "Music files",
+                description = "Find and play the audio already on your phone",
+                granted = granted(musicPermission),
+                onAllow = { launcher.launch(musicPermission) },
+            )
+            PermissionRow(
+                icon = rememberVectorPainter(Icons.Rounded.LocationOn),
+                title = "Location",
+                description = "Nearby stations on the Radio tab, city level only",
+                granted = granted(Manifest.permission.ACCESS_COARSE_LOCATION),
+                onAllow = { launcher.launch(Manifest.permission.ACCESS_COARSE_LOCATION) },
+            )
+            PermissionRow(
+                icon = rememberVectorPainter(Icons.Rounded.PictureInPictureAlt),
+                title = "Display over other apps",
+                description = "The floating lyrics bubble over other apps",
+                granted = Settings.canDrawOverlays(context),
+                onAllow = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:" + context.packageName),
+                            ),
+                        )
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PermissionRow(
+    icon: androidx.compose.ui.graphics.painter.Painter,
+    title: String,
+    description: String,
+    granted: Boolean,
+    onAllow: () -> Unit,
+) {
+    OnbCard(modifier = Modifier.fillMaxWidth(), onClick = if (granted) null else onAllow) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PageBadge(icon = icon, size = 56.dp)
+            Spacer(Modifier.width(18.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(description, color = Onb.Subtitle, fontSize = 12.sp, lineHeight = 15.sp)
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = if (granted) "Allowed" else "Allow",
+                color = if (granted) Onb.Muted else Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
 
 // ---- 1. import? ----
 

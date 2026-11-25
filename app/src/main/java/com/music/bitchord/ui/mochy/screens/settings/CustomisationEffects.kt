@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.DefaultBlurQuality
-import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.constants.AnimationSpeedKey
 import com.music.bitchord.ui.mochy.constants.BlurQuality
 import com.music.bitchord.ui.mochy.constants.BlurQualityKey
@@ -82,7 +81,6 @@ import com.music.bitchord.ui.mochy.utils.AnimationSpeeds
 import com.music.bitchord.ui.mochy.utils.animationSpeedLabel
 import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
 import com.music.bitchord.ui.mochy.utils.rememberPreference
-import timber.log.Timber
 import kotlin.math.roundToInt
 
 private const val MinBlurStrength = 10f
@@ -300,18 +298,8 @@ private fun LyricsReadingToggles(modifier: Modifier = Modifier) {
     }
 }
 
-// CHORDWAVE STUB (replica of the private one in AppBehaviourSettingsScreen.kt):
-// Mochy's floating-lyrics overlay bubble has no ChordWave engine. The row
-// stays visible but off; tapping it says so instead of silently doing nothing.
-@Composable
-private fun rememberFloatingLyricsSwitch(): Pair<Boolean, (Boolean) -> Unit> {
-    val unavailable = stringResource(R.string.settings_floating_lyrics_unavailable)
-    val onChange: (Boolean) -> Unit = {
-        Timber.w("Floating lyrics are not available in ChordWave")
-        TopToaster.show(unavailable, iconRes = R.drawable.lyrics)
-    }
-    return false to onChange
-}
+// The floating-lyrics switch itself lives in AppBehaviourSettingsScreen
+// (rememberFloatingLyricsSwitch, batch 32) — one engine, two doors.
 
 // a lyric style's name in the app's language
 private fun lyricStyleNameRes(style: LyricsMotionStyle): Int = when (style) {
