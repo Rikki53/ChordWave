@@ -166,7 +166,7 @@ private fun replayText(
  * and the Library tab draw one page from one state. Playback reads stay
  * lambdas, so a track change only recomposes the row that reads them.
  */
-internal class ReplayPageState(
+class ReplayPageState(
     val replayState: ReplayState,
     val setPeriod: (ReplayPeriod) -> Unit,
     val holder: String,
@@ -192,7 +192,7 @@ internal class ReplayPageState(
  * the page.
  */
 @Composable
-internal fun rememberReplayPageState(
+fun rememberReplayPageState(
     navigator: MochyNavigator,
     mainViewModel: MainViewModel = viewModel(),
 ): ReplayPageState? {
@@ -505,14 +505,13 @@ fun ReplayScreen(
  * page title for the tab's smaller one with the share button beside it;
  * [collapse] fades the route's big title out as it scrolls under the bar.
  */
-internal fun LazyListScope.replayItems(
+fun LazyListScope.replayItems(
     state: ReplayPageState,
     revealSeen: RevealSeenState,
     embedded: Boolean,
     collapse: () -> Float = { 0f },
 ) {
     val summary = state.summary
-    val context = LocalContext.current
 
     item("replay-heading") {
         Heading(
@@ -539,6 +538,7 @@ internal fun LazyListScope.replayItems(
         }
         else -> {
             item("replay-cards") {
+                val context = LocalContext.current
                 MochyReplayCardRow(
                     cards = summary.cards(context),
                     holder = state.holder,
@@ -557,7 +557,7 @@ internal fun LazyListScope.replayItems(
 
             chart(
                 key = "songs",
-                title = stringResource(R.string.top_songs),
+                titleRes = R.string.top_songs,
                 rows = summary.songRows(CHART_LENGTH),
                 state = state,
                 revealSeen = revealSeen,
@@ -570,7 +570,7 @@ internal fun LazyListScope.replayItems(
             )
             chart(
                 key = "artists",
-                title = stringResource(R.string.top_artists),
+                titleRes = R.string.top_artists,
                 rows = summary.artistRows(CHART_LENGTH),
                 state = state,
                 revealSeen = revealSeen,
@@ -582,7 +582,7 @@ internal fun LazyListScope.replayItems(
             )
             chart(
                 key = "albums",
-                title = stringResource(R.string.top_albums),
+                titleRes = R.string.top_albums,
                 rows = summary.albumRows(CHART_LENGTH),
                 state = state,
                 revealSeen = revealSeen,
@@ -594,7 +594,7 @@ internal fun LazyListScope.replayItems(
             if (summary.genres.isNotEmpty()) {
                 chart(
                     key = "genres",
-                    title = stringResource(R.string.top_genres),
+                    titleRes = R.string.top_genres,
                     rows = summary.genreRows(CHART_LENGTH),
                     state = state,
                     revealSeen = revealSeen,
@@ -625,7 +625,7 @@ internal fun LazyListScope.replayItems(
 /** One chart: title, ranked rows, trailing gap. */
 private fun LazyListScope.chart(
     key: String,
-    title: String,
+    titleRes: Int,
     rows: List<ReplayRow>,
     state: ReplayPageState,
     revealSeen: RevealSeenState,
@@ -636,7 +636,7 @@ private fun LazyListScope.chart(
     if (rows.isEmpty()) return
     item("replay-$key-title") {
         SectionTitle(
-            title,
+            stringResource(titleRes),
             modifier = Modifier.revealOnAppear("replay-$key-title", revealSeen, cascade = true),
         )
     }
