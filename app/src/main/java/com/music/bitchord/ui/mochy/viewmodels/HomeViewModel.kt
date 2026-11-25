@@ -429,20 +429,20 @@ class HomeViewModel @Inject constructor(
         } else emptyList()
         val mostPlayed = monthSummary?.songs.orEmpty().map { it.song.toMochySong() }
         val recent = recentTracks.map { it.toCwSong().toMochySong() }
-        return buildList {
-            fun artistKey(song: Song) = song.artists.firstOrNull()?.let { it.id ?: it.name }
-            fun takeFrom(songs: List<Song>, n: Int) {
-                songs.shuffled()
-                    .filter { song -> none { it.id == song.id } && none { artistKey(it) == artistKey(song) } }
-                    .take(n)
-                    .forEach { add(it) }
-            }
-            takeFrom(likedSongs, 2)
-            takeFrom(mostPlayed.take(20), 2)
-            takeFrom(recent.take(15), 2)
-            if (size < count) takeFrom(recent, count - size)
-            if (size < count) takeFrom(mostPlayed, count - size)
-        }.take(count)
+        val picked = mutableListOf<Song>()
+        fun artistKey(song: Song) = song.artists.firstOrNull()?.let { it.id ?: it.name }
+        fun takeFrom(songs: List<Song>, n: Int) {
+            songs.shuffled()
+                .filter { song -> picked.none { it.id == song.id } && picked.none { artistKey(it) == artistKey(song) } }
+                .take(n)
+                .forEach { picked.add(it) }
+        }
+        takeFrom(likedSongs, 2)
+        takeFrom(mostPlayed.take(20), 2)
+        takeFrom(recent.take(15), 2)
+        if (picked.size < count) takeFrom(recent, count - picked.size)
+        if (picked.size < count) takeFrom(mostPlayed, count - picked.size)
+        return picked.take(count)
     }
 
     /**
@@ -504,18 +504,20 @@ class HomeViewModel @Inject constructor(
                 async(Dispatchers.IO) {
                     val pageId = resolveArtistId(seed) ?: return@async null
                     val page = artistPage(pageId) ?: return@async null
-                    val seedSongId = page.sections
-                        .flatMap { it.items }
-                        .filterIsInstance<SongItem>()
-                        .firstOrNull()?.id ?: return@async null
+                    // CW's artist page carries its top songs directly
+                    val seedSongId = page.songs.firstOrNull()?.videoId ?: return@async null
                     val others = YtMusicRepository.radio(seedSongId).getOrNull().orEmpty()
                         .map { it.toSongItem() }
                         .filter { song -> song.artists.none { it.id == pageId || it.name.equals(seed.title, ignoreCase = true) } }
                     val songs = pickSongs(others, limit = 12, perArtist = 1, heard = heard)
                     if (songs.size < 4) return@async null
                     val playlists = page.sections
-                        .firstOrNull { section -> section.items.isNotEmpty() && section.items.all { it is PlaylistItem } }
-                        ?.items.orEmpty()
+                        .firstOrNull { section ->
+                            val mapped = section.items.mapNotNull { it.toYTItem(section.layout) }
+                            mapped.isNotEmpty() && mapped.all { it is PlaylistItem }
+                        }
+                        ?.let { section -> section.items.mapNotNull { it.toYTItem(section.layout) } }
+                        .orEmpty()
                         .filterExplicit(hideExplicit)
                         .take(2)
                     HomeCategory(
@@ -523,7 +525,7 @@ class HomeViewModel @Inject constructor(
                         kind = HomeCategory.Kind.MoreLikeArtist,
                         title = seed.title,
                         items = mixItems(songs, playlists),
-                        thumbnailUrl = page.artist.thumbnail,
+                        thumbnailUrl = page.thumbnailUrl,
                         endpoint = BrowseEndpoint(browseId = pageId),
                     )
                 }
@@ -576,9 +578,10 @@ class HomeViewModel @Inject constructor(
         }.filterNotNull()
         val since = LocalDate.now().year - 1
         val releases = pages.flatMap { page ->
-            page.sections
-                .filter { section -> section.items.isNotEmpty() && section.items.all { it is AlbumItem } }
-                .flatMap { it.items.take(2) }
+            page.sections.flatMap { section ->
+                val mapped = section.items.mapNotNull { it.toYTItem(section.layout) }
+                if (mapped.isNotEmpty() && mapped.all { it is AlbumItem }) mapped.take(2) else emptyList()
+            }
         }
             .filterIsInstance<AlbumItem>()
             .filter { (it.year ?: 0) >= since }
