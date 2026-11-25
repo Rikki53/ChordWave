@@ -164,7 +164,7 @@ internal fun BoxScope.ChordWavePhoneScreen() {
             tint = Color.White.copy(alpha = 0.92f),
             modifier = Modifier
                 .fillMaxWidth(0.42f)
-                .aspectRatio(128f / 139f),
+                .aspectRatio(710f / 650f),
         )
     }
 }

@@ -101,7 +101,7 @@ private fun postNotification(context: Context, release: UpdateInfo): Boolean {
 
     val summary = changelogSummaryLine(release.notes.orEmpty()).ifBlank { "Tap to see what's new." }
     val notification = NotificationCompat.Builder(context, ChannelId)
-        .setSmallIcon(R.drawable.chordwave_notification)
+        .setSmallIcon(R.drawable.ic_notification_logo)
         .setContentTitle("ChordWave ${release.version} is out")
         .setContentText(summary)
         .setStyle(NotificationCompat.BigTextStyle().bigText(summary))

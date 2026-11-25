@@ -450,11 +450,8 @@ private fun PictureView(picture: CwPresencePicture) {
             Image(
                 painter = painterResource(R.drawable.ic_chordwave_mark),
                 contentDescription = "ChordWave",
-                contentScale = ContentScale.Crop,
-                modifier = fill.graphicsLayer {
-                    scaleX = 1.5f
-                    scaleY = 1.5f
-                },
+                contentScale = ContentScale.Fit,
+                modifier = fill,
             )
         }
     }
