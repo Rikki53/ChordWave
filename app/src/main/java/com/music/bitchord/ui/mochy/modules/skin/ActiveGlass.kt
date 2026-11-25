@@ -9,4 +9,13 @@ import androidx.compose.runtime.Immutable
 
 /** a look's glass, compiled and ready for the bars: the shader is shared, each bar builds its own effect from it */
 @Immutable
-class ActiveGlass(val moduleId: String, val shader: Any, val blurDp: Float, val marginDp: Float, val uniforms: Map<String, Float>)
+class ActiveGlass(
+    val moduleId: String,
+    val shader: Any,
+    val blurDp: Float,
+    val marginDp: Float,
+    val uniforms: Map<String, Float>,
+    val outline: Boolean = true,
+    val shadow: Boolean = true,
+    val drawsPill: Boolean = false,
+)

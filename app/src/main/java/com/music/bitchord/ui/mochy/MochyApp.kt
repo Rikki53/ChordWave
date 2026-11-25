@@ -2,6 +2,17 @@ package com.music.bitchord.ui.mochy
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -61,6 +72,8 @@ import com.music.bitchord.ui.mochy.component.BottomSheetState
 import com.music.bitchord.ui.mochy.component.LocalPlayerBottomSheetState
 import com.music.bitchord.ui.mochy.component.rememberBottomSheetState
 import com.music.bitchord.ui.mochy.component.GlassState
+import com.music.bitchord.ui.mochy.component.LocalNavAnimatedContentScope
+import com.music.bitchord.ui.mochy.component.LocalSharedTransitionScope
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.PopupSheetHost
 import com.music.bitchord.ui.mochy.component.PopupSheetState
@@ -74,6 +87,7 @@ import com.music.bitchord.ui.mochy.constants.PureBlackKey
 import com.music.bitchord.ui.mochy.importer.ImportSource
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.utils.AppMotion
 import com.music.bitchord.ui.mochy.link.DeviceLink
 import com.music.bitchord.ui.mochy.link.LinkPlayer
 import com.music.bitchord.ui.mochy.screens.devices.ControllingPill
@@ -494,6 +508,13 @@ private fun MochyArtworkColorHost(
  *  a hiccup, short enough that a stuck track is reported promptly. */
 private const val PlaybackErrorDebounceMs = 2_000L
 
+/** The page on screen, for the page transition: the tab it belongs to
+ *  (a detail page carries the tab it was opened from — the answer
+ *  Mochy's TabOwnership gave its NavHost), its route, and how deep the
+ *  detail stack is. A shrinking depth is a pop. */
+private data class MochyPage(val tab: Int, val route: String, val depth: Int)
+
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun MochyContent(
     navigator: MochyNavigator,
@@ -583,36 +604,89 @@ private fun MochyContent(
                 )
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                when {
-                    currentDetail != null -> DetailContent(
-                        route = currentDetail,
-                        navigator = navigator,
-                        pureBlack = pureBlack,
-                        onBack = { navigator.popBackStack() },
-                    )
-                    currentTab == 0 -> HomeScreen(
-                        navigator = navigator,
-                        snackbarHostState = snackbarHostState,
-                    )
-                    // Classic's set and order (round 2, item 7): Home,
-                    // Explore, Library, Search, Radio. Settings is not a
-                    // tab — it opens as a detail from the profile avatar.
-                    currentTab == 1 -> ExploreScreen(navigator = navigator)
-                    currentTab == 2 -> LibraryHomeScreen(
-                        navigator = navigator,
-                        pureBlack = pureBlack,
-                    )
-                    currentTab == 3 -> SearchScreen(
-                        navigator = navigator,
-                        pureBlack = pureBlack,
-                    )
-                    currentTab == 4 -> RadioScreen(navigator = navigator)
-                    // No tab at that index (should not happen): Home, the
-                    // first tab, rather than a blank page.
-                    else -> HomeScreen(
-                        navigator = navigator,
-                        snackbarHostState = snackbarHostState,
-                    )
+                // Page transitions exactly as Mochy's NavHost (batch 40):
+                // each page slides by the tab it belongs to, not by its own
+                // route — an album open in the Library moves like the
+                // Library when you switch tabs. Slide width/8 + fade,
+                // tween(200); the pop variants run when the detail stack
+                // shrinks (back). CW's host has no NavHost, so the page
+                // key carries the owning tab + stack depth and
+                // AnimatedContent runs the same specs. The shared-element
+                // scopes Mochy provides around its NavHost are provided
+                // here too, so container transforms see the transition.
+                val page = MochyPage(
+                    tab = currentTab,
+                    route = currentDetail ?: Screens.MainScreens[currentTab].route,
+                    depth = detailStack.size,
+                )
+                SharedTransitionLayout(Modifier.fillMaxSize()) {
+                    CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                        AnimatedContent(
+                            targetState = page,
+                            transitionSpec = {
+                                val back = targetState.depth < initialState.depth
+                                val enter = if (!AppMotion.enabled) EnterTransition.None else if (back) {
+                                    if (initialState.tab != -1 && initialState.tab < targetState.tab)
+                                        slideInHorizontally { it / 8 } + fadeIn(tween(200))
+                                    else
+                                        slideInHorizontally { -it / 8 } + fadeIn(tween(200))
+                                } else {
+                                    if (targetState.tab == -1 || targetState.tab >= initialState.tab)
+                                        slideInHorizontally { it / 8 } + fadeIn(tween(200))
+                                    else
+                                        slideInHorizontally { -it / 8 } + fadeIn(tween(200))
+                                }
+                                val exit = if (!AppMotion.enabled) ExitTransition.None else if (back) {
+                                    if (initialState.tab != -1 && initialState.tab < targetState.tab)
+                                        slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                                    else
+                                        slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                                } else {
+                                    if (targetState.tab == -1 || targetState.tab >= initialState.tab)
+                                        slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                                    else
+                                        slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                                }
+                                enter togetherWith exit
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                            label = "mochy_page",
+                        ) { shown ->
+                            CompositionLocalProvider(LocalNavAnimatedContentScope provides this) {
+                                when {
+                                    shown.depth > 0 -> DetailContent(
+                                        route = shown.route,
+                                        navigator = navigator,
+                                        pureBlack = pureBlack,
+                                        onBack = { navigator.popBackStack() },
+                                    )
+                                    shown.tab == 0 -> HomeScreen(
+                                        navigator = navigator,
+                                        snackbarHostState = snackbarHostState,
+                                    )
+                                    // Classic's set and order (round 2, item 7): Home,
+                                    // Explore, Library, Search, Radio. Settings is not a
+                                    // tab — it opens as a detail from the profile avatar.
+                                    shown.tab == 1 -> ExploreScreen(navigator = navigator)
+                                    shown.tab == 2 -> LibraryHomeScreen(
+                                        navigator = navigator,
+                                        pureBlack = pureBlack,
+                                    )
+                                    shown.tab == 3 -> SearchScreen(
+                                        navigator = navigator,
+                                        pureBlack = pureBlack,
+                                    )
+                                    shown.tab == 4 -> RadioScreen(navigator = navigator)
+                                    // No tab at that index (should not happen): Home, the
+                                    // first tab, rather than a blank page.
+                                    else -> HomeScreen(
+                                        navigator = navigator,
+                                        snackbarHostState = snackbarHostState,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

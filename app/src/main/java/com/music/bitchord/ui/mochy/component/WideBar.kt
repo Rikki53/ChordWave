@@ -209,6 +209,7 @@ fun WideBarTabs(
     onSearchDoubleTap: (() -> Unit)? = null,
 ) {
     val selectedIndex = navigationItems.indexOfFirst { it.route == selectedTabRoute }
+    val pill = rememberNavPill(selectedIndex)
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
@@ -216,7 +217,11 @@ fun WideBarTabs(
                 .width(bar.tabsWidth)
                 .height(NavBarHeight)
                 .padding(horizontal = NavRowPadding)
-                .navHighlight(selectedIndex, navigationItems.size),
+                // the wide bar's tabs sit apart from its glass, so mochy draws this pill even when the look's glass draws the nav bar's
+                .navHighlight(pill, navigationItems.size)
+                .navPillDrag(pill, navigationItems.size, selectedIndex) { index ->
+                    navigationItems.getOrNull(index)?.let { onItemClick(it, index == selectedIndex) }
+                },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             navigationItems.forEach { screen ->
