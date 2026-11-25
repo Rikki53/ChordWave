@@ -52,6 +52,7 @@ import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.component.LocalBlurQuality
 import com.music.bitchord.ui.mochy.constants.BlurQuality
 import com.music.bitchord.ui.mochy.player.share.ShareWidth
+import com.music.bitchord.ui.mochy.player.share.MaxBackgroundBlurUnits
 import com.music.bitchord.ui.mochy.player.share.song.MaxCardBlur
 import com.music.bitchord.ui.mochy.player.share.song.ShareLayers
 import com.music.bitchord.ui.mochy.player.share.song.ShareVideoSource
@@ -71,6 +72,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
+import kotlin.math.max
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -99,6 +101,11 @@ internal class ShareTheme(val colors: ColorScheme, val typography: Typography)
 internal class ShareExportJob {
     @Volatile var cancelled = false
     @Volatile var progress = 0f
+
+    // set when the export gives up on itself (batch 36): the card could not
+    // be drawn, so the run ends as a failure with this reason instead of a
+    // silent card-less video
+    @Volatile var failure: String? = null
 }
 
 // the picture drawn at export size: 360 picture units across the full width, in the app's theme, at full blur quality
@@ -171,6 +178,8 @@ internal suspend fun exportVideo(
 ): File {
     val host = checkNotNull(session.offscreenHost) { "The share isn't on screen" }
     val fps = ShareEncoders.frameRateFor(quality)
+    // kept in release builds: an export that stalls on a phone can say what it was asked to make (batch 36)
+    Log.i(Tag, "Export start: ${quality.width}x${quality.height} @${fps}fps window=${session.windowLengthMs}ms song=${session.song.id} local=${session.song.localUri != null} layers=$layers")
     val width = quality.width
     val height = quality.height
     val video = (session.background as? SongBackground.Video)?.takeIf { layers.background }
@@ -214,7 +223,7 @@ internal suspend fun exportVideo(
             if (background != null) {
                 val moving = EditedMediaItem.Builder(background.item)
                     .setRemoveAudio(true)
-                    .setEffects(Effects(emptyList(), backgroundEffects(session, video!!.dim, width, height)))
+                    .setEffects(Effects(emptyList(), backgroundEffects(session, video!!, width, height)))
                     .build()
                 add(EditedMediaItemSequence.Builder(moving).setIsLooping(true).build())
             }
@@ -235,7 +244,14 @@ internal suspend fun exportVideo(
             song = DefaultMediaSourceFactory(songSource),
             web = webSources(context, background?.headers.orEmpty()),
         )
-        runTransformer(context, composition, out, sources, quality, fps, job, trackProgress = source == null)
+        // the transformer's own progress is always polled (batch 36): with a
+        // card source it used to be the frames alone, so a stalled draw froze
+        // the bar at 0% while the encoder worked on unseen
+        runTransformer(context, composition, out, sources, quality, fps, job, trackProgress = true)
+        job.failure?.let { reason ->
+            out.delete()
+            throw IllegalStateException(reason)
+        }
         return out
     } finally {
         // kept in release builds, so a phone where the card goes missing can say why
@@ -262,8 +278,9 @@ private suspend fun videoBackground(session: SongShareSession, video: SongBackgr
         }
     }
 
-// cropped to fill, moved and zoomed the way the editor shows it, and dimmed toward black
-private fun backgroundEffects(session: SongShareSession, dim: Float, width: Int, height: Int) = listOf(
+// cropped to fill, moved and zoomed the way the editor shows it, blurred when
+// asked (batch 36), and dimmed toward black
+private fun backgroundEffects(session: SongShareSession, video: SongBackground.Video, width: Int, height: Int) = listOfNotNull(
     Presentation.createForWidthAndHeight(width, height, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
     // gl's y points up, the editor's points down
     MatrixTransformation {
@@ -272,7 +289,8 @@ private fun backgroundEffects(session: SongShareSession, dim: Float, width: Int,
             postTranslate(2f * session.bgOffsetX, -2f * session.bgOffsetY)
         }
     },
-    RgbMatrix { _, _ -> floatArrayOf(dim, 0f, 0f, 0f, 0f, dim, 0f, 0f, 0f, 0f, dim, 0f, 0f, 0f, 0f, 1f) },
+    if (video.blur > 0f) BackgroundBlurEffect(video.blur * MaxBackgroundBlurUnits * (width / ShareWidth.value)) else null,
+    RgbMatrix { _, _ -> floatArrayOf(video.dim, 0f, 0f, 0f, 0f, video.dim, 0f, 0f, 0f, 0f, video.dim, 0f, 0f, 0f, 0f, 1f) },
 )
 
 private fun cardFrost(session: SongShareSession, width: Int, height: Int): CardFrost? {
@@ -338,7 +356,7 @@ private suspend fun runTransformer(
             while (true) {
                 delay(150)
                 val current = transformer ?: continue
-                if (current.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) job.progress = holder.progress / 100f
+                if (current.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) job.progress = max(job.progress, holder.progress / 100f)
             }
         }
     } else {

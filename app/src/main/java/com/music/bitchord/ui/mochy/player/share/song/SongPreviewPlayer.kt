@@ -8,12 +8,14 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -74,6 +76,11 @@ internal class SongPreviewPlayer(context: Context, dataSourceFactory: DataSource
                         false,
                     )
                     repeatMode = Player.REPEAT_MODE_ONE
+                    addListener(object : Player.Listener {
+                        override fun onPlayerError(error: PlaybackException) {
+                            Log.e("SongShare", "Preview song failed", error)
+                        }
+                    })
                 }
             handler.post(report)
         }

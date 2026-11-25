@@ -7,6 +7,8 @@
 
 package com.music.bitchord.ui.mochy.screens.devices
 
+import com.music.bitchord.ui.mochy.player.LikeRed
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -223,7 +225,7 @@ private fun NowPlayingCard(now: RemoteNow?, onLike: () -> Unit, onSave: () -> Un
                 Icon(
                     painterResource(if (now.liked) R.drawable.favorite else R.drawable.favorite_border),
                     contentDescription = stringResource(R.string.remote_like),
-                    tint = Color.White,
+                    tint = if (now.liked) LikeRed else Color.White,
                 )
             }
             IconButton(onClick = onSave) {

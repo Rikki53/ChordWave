@@ -54,8 +54,9 @@ internal sealed interface ShareVideoSource {
 internal sealed interface SongBackground {
     data class Still(val background: ShareBackground) : SongBackground
 
-    // dim fades the video toward black so the card stays readable on a bright one
-    data class Video(val source: ShareVideoSource, val dim: Float = 0.85f) : SongBackground
+    // dim fades the video toward black so the card stays readable on a bright one;
+    // blur softens it (0..1, batch 36)
+    data class Video(val source: ShareVideoSource, val dim: Float = 0.85f, val blur: Float = 0f) : SongBackground
 }
 
 // something fetched while the share is open: still looking, nothing found, or here it is
@@ -253,10 +254,10 @@ internal class SongShareSession(val song: MediaMetadata) {
     }
 
     // the style page's music-video choice: the song's own video as the background,
-    // keeping the dim of the video showing now (or the last one)
+    // keeping the dim and blur of the video showing now (or the last one)
     fun useMusicVideo() {
-        val dim = (background as? SongBackground.Video)?.dim ?: lastVideo?.dim ?: 0.85f
-        setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, dim))
+        val current = (background as? SongBackground.Video) ?: lastVideo
+        setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, current?.dim ?: 0.85f, current?.blur ?: 0f))
     }
 
     // the song position for this frame: the preview's, or a loop of the window while there's no sound yet

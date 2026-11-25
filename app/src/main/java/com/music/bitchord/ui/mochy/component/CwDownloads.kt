@@ -85,6 +85,7 @@ fun Song.toCwSong(): CwSong = CwSong(
     albumId = song.albumId,
     albumName = song.albumName,
     isVideo = song.isVideo,
+    localUri = song.localUri,
 )
 
 /** A YouTube search/feed song as the CW Song Downloads.enqueue() needs. */

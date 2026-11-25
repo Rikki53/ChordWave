@@ -307,6 +307,8 @@ private fun lyricStyleNameRes(style: LyricsMotionStyle): Int = when (style) {
     LyricsMotionStyle.LEGACY -> R.string.appearance_style_2
     LyricsMotionStyle.BORING -> R.string.customise_style_boring
     LyricsMotionStyle.PLAIN -> R.string.customise_style_plain
+    LyricsMotionStyle.FADE -> R.string.customise_style_fade
+    LyricsMotionStyle.POP -> R.string.customise_style_pop
 }
 
 // the phone's status bar over the open player

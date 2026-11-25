@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.screens.audiolab.LabCard
 import com.music.bitchord.ui.mochy.screens.audiolab.LabSlider
-import com.music.bitchord.ui.mochy.screens.audiolab.LabToggleRow
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import kotlin.math.abs
 
@@ -89,12 +88,13 @@ internal fun PictureBackgroundControls(
     onPickAnother: () -> Unit,
 ) {
     LabCard(padding = 10.dp) {
-        LabToggleRow(
-            title = stringResource(R.string.mochy_share_blur),
-            subtitle = null,
-            checked = picture.blur,
-            onCheckedChange = { on -> onChange(picture.copy(blur = on)) },
-            leadingDot = true,
+        LabSlider(
+            label = stringResource(R.string.mochy_share_blur),
+            valueText = "${(picture.blur * 100).toInt()}%",
+            value = picture.blur,
+            onValueChange = { v -> onChange(picture.copy(blur = v)) },
+            valueRange = 0f..1f,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
         )
         LabSlider(
             label = stringResource(R.string.mochy_share_opacity),

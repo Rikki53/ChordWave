@@ -15,6 +15,8 @@
 
 package com.music.bitchord.ui.mochy.player.menu
 
+import com.music.bitchord.ui.mochy.player.LikeRed
+
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -333,6 +336,7 @@ fun YouTubeSelectionSongMenu(
                                     if (allLiked) R.drawable.favorite else R.drawable.favorite_border
                                 ),
                                 contentDescription = null,
+                                tint = if (allLiked) LikeRed else LocalContentColor.current,
                             )
                         },
                         onClick = {

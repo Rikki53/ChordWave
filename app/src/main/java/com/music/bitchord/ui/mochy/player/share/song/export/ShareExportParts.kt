@@ -19,7 +19,6 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
-import timber.log.Timber
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
@@ -32,7 +31,14 @@ private const val FadeOutMs = 700L
 
 // how long the gl thread waits for the main thread to draw one frame before
 // giving up on it: a stalled draw must never hold the whole export at 0%
-private const val FrameTimeoutMs = 15_000L
+// (batch 36: 15 s a frame at 4K read as a frozen 0% for minutes; 3 s is
+// already generous for one card draw)
+private const val FrameTimeoutMs = 3_000L
+
+// this many frames in a row never drawn means the card cannot be drawn on
+// this phone at this size: fail the export with a reason instead of
+// encoding a card-less video behind a frozen progress bar (batch 36)
+private const val MaxConsecutiveFrameTimeouts = 10
 
 // what this phone's h264 encoders can take; videos encode on their side, so 9:16 is asked as 16:9
 internal object ShareEncoders {
@@ -50,7 +56,7 @@ internal object ShareEncoders {
                             video.areSizeAndRateSupported(quality.width, quality.height, fps.toDouble())
                     }.getOrDefault(false)
             }
-        }.getOrDefault(false)
+        }.onFailure { Log.w("SongShare", "Encoder check failed for $quality at $fps fps", it) }.getOrDefault(false)
     }
 
     // 4k when the phone can encode it at all, the smoothest frame rate it can manage at that size
@@ -97,7 +103,9 @@ internal class ExportFrames(
     private val main = Handler(Looper.getMainLooper())
     private var lastPtsUs = -1L
     private var drawn = 0L
+    private var settled = 0L
     private var failed = 0
+    private var consecutiveTimeouts = 0
 
     // called on the gl thread; waits in short steps so a cancel always gets through
     fun frameAt(presentationTimeUs: Long): FrameImage? {
@@ -123,9 +131,18 @@ internal class ExportFrames(
             if (waitedMs >= FrameTimeoutMs) {
                 // the main thread never got to this frame: it goes without
                 // the card rather than stalling the export at 0% forever;
-                // the queued draw still lands for the frames after it
+                // the queued draw still lands for the frames after it. The
+                // frame still counts as settled, so the progress bar keeps
+                // moving instead of freezing at 0% (batch 36)
                 if (failed == 0) Log.e("SongShare", "Share frame at $presentationTimeUs us not drawn within ${FrameTimeoutMs}ms; continuing without it")
                 failed++
+                settled++
+                job.progress = min(1f, settled.toFloat() / totalFrames)
+                consecutiveTimeouts++
+                if (consecutiveTimeouts >= MaxConsecutiveFrameTimeouts) {
+                    job.failure = "The share card could not be drawn on this phone"
+                    job.cancelled = true
+                }
                 return null
             }
         }
@@ -141,7 +158,9 @@ internal class ExportFrames(
         frames.advance(stepMs)
         val frame = frames.capture()
         drawn++
-        job.progress = min(1f, drawn.toFloat() / totalFrames)
+        settled++
+        consecutiveTimeouts = 0
+        job.progress = min(1f, settled.toFloat() / totalFrames)
         return frame
     }
 }
@@ -203,6 +222,6 @@ internal class ShareAudioFade(private val lengthMs: Long) : BaseAudioProcessor()
 // the real one.
 internal fun OkHttpClient.Builder.followAppProxy(): OkHttpClient.Builder {
     // TODO(phase3-adapter): apply the app proxy (NEEDS.md §(b) P1).
-    Timber.w("SongShare: app proxy not wired yet; video requests go direct")
+    Log.w("SongShare", "App proxy not wired yet; video requests go direct")
     return this
 }

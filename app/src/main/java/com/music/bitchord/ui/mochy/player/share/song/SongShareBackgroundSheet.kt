@@ -72,6 +72,7 @@ import com.music.bitchord.ui.mochy.player.share.ShareMuted
 import com.music.bitchord.ui.mochy.player.share.ShareBasicColours
 import com.music.bitchord.ui.mochy.player.share.ShareHint
 import com.music.bitchord.ui.mochy.player.share.backgroundPageCard
+import com.music.bitchord.ui.mochy.player.share.shareBackgroundBlur
 import com.music.bitchord.ui.mochy.screens.audiolab.LabCard
 import com.music.bitchord.ui.mochy.screens.audiolab.LabSlider
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
@@ -131,6 +132,7 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
     var picture by remember { mutableStateOf(session.lastStill as? ShareBackground.Picture) }
     var colour by remember { mutableStateOf((session.lastStill as? ShareBackground.Solid)?.color ?: session.palette.firstOrNull() ?: ShareBasicColours[0]) }
     var dim by remember { mutableFloatStateOf((session.background as? SongBackground.Video)?.dim ?: session.lastVideo?.dim ?: 0.85f) }
+    var blur by remember { mutableFloatStateOf((session.background as? SongBackground.Video)?.blur ?: session.lastVideo?.blur ?: 0f) }
     // opens on what's up now, or on the last of this kind that was
     val opensOn = when {
         (session.background is SongBackground.Video) == video -> session.background
@@ -142,8 +144,8 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
     // the page you land on is used straight away, the one it opens on included, so picking a kind shows it at once
     fun applyPage(page: Int) {
         when (pages.getOrNull(page) ?: return) {
-            BackgroundPage.OwnVideo -> session.lastOwnVideo?.let { session.setVideo(SongBackground.Video(it, dim)) }
-            BackgroundPage.MusicVideo -> session.setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, dim))
+            BackgroundPage.OwnVideo -> session.lastOwnVideo?.let { session.setVideo(SongBackground.Video(it, dim, blur)) }
+            BackgroundPage.MusicVideo -> session.setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, dim, blur))
             BackgroundPage.Music -> session.setStill(ShareBackground.FromMusic)
             // no picture yet: keep what was there until one is picked
             BackgroundPage.Picture -> picture?.let(session::setStill)
@@ -154,7 +156,7 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
 
     val pictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         if (uri != null) {
-            val next = ShareBackground.Picture(uri, blur = picture?.blur ?: true, opacity = picture?.opacity ?: 0.85f)
+            val next = ShareBackground.Picture(uri, blur = picture?.blur ?: 0.6f, opacity = picture?.opacity ?: 0.85f)
             picture = next
             session.setStill(next)
         }
@@ -166,7 +168,7 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
             if (duration <= 0L) return@launch
             val own = ShareVideoSource.Own(uri, startMs = 0L, lengthMs = duration.coerceAtMost(OwnVideoLongestMs), durationMs = duration)
             session.lastOwnVideo = own
-            session.setVideo(SongBackground.Video(own, dim))
+            session.setVideo(SongBackground.Video(own, dim, blur))
             // a video longer than the clip asks which part to use
             if (duration > OwnVideoLongestMs) popup.showVideoPart(session)
         }
@@ -177,6 +179,11 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
         dim = value
         val shown = session.background
         if (shown is SongBackground.Video) session.setVideo(shown.copy(dim = value))
+    }
+    val setBlur: (Float) -> Unit = { value ->
+        blur = value
+        val shown = session.background
+        if (shown is SongBackground.Video) session.setVideo(shown.copy(blur = value))
     }
     val cardHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
 
@@ -197,13 +204,13 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                         if (own != null) {
                             // the card shows the video as it will sit behind the words, dim included,
                             // so the brightness slider below answers at once (batch 26)
-                            if (current) ShareVideoLayer(session, playing = session.onScreen, source = own, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }) else CoverStill(session)
+                            if (current) Box(Modifier.fillMaxSize().background(Color.Black)) { ShareVideoLayer(session, playing = session.onScreen, source = own, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }.shareBackgroundBlur(blur)) } else CoverStill(session)
                         } else {
                             AddCircle(contentDescription = stringResource(R.string.song_share_bg_pick_video), onClick = pickVideo)
                         }
                     }
                     BackgroundPage.MusicVideo ->
-                        if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.MusicVideo, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }) else CoverStill(session)
+                        if (current) Box(Modifier.fillMaxSize().background(Color.Black)) { ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.MusicVideo, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }.shareBackgroundBlur(blur)) } else CoverStill(session)
                     BackgroundPage.Music -> BackdropOf(ShareBackground.FromMusic, session.song.thumbnailUrl, session.palette, animate = true)
                     BackgroundPage.Colour -> BackdropOf(ShareBackground.Solid(colour), null, session.palette, animate = false)
                     BackgroundPage.Picture -> {
@@ -239,7 +246,7 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                     BackgroundPage.OwnVideo -> if (session.lastOwnVideo == null) {
                         ShareHint(stringResource(R.string.song_share_bg_own_video_hint))
                     } else {
-                        DimCard(dim, setDim) {
+                        DimCard(dim, blur, setDim, setBlur) {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
                                 TextAction(stringResource(R.string.song_share_bg_which_part)) { popup.showVideoPart(session) }
                                 TextAction(stringResource(R.string.song_share_bg_change_video), onClick = pickVideo)
@@ -249,7 +256,7 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                     BackgroundPage.MusicVideo -> {
                         page.hint?.let { ShareHint(stringResource(it)) }
                         Spacer(Modifier.height(12.dp))
-                        DimCard(dim, setDim) {}
+                        DimCard(dim, blur, setDim, setBlur) {}
                     }
                     BackgroundPage.Music -> page.hint?.let { ShareHint(stringResource(it)) }
                     BackgroundPage.Picture -> {
@@ -278,7 +285,7 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
 }
 
 @Composable
-private fun CoverStill(session: SongShareSession) {
+internal fun CoverStill(session: SongShareSession) {
     AsyncImage(
         model = session.song.thumbnailUrl?.resize(544, 544),
         contentDescription = null,
@@ -287,9 +294,9 @@ private fun CoverStill(session: SongShareSession) {
     )
 }
 
-// how bright the video shows under the card
+// how bright and how soft the video shows under the card
 @Composable
-private fun DimCard(dim: Float, onDim: (Float) -> Unit, extra: @Composable () -> Unit) {
+private fun DimCard(dim: Float, blur: Float, onDim: (Float) -> Unit, onBlur: (Float) -> Unit, extra: @Composable () -> Unit) {
     LabCard(padding = 10.dp) {
         LabSlider(
             label = stringResource(R.string.song_share_bg_brightness),
@@ -297,6 +304,14 @@ private fun DimCard(dim: Float, onDim: (Float) -> Unit, extra: @Composable () ->
             value = dim,
             onValueChange = onDim,
             valueRange = 0.2f..1f,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+        )
+        LabSlider(
+            label = stringResource(R.string.mochy_share_blur),
+            valueText = "${(blur * 100).roundToInt()}%",
+            value = blur,
+            onValueChange = onBlur,
+            valueRange = 0f..1f,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
         )
         extra()

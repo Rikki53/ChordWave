@@ -46,7 +46,7 @@ class PlayerUiState(connection: MochyPlayerConnection) {
             artist = metadata?.artists?.joinToString { it.name }.orEmpty(),
             album = metadata?.album?.title.orEmpty(),
             thumbnailUrl = metadata?.thumbnailUrl,
-            liked = song?.song?.liked == true,
+            liked = metadata?.liked == true || song?.song?.liked == true,
         )
     }.distinctUntilChanged().stateIn(scope, SharingStarted.Lazily, TrackInfo())
 

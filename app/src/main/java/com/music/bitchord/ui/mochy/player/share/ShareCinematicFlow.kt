@@ -22,10 +22,13 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import androidx.compose.ui.text.AnnotatedString
@@ -217,6 +220,53 @@ internal fun SweptText(
                     val now = positionMs()
                     val room = GlowRoom.toPx()
                     val length = layout.layoutInput.text.length
+                    if (motion == LyricsMotionStyle.FADE) {
+                        // each word fades in whole as it's sung (batch 36)
+                        for (i in ranges.indices) {
+                            val range = ranges[i]
+                            val word = times.getOrNull(i) ?: continue
+                            if (range.isEmpty() || range.last >= length) continue
+                            val sung = ((now - word.startMs).toFloat() / (word.endMs - word.startMs).coerceAtLeast(1L)).coerceIn(0f, 1f)
+                            if (sung <= 0f) continue
+                            val first = layout.getBoundingBox(range.first)
+                            val last = layout.getBoundingBox(range.last)
+                            val top = min(first.top, last.top) - room
+                            val bottom = max(first.bottom, last.bottom) + room
+                            val wordPath = Path()
+                            if (first.top == last.top) {
+                                wordPath.addRect(Rect(first.left - room, top, last.right + room, bottom))
+                            } else {
+                                wordPath.addRect(Rect(0f, top, size.width, bottom))
+                            }
+                            drawContext.canvas.saveLayer(Rect(0f, top, size.width, bottom), Paint().apply { alpha = sung })
+                            clipPath(wordPath) { this@drawWithContent.drawContent() }
+                            drawContext.canvas.restore()
+                        }
+                        return@drawWithContent
+                    }
+                    if (motion == LyricsMotionStyle.POP) {
+                        // each word pops bigger as it lands, then settles (batch 36)
+                        for (i in ranges.indices) {
+                            val range = ranges[i]
+                            val word = times.getOrNull(i) ?: continue
+                            if (range.isEmpty() || range.last >= length) continue
+                            val sung = ((now - word.startMs).toFloat() / (word.endMs - word.startMs).coerceAtLeast(1L)).coerceIn(0f, 1f)
+                            if (sung <= 0f) continue
+                            val first = layout.getBoundingBox(range.first)
+                            val last = layout.getBoundingBox(range.last)
+                            val top = min(first.top, last.top) - room
+                            val bottom = max(first.bottom, last.bottom) + room
+                            val left = first.left - room
+                            val right = if (first.top == last.top) last.right + room else size.width
+                            val wordPath = Path()
+                            wordPath.addRect(Rect(left, top, right, bottom))
+                            val scale = if (sung < 0.6f) 0.7f + 0.75f * sung else 1.15f - 0.375f * (sung - 0.6f)
+                            clipPath(wordPath) {
+                                scale(scale, scale, Offset((left + right) / 2f, (top + bottom) / 2f)) { this@drawWithContent.drawContent() }
+                            }
+                        }
+                        return@drawWithContent
+                    }
                     if (motion.risesWords) {
                         // each word drawn on its own, lifted into place as it's sung
                         for (i in ranges.indices) {

@@ -6,6 +6,9 @@
 
 package com.music.bitchord.ui.mochy.player.share
 
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -24,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
@@ -37,6 +41,20 @@ import com.music.bitchord.ui.mochy.utils.SoftBlurTransformation
 import com.music.bitchord.ui.mochy.utils.resize
 import kotlin.math.cos
 import kotlin.math.sin
+
+// how soft a background can go, in the share picture's 360-wide units (batch 36)
+internal const val MaxBackgroundBlurUnits = 20f
+
+// blurs whatever it wraps by [blur] (0..1) of [MaxBackgroundBlurUnits];
+// phones without render effects (before Android 12) just show it sharp
+internal fun Modifier.shareBackgroundBlur(blur: Float): Modifier = graphicsLayer {
+    renderEffect = if (blur > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val radius = blur * MaxBackgroundBlurUnits * (size.width / ShareWidth.value)
+        RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP).asComposeRenderEffect()
+    } else {
+        null
+    }
+}
 
 /** White on dark backgrounds, near-black on light plain colours. */
 internal fun contentColorOn(background: ShareBackground): Color = when (background) {
@@ -63,12 +81,10 @@ internal fun BackdropOf(
 @Composable
 private fun PictureBackdrop(bg: ShareBackground.Picture, modifier: Modifier) {
     val context = LocalContext.current
-    // blurred as a small bitmap once, so it looks the same on every Android version and records
-    // into the saved picture like any other image
-    val request = remember(bg.uri, bg.blur) {
+    val request = remember(bg.uri) {
         ImageRequest.Builder(context)
             .data(bg.uri)
-            .apply { if (bg.blur) size(220).transformations(SoftBlurTransformation(width = 160, radius = 3)) else size(1440) }
+            .size(1440)
             .build()
     }
     Box(modifier.fillMaxSize().background(Color.Black)) {
@@ -78,7 +94,8 @@ private fun PictureBackdrop(bg: ShareBackground.Picture, modifier: Modifier) {
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { alpha = bg.opacity },
+                .graphicsLayer { alpha = bg.opacity }
+                .shareBackgroundBlur(bg.blur),
         )
     }
 }

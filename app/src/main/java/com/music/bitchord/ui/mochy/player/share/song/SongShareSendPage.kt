@@ -195,11 +195,13 @@ private fun SendContent(send: SendState, live: Boolean) {
         send.theme = ShareTheme(colors, typography)
         send.songSource = songSource
     }
-    // the sharpest the phone can make: 4k pictures always, 4k video when its encoder takes it
+    // 1080p by default (batch 36): encoders that merely claim 4K can crawl
+    // at under a frame a second on mid-range phones, which read as a frozen
+    // 0%; 4K stays one tap away in the picker when the encoder takes it
     val canUltraHd = remember(video) { !video || ShareEncoders.canEncode(ShareQuality.UltraHd, 30) }
     LaunchedEffect(canUltraHd) {
         if (send.quality == null || (!canUltraHd && send.quality == ShareQuality.UltraHd)) {
-            send.quality = if (canUltraHd) ShareQuality.UltraHd else ShareQuality.FullHd
+            send.quality = ShareQuality.FullHd
         }
     }
     // a different quality or kind is a different file: "Saved!" stops applying

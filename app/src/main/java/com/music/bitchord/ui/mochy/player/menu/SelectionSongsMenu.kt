@@ -20,6 +20,8 @@
 
 package com.music.bitchord.ui.mochy.player.menu
 
+import com.music.bitchord.ui.mochy.player.LikeRed
+
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +34,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -361,6 +364,7 @@ fun SelectionSongMenu(
                                         if (allLiked) R.drawable.favorite else R.drawable.favorite_border
                                     ),
                                     contentDescription = null,
+                                    tint = if (allLiked) LikeRed else LocalContentColor.current,
                                 )
                             },
                             onClick = {

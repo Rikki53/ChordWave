@@ -17,6 +17,7 @@
     <string name="song_share_lyrics_synced">They flow along with the song</string>
     <string name="song_share_lyrics_unsynced">No timing, so they show as a picture</string>
     <string name="song_share_go_back">No, go back pls</string>
+    <string name="song_share_next">Next</string>
     <string name="song_share_type_title">Type</string>
     <string name="song_share_type_subtitle">Select background type</string>
     <string name="song_share_type_video">Video</string>

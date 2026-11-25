@@ -142,7 +142,8 @@ private fun SongShareSession.startLyrics(popup: PopupSheetState) {
 // after the lines: on a card, or the cinematic words straight on the picture; a style that can't hold that many words shakes
 internal fun PopupSheetState.showStylePage(session: SongShareSession) {
     val popup = this
-    show(buttonBar = { GoBackButton(popup::dismiss) }) {
+    // forward, not back (batch 36): the tiles pick, Next carries on
+    show(buttonBar = { SheetPillButton(text = stringResource(R.string.song_share_next), onClick = { popup.showEditor(session) }) }) {
         val pick = session.pick ?: return@show
         ShareTitle(stringResource(R.string.song_share_style_title), stringResource(R.string.song_share_style_subtitle))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 20.dp)) {
@@ -153,10 +154,7 @@ internal fun PopupSheetState.showStylePage(session: SongShareSession) {
                     subtitle = if (fits) stringResource(R.string.song_share_style_fits, style.maxWords) else stringResource(R.string.song_share_style_too_many),
                     enabled = fits,
                     selected = pick.style == style,
-                    onClick = {
-                        pick.style = style
-                        popup.showEditor(session)
-                    },
+                    onClick = { pick.style = style },
                 ) { TilePicture(session, SongShareKind.Lyrics, style) }
             }
         }
@@ -170,8 +168,8 @@ internal fun PopupSheetState.showStylePage(session: SongShareSession) {
                 if (duration <= 0L) return@launch
                 val own = ShareVideoSource.Own(uri, startMs = 0L, lengthMs = duration.coerceAtMost(OwnVideoLongestMs), durationMs = duration)
                 session.lastOwnVideo = own
-                val dim = (session.background as? SongBackground.Video)?.dim ?: session.lastVideo?.dim ?: 0.85f
-                session.setVideo(SongBackground.Video(own, dim))
+                val current = (session.background as? SongBackground.Video) ?: session.lastVideo
+                session.setVideo(SongBackground.Video(own, current?.dim ?: 0.85f, current?.blur ?: 0f))
                 // a video longer than the clip asks which part to use
                 if (duration > OwnVideoLongestMs) popup.showVideoPart(session)
             }

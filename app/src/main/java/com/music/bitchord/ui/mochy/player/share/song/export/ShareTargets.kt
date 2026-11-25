@@ -21,7 +21,7 @@ import com.music.bitchord.ui.mochy.player.share.song.refreshMusicVideo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import timber.log.Timber
+import android.util.Log
 import java.io.File
 
 // what one export produced, ready to hand to another app
@@ -59,7 +59,7 @@ private suspend fun ShareRequest.exportVideoRetrying(layers: ShareLayers): File 
         val refreshed = refreshMusicVideo(session)
         val retryQuality = if (quality == ShareQuality.UltraHd) ShareQuality.FullHd else quality
         if (!refreshed && retryQuality == quality) throw e
-        Timber.w(e, "SongShare: video export failed; retrying with fresh links=$refreshed at $retryQuality")
+        Log.w("SongShare", "Video export failed; retrying with fresh links=$refreshed at $retryQuality", e)
         return exportVideo(context, session, theme, retryQuality, layers, songSource, job)
     }
 }

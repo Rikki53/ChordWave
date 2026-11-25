@@ -73,6 +73,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import com.music.bitchord.R
 import com.music.bitchord.data.LikeState
+import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
@@ -681,7 +682,19 @@ class MochyPlayerConnection(context: Context) {
         scope.launch {
             LikeState.overrides.collect { overrides ->
                 val current = mediaMetadata.value ?: return@collect
+                if (current.id !in overrides) return@collect
                 val liked = overrides[current.id] == LikeStatus.LIKE
+                if (current.liked != liked) mediaMetadata.value = current.copy(liked = liked)
+            }
+        }
+
+        // A device file liked (or unliked) anywhere — Classic, the widget, a
+        // list menu — flips the player heart the same way.
+        scope.launch {
+            OfflinePlaylists.liked.collect { likedUris ->
+                val current = mediaMetadata.value ?: return@collect
+                val uri = current.localUri ?: return@collect
+                val liked = uri in likedUris
                 if (current.liked != liked) mediaMetadata.value = current.copy(liked = liked)
             }
         }
@@ -762,7 +775,7 @@ class MochyPlayerConnection(context: Context) {
         // half-synced queue is worse than a stale song row.
         try {
             mediaMetadata.value = cwSong?.toMochyMetadata()?.let {
-                it.copy(liked = LikeState.overrides.value[it.id] == LikeStatus.LIKE)
+                it.copy(liked = LikeState.overrides.value[it.id] == LikeStatus.LIKE || (it.localUri != null && it.localUri in OfflinePlaylists.liked.value))
             }
             currentSong.value = cwSong?.toMochySong()
         } catch (_: Exception) {
@@ -1075,6 +1088,18 @@ class MochyPlayerConnection(context: Context) {
 
     fun toggleLike() {
         val meta = mediaMetadata.value ?: return
+        if (meta.localUri != null) {
+            val cwSong = try {
+                player?.currentMediaItem?.toSong()
+            } catch (_: Exception) {
+                null
+            }
+            if (cwSong != null) {
+                val nowLiked = OfflinePlaylists.toggleLike(cwSong)
+                mediaMetadata.value = meta.copy(liked = nowLiked)
+                return
+            }
+        }
         scope.toggleSongLike(meta.id, !meta.liked)
         mediaMetadata.value = meta.copy(liked = !meta.liked)
     }

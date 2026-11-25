@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.translate
+import android.os.Build
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -52,6 +53,7 @@ import com.music.bitchord.ui.mochy.player.share.ShareHeight
 import com.music.bitchord.ui.mochy.player.share.ShareRegions
 import com.music.bitchord.ui.mochy.player.share.ShareStyle
 import com.music.bitchord.ui.mochy.player.share.ShareWidth
+import com.music.bitchord.ui.mochy.player.share.shareBackgroundBlur
 import com.music.bitchord.ui.mochy.player.share.cinematicTimings
 import com.music.bitchord.ui.mochy.player.share.drawMusicClouds
 import kotlin.math.PI
@@ -258,7 +260,7 @@ private fun SongShareBackdrop(
             when (val background = session.background) {
                 is SongBackground.Still -> StillBackdrop(session, background.background, positionMs, moving)
                 is SongBackground.Video -> if (video != null) {
-                    Box(Modifier.fillMaxSize().graphicsLayer { alpha = background.dim }) { video() }
+                    Box(Modifier.fillMaxSize().graphicsLayer { alpha = background.dim }.shareBackgroundBlur(background.blur)) { video() }
                 }
             }
         }
@@ -271,13 +273,15 @@ private fun StillBackdrop(session: SongShareSession, background: ShareBackground
     when (background) {
         is ShareBackground.Solid -> Spacer(Modifier.fillMaxSize().background(background.color))
         is ShareBackground.Picture -> {
-            val picture = if (background.blur) art.pictureBlur else art.picture
+            // phones too old for render effects keep the pre-blurred bitmap
+            val bitmapBlur = background.blur > 0.5f && Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+            val picture = if (bitmapBlur) art.pictureBlur ?: art.picture else art.picture
             if (picture != null && art.pictureUri == background.uri) {
                 Image(
                     picture,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = background.opacity },
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = background.opacity }.shareBackgroundBlur(if (bitmapBlur) 0f else background.blur),
                 )
             }
         }

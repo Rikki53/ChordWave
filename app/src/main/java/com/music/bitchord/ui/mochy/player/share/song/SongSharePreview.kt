@@ -8,6 +8,7 @@ import android.graphics.SurfaceTexture
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.util.Log
 import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
@@ -24,7 +25,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +44,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.datasource.DefaultDataSource
@@ -131,16 +135,22 @@ internal fun ShareVideoLayer(
     when (source) {
         null -> Unit
         ShareVideoSource.MusicVideo -> session.musicVideo.found?.let { music ->
-            val track = music.trackFor(PreviewVideoShortSide) ?: return@let
-            val start = music.videoMsAt(session.windowStartMs).coerceAtLeast(0L)
-            val item = remember(track.url, start, session.windowLengthMs) {
-                clippedItem(MediaItem.Builder().setUri(track.url).setMimeType(MimeTypes.VIDEO_MP4), start, session.windowLengthMs)
+            val track = music.trackFor(PreviewVideoShortSide)
+            if (track == null) {
+                // no playable picture in the found streams: the cover stands
+                // in rather than a blank card (batch 36)
+                CoverStill(session)
+            } else {
+                val start = music.videoMsAt(session.windowStartMs).coerceAtLeast(0L)
+                val item = remember(track.url, start, session.windowLengthMs) {
+                    clippedItem(MediaItem.Builder().setUri(track.url).setMimeType(MimeTypes.VIDEO_MP4), start, session.windowLengthMs)
+                }
+                LoopingVideo(item, music.streams.headers, playing, restartKey = loops, modifier = modifier) { CoverStill(session) }
             }
-            LoopingVideo(item, music.streams.headers, playing, restartKey = loops, modifier = modifier)
         }
         is ShareVideoSource.Own -> {
             val item = remember(source) { clippedItem(MediaItem.Builder().setUri(source.uri), source.startMs, source.lengthMs) }
-            LoopingVideo(item, emptyMap(), playing, restartKey = loops, modifier = modifier)
+            LoopingVideo(item, emptyMap(), playing, restartKey = loops, modifier = modifier) { CoverStill(session) }
         }
     }
 }
@@ -168,7 +178,7 @@ internal fun ShareMusicVideo.trackFor(maxShortSide: Int): VideoTrack? {
 
 // a clip that loops on the canvas thread, cropped to fill, so loading and releasing it never stall the sheet
 @Composable
-private fun LoopingVideo(item: MediaItem, headers: Map<String, String>, playing: Boolean, restartKey: Int, modifier: Modifier) {
+private fun LoopingVideo(item: MediaItem, headers: Map<String, String>, playing: Boolean, restartKey: Int, modifier: Modifier, fallback: @Composable () -> Unit = {}) {
     val context = LocalContext.current
     val factory = remember(headers) {
         val http = OkHttpDataSource.Factory(OkHttpClient.Builder().followAppProxy().build())
@@ -184,8 +194,16 @@ private fun LoopingVideo(item: MediaItem, headers: Map<String, String>, playing:
     val texture = remember { ShareLoopTexture() }
     val currentPlaying by rememberUpdatedState(playing)
     val player = remember(factory) { ShareLoopSession(context, factory, currentPlaying).also { texture.session = it } }
+    // a dead stream link used to sit as a silent transparent card (batch 36):
+    // say so in the log and show the fallback instead
+    var failed by remember(item) { mutableStateOf(false) }
     DisposableEffect(player) {
         val listener = object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e("SongShare", "Preview video failed", error)
+                failed = true
+            }
+
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 if (videoSize.width > 0 && videoSize.height > 0) {
                     frame.post { frame.setAspectRatio(videoSize.width.toFloat() / videoSize.height) }
@@ -201,6 +219,10 @@ private fun LoopingVideo(item: MediaItem, headers: Map<String, String>, playing:
     LaunchedEffect(player, item) { player.load(item, currentPlaying) }
     LaunchedEffect(player, playing) { player.setPlaying(playing) }
     LaunchedEffect(player, restartKey) { if (restartKey > 0) player.restart() }
+    if (failed) {
+        fallback()
+        return
+    }
     AndroidView(
         factory = { viewContext ->
             frame.apply {

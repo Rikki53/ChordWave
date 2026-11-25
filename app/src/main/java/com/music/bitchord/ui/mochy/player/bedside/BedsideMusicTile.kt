@@ -1,6 +1,8 @@
 // Ported from Mochy Music (GPL-3.0): ui/player/bedside/BedsideMusicTile.kt
 package com.music.bitchord.ui.mochy.player.bedside
 
+import com.music.bitchord.ui.mochy.player.LikeRed
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -221,7 +223,7 @@ private fun LikeButton(liked: Boolean) {
         Icon(
             painter = painterResource(if (liked) R.drawable.favorite else R.drawable.favorite_border),
             contentDescription = null,
-            tint = Color.White,
+            tint = if (liked) LikeRed else Color.White,
             modifier = Modifier.size(22.dp),
         )
     }

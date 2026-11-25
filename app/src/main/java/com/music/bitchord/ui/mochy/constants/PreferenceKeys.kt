@@ -343,7 +343,13 @@ enum class LyricsMotionStyle(
     BORING("Boring", "Style 1's rise, without the glow", risesWords = true, shaded = false),
 
     // style 2 without the shader, just the colour sweeping along
-    PLAIN("Plain", "Style 2's sweep, without the glow or the wave", risesWords = false, shaded = false);
+    PLAIN("Plain", "Style 2's sweep, without the glow or the wave", risesWords = false, shaded = false),
+
+    // each word fades in whole as it's sung (batch 36)
+    FADE("Fade", "Words fade in as they're sung", risesWords = false, shaded = false),
+
+    // each word pops bigger as it lands, then settles (batch 36)
+    POP("Pop", "Words pop as they're sung", risesWords = false, shaded = true);
 
     // the same motion with the shader switched off, used when moving people off the old shader switch
     val withoutShader: LyricsMotionStyle get() = if (risesWords) BORING else PLAIN

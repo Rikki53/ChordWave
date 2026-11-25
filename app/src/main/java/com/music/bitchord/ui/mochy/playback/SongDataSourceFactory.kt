@@ -96,6 +96,10 @@ object SongDataSourceFactory {
                 .build()
         }
         val videoId = videoIdOf(uri) ?: return@Resolver dataSpec
+        // a device song that lost its file URI has nothing to resolve: fail
+        // at once instead of blocking the loader on a 120 s YouTube lookup
+        // for an id that was never a video id (batch 36)
+        if (videoId.startsWith("LOCAL_")) throw IOException("Local song $videoId has no file URI to play from")
         val url = try {
             runBlocking {
                 withTimeout(ResolveTimeoutMs) { StreamResolver.resolve(videoId) }

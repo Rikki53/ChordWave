@@ -170,6 +170,8 @@
     <string name="customise_lyrics_translation_desc">Translates every song\'s lyrics as it plays</string>
     <string name="customise_style_boring">Boring</string>
     <string name="customise_style_plain">Plain</string>
+    <string name="customise_style_fade">Fade</string>
+    <string name="customise_style_pop">Pop</string>
 
     <!-- customisation: the player's top and bottom bars -->
     <string name="customise_top_bar_desc">The clock and icons over the open player. Off, every player style runs to the top of the screen</string>
