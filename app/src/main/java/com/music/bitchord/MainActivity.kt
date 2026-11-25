@@ -4415,19 +4415,9 @@ private fun BitChordApp(
                                     )
                                 }
                             }
-                            // One tap to the Modern interface, on Home at rest —
-                            // the visible switch Riki asked for (the full control
-                            // lives in Settings). Same mechanism as the settings
-                            // toggle; Modern settings switches back the same way.
-                            if (route == null && detail == null && selectedMoodGenre == null && selectedTab == TAB_HOME) {
-                                IconButton(onClick = { AppSettings.setUiMode(UiMode.MODERN) }) {
-                                    Icon(
-                                        Icons.Rounded.AutoAwesome,
-                                        contentDescription = stringResource(R.string.switch_to_modern),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            }
+                            // The Classic/Modern switch lives in Settings
+                            // (batch 29 removed the one-tap button that sat
+                            // here, left of the account photo).
                             // Left of the account photo, and only there while
                             // there is a batch to report on — see
                             // [TopBarDownloadButton], which decides that for

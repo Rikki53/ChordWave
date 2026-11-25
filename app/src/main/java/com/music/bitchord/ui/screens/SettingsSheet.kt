@@ -1142,21 +1142,9 @@ fun SettingsScreen(
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
-            // The one-tap way to Modern: a visible button, not just the
-            // segmented control above. Same mechanism — the host recomposes
-            // onto the Modern UI at once, no restart, playback keeps going —
-            // and Modern settings switches back the same way.
-            if (uiMode != UiMode.MODERN) {
-                val switchTitle = stringResource(R.string.switch_to_modern)
-                row(switchTitle, "switch", "modern", "interface", "new look") {
-                    SettingsRow(
-                        icon = SfIcons.AutoAwesome,
-                        title = switchTitle,
-                        subtitle = stringResource(R.string.ui_mode_modern_desc),
-                        onClick = { AppSettings.setUiMode(UiMode.MODERN) },
-                    )
-                }
-            }
+            // One switch only (batch 29): the segmented control above is
+            // the Classic/Modern switch, as in Modern settings; the extra
+            // one-tap row that duplicated it is gone.
             val fontTitle = stringResource(R.string.font)
             row(fontTitle, "typeface", "sf pro", "legacy") {
                 SettingsRow(
