@@ -28,7 +28,11 @@ import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.OfflinePlaylist
 import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.model.BrowseItem
+import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.LibraryPage
+import com.music.bitchord.data.model.SearchFilter
+import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.Downloads
@@ -40,6 +44,7 @@ import com.music.bitchord.ui.mochy.importer.LocalImportStore
 import com.music.bitchord.ui.mochy.models.Album
 import com.music.bitchord.ui.mochy.models.AlbumEntity
 import com.music.bitchord.ui.mochy.models.Artist
+import com.music.bitchord.ui.mochy.models.ArtistEntity
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.innertube.YTItem
@@ -307,6 +312,9 @@ class LibraryHomeViewModel @Inject constructor(
 
     init {
         LocalImportStore.init(context)
+        // Pictures resolved for local artists in earlier sessions (batch 33)
+        // show at once; the refresh below only fetches what's still missing.
+        _artistThumbs.value = AppSettings.localArtistThumbs.value
         load()
 
         // The first load() fetches the account itself; a later sign-in (or
@@ -564,6 +572,71 @@ class LibraryHomeViewModel @Inject constructor(
                 _artistThumbs.update { it + (artist.id to thumb) }
             }
         }
+        // Local artists (batch 33): their id is a name, not a channel, so the
+        // pass above never sees them and they rendered as grey circles
+        // forever. Resolve a picture by exact-name search instead, cached
+        // across restarts so the search runs once per artist.
+        val localMissing = list.map { it.artist }
+            .filter { it.thumbnailUrl == null && !it.id.startsWith("UC") && artistRefreshAttempted.add(it.id) }
+            .take(25)
+        for (artist in localMissing) {
+            val thumb = runCatching { resolveLocalArtistThumb(artist) }.getOrNull()
+            if (thumb != null) {
+                _artistThumbs.update { it + (artist.id to thumb) }
+                AppSettings.rememberLocalArtistThumb(artist.id, thumb)
+            }
+        }
+    }
+
+    /**
+     * A YouTube Music picture for an artist known only by a file tag.
+     * Deliberately strict (batch 33): the search result's name must equal
+     * the tag (case and punctuation aside) — a near miss stays a grey
+     * circle rather than wearing another artist's face. A tag naming
+     * several artists ("Calum Scott, Darren Espanto") is tried whole first,
+     * then by its first name. When several channels share the exact name,
+     * one of the artist's own local songs breaks the tie; if it can't, no
+     * picture is better than a wrong one.
+     */
+    private suspend fun resolveLocalArtistThumb(artist: ArtistEntity): String? {
+        for (name in candidateArtistNames(artist.name)) {
+            val results = YtMusicRepository.search(name, SearchFilter.ARTISTS).getOrNull().orEmpty()
+            val matches = results.filterIsInstance<SearchResult.Browse>()
+                .map { it.item }
+                .filter {
+                    it.type == BrowseType.ARTIST &&
+                        normalizeArtistName(it.title) == normalizeArtistName(name)
+                }
+            val picked = when {
+                matches.size == 1 -> matches.first()
+                matches.size > 1 -> disambiguateArtistBySong(artist, name, matches)
+                else -> null
+            } ?: continue
+            return picked.thumbnailUrl
+                ?: YtMusicRepository.artistLanding(picked.browseId).getOrNull()?.thumbnailUrl
+        }
+        return null
+    }
+
+    /** Which of several same-named channels actually sings one of this artist's local songs. */
+    private suspend fun disambiguateArtistBySong(
+        artist: ArtistEntity,
+        name: String,
+        matches: List<BrowseItem>,
+    ): BrowseItem? {
+        val title = local.songs.value
+            .firstOrNull { song -> song.artists.any { it.id == artist.id } }
+            ?.song?.title ?: return null
+        val tracks = YtMusicRepository.search("$name $title", SearchFilter.SONGS).getOrNull().orEmpty()
+        val channelIds = tracks.flatMap { result ->
+            when (result) {
+                is SearchResult.Track -> listOfNotNull(result.song.artistId) + result.song.artists.mapNotNull { it.browseId }
+                is SearchResult.TopTrack -> listOfNotNull(result.song.artistId) + result.song.artists.mapNotNull { it.browseId }
+                is SearchResult.Browse -> emptyList()
+            }
+        }.toSet()
+        val confirmed = matches.filter { it.browseId in channelIds }
+        return confirmed.singleOrNull()
     }
 
     // --- Cache management ---------------------------------------------------
@@ -647,3 +720,20 @@ private fun ShelfAlbum.toLibraryAlbum(): Album? {
         artists = songs.flatMap { it.artists }.distinctBy { it.id },
     )
 }
+
+/** Names to try for a file-tag artist: the whole tag, then its first credited name. */
+private fun candidateArtistNames(name: String): List<String> {
+    val trimmed = name.trim()
+    if (trimmed.isEmpty()) return emptyList()
+    val first = trimmed
+        .split(", ", " & ", " feat. ", " feat ", " ft. ", " ft ", " featuring ")
+        .firstOrNull()?.trim().orEmpty()
+    return listOf(trimmed, first).filter { it.isNotEmpty() }.distinct()
+}
+
+/** Case, spacing and punctuation aside, is this the same name? */
+private fun normalizeArtistName(name: String): String =
+    name.lowercase()
+        .filter { it.isLetterOrDigit() || it.isWhitespace() }
+        .replace(Regex("\\s+"), " ")
+        .trim()

@@ -342,6 +342,13 @@ object AppSettings {
 
     /** The floating-lyrics bubble over other apps (batch 32). Off by default. */
     val floatingLyricsEnabled = MutableStateFlow(false)
+
+    /**
+     * Pictures resolved for local (file-tag) artists, by artist id
+     * (batch 33). Persisted so the exact-name search runs once per artist,
+     * not once per app start.
+     */
+    val localArtistThumbs = MutableStateFlow<Map<String, String>>(emptyMap())
     private val _autoMixArtwork = MutableStateFlow(AutoMixArtworkPreferences())
     val autoMixArtwork = _autoMixArtwork.asStateFlow()
     val sleepTimerFadeOut = MutableStateFlow(true)
@@ -1205,6 +1212,10 @@ object AppSettings {
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         floatingLyricsEnabled.value = prefs.getBoolean(KEY_FLOATING_LYRICS, false)
+        localArtistThumbs.value = runCatching {
+            val json = org.json.JSONObject(prefs.getString(KEY_LOCAL_ARTIST_THUMBS, null) ?: "{}")
+            buildMap { json.keys().forEach { key -> put(key, json.getString(key)) } }
+        }.getOrDefault(emptyMap())
         _autoMixArtwork.value = AutoMixArtworkPreferences(
             artTransition = prefs.getBoolean(KEY_AUTOMIX_ART_TRANSITION, false),
             miniPlayerTransition = prefs.getBoolean(KEY_AUTOMIX_MINI_ART_TRANSITION, false),
@@ -1603,6 +1614,14 @@ object AppSettings {
     fun setFloatingLyricsEnabled(value: Boolean) {
         floatingLyricsEnabled.value = value
         prefs.edit().putBoolean(KEY_FLOATING_LYRICS, value).apply()
+    }
+
+    fun rememberLocalArtistThumb(id: String, url: String) {
+        val updated = localArtistThumbs.value + (id to url)
+        localArtistThumbs.value = updated
+        val json = org.json.JSONObject()
+        updated.forEach { (key, value) -> json.put(key, value) }
+        prefs.edit().putString(KEY_LOCAL_ARTIST_THUMBS, json.toString()).apply()
     }
 
     fun setAutoMixArtTransition(value: Boolean) {
@@ -2799,6 +2818,7 @@ object AppSettings {
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
     private const val KEY_FLOATING_LYRICS = "floating_lyrics_enabled"
+    private const val KEY_LOCAL_ARTIST_THUMBS = "local_artist_thumbs"
     private const val KEY_AUTOMIX_ART_TRANSITION = "automix_art_transition"
     private const val KEY_AUTOMIX_MINI_ART_TRANSITION = "automix_mini_art_transition"
     private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"
