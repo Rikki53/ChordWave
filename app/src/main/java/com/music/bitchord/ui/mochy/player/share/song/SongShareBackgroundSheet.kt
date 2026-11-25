@@ -201,15 +201,17 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                     BackgroundPage.OwnVideo -> {
                         val own = session.lastOwnVideo
                         if (own != null) {
-                            if (current) ShareVideoLayer(session, playing = session.onScreen, source = own) else CoverStill(session)
+                            // the card shows the video as it will sit behind the words, dim included,
+                            // so the brightness slider below answers at once (batch 26)
+                            if (current) ShareVideoLayer(session, playing = session.onScreen, source = own, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }) else CoverStill(session)
                         } else {
                             AddCircle(contentDescription = stringResource(R.string.song_share_bg_pick_video), onClick = pickVideo)
                         }
                     }
                     BackgroundPage.MusicVideo ->
-                        if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.MusicVideo) else CoverStill(session)
+                        if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.MusicVideo, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }) else CoverStill(session)
                     BackgroundPage.AnimatedCover ->
-                        if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.AnimatedCover) else CoverStill(session)
+                        if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.AnimatedCover, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }) else CoverStill(session)
                     BackgroundPage.Music -> BackdropOf(ShareBackground.FromMusic, session.song.thumbnailUrl, session.palette, animate = true)
                     BackgroundPage.Colour -> BackdropOf(ShareBackground.Solid(colour), null, session.palette, animate = false)
                     BackgroundPage.Picture -> {

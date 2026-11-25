@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -74,7 +76,9 @@ private fun VideoPartContent(session: SongShareSession) {
                 .clip(RoundedCornerShape(28.dp))
                 .background(Color(0xFF2C2C2E)),
         ) {
-            ShareVideoLayer(session, playing = session.onScreen, source = own)
+            // shown at the background's brightness, like every other preview of it (batch 26)
+            val dim = (session.background as? SongBackground.Video)?.dim ?: 0.85f
+            ShareVideoLayer(session, playing = session.onScreen, source = own, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim })
         }
         Spacer(Modifier.height(14.dp))
         Text(
