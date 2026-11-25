@@ -1,5 +1,6 @@
 // Ported from Mochy Music (GPL-3.0): ui/screens/setup/WelcomeStep.kt
-// the first onboarding page: the mochy girl showing off her phone over drifting welcomes, a tap anywhere moves on
+// the first onboarding page: ChordWave's animated mint ribbon over drifting welcomes, a tap anywhere moves on
+// (batch 22 replaced the original mascot character with our own mark)
 
 package com.music.bitchord.ui.mochy.screens.setup
 
@@ -47,11 +48,9 @@ import com.music.bitchord.ui.mochy.LocalAppContentObscured
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.damageBoundary
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.OnbTitleTracking
-import com.music.bitchord.ui.mochy.screens.setup.welcome.GirlArt
-import com.music.bitchord.ui.mochy.screens.setup.welcome.GirlMotion
+import com.music.bitchord.ui.mochy.screens.setup.welcome.AnimatedRibbonMark
 import com.music.bitchord.ui.mochy.screens.setup.welcome.WelcomeColors
 import com.music.bitchord.ui.mochy.screens.setup.welcome.WelcomeDots
-import com.music.bitchord.ui.mochy.screens.setup.welcome.WelcomeGirl
 import com.music.bitchord.ui.mochy.screens.setup.welcome.WelcomeWords
 import com.music.bitchord.ui.mochy.utils.AppMotion
 import com.music.bitchord.ui.mochy.utils.HighRefreshWhile
@@ -92,12 +91,11 @@ fun WelcomeStep(isHiding: Boolean, onNext: () -> Unit) {
         WelcomeDots(layout.dots)
         WelcomeWords(clock.seconds, layout.wordsSize, layout.wordsTop)
 
-        WelcomeGirl(
-            motion = clock.girl,
+        AnimatedRibbonMark(
             seconds = clock.seconds,
             modifier = Modifier
-                .offset(x = layout.girlLeft, y = layout.girlTop)
-                .size(layout.girlWidth, layout.girlHeight)
+                .offset(x = layout.markLeft, y = layout.markTop)
+                .size(layout.markSize)
                 .graphicsLayer {
                     translationY = leave * 56.dp.toPx()
                     alpha = 1f - leave
@@ -171,10 +169,9 @@ fun WelcomeStep(isHiding: Boolean, onNext: () -> Unit) {
     }
 }
 
-// the page's one clock: each frame it moves the girl, then the rings and words read the same time
+// the page's one clock: each frame advances the time the ribbon, rings and words all read
 private class WelcomeClock {
     val seconds = mutableFloatStateOf(0f)
-    val girl = GirlMotion()
     var running by mutableStateOf(false)
         private set
 
@@ -188,7 +185,6 @@ private class WelcomeClock {
                     // a stall only counts as a short step, so nothing leaps forward after a hitch
                     if (last >= 0L) t += ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
                     last = now
-                    girl.update(t)
                     seconds.floatValue = t
                 }
             }
@@ -221,36 +217,32 @@ private class WelcomeLayout(
     val unit: Float,
     val titleStart: Dp,
     val titleTop: Dp,
-    val girlLeft: Dp,
-    val girlTop: Dp,
-    val girlWidth: Dp,
-    val girlHeight: Dp,
+    val markLeft: Dp,
+    val markTop: Dp,
+    val markSize: Dp,
     val wordsSize: Dp,
     val wordsTop: Dp,
     val dots: Dp,
     val fadeHeight: Dp,
 )
 
-// tall windows get the phone design; wide ones (tablets, foldables, landscape) put the girl on the right
+// tall windows get the phone design; wide ones (tablets, foldables, landscape) put the ribbon on the right
 private fun welcomeLayout(width: Dp, height: Dp): WelcomeLayout {
     val w = width.value
     val h = height.value
-    val shape = GirlArt.FrameWidth / GirlArt.FrameHeight
     if (w / h < 0.9f) {
         val u = min(w / 393f, h / 820f).coerceIn(0.8f, 1.9f)
         val titleTop = max(64f, 76f * u)
-        // big like a wallpaper: she spans the width and is cropped at the hips, under the title
-        val girlTop = max(titleTop + 98f * u, h * 0.25f)
-        val girlHeight = min(w * 1.08f / shape, (h - girlTop) * 1.12f)
-        val girlWidth = girlHeight * shape
+        // the ribbon sits centered under the title, big enough to feel alive
+        val markSize = min(w * 0.78f, 340f * u)
+        val markTop = max(titleTop + 110f * u, h * 0.27f)
         return WelcomeLayout(
             unit = u,
             titleStart = max(24f, 36f * u).dp,
             titleTop = titleTop.dp,
-            girlLeft = (w * 0.985f - girlWidth * GirlArt.FingertipsAcross).dp,
-            girlTop = girlTop.dp,
-            girlWidth = girlWidth.dp,
-            girlHeight = girlHeight.dp,
+            markLeft = ((w - markSize) / 2f).dp,
+            markTop = markTop.dp,
+            markSize = markSize.dp,
             wordsSize = (128f * u).dp,
             wordsTop = (h * 0.235f).dp,
             dots = (17.5f * u).dp,
@@ -258,15 +250,14 @@ private fun welcomeLayout(width: Dp, height: Dp): WelcomeLayout {
         )
     }
     val u = min(w / 900f, h / 520f).coerceIn(0.7f, 1.8f)
-    val girlWidth = min(h * 1.16f * shape, w * 0.62f)
+    val markSize = min(h * 0.62f, w * 0.4f)
     return WelcomeLayout(
         unit = u,
         titleStart = (48f * u).dp,
         titleTop = max(56f, h * 0.16f).dp,
-        girlLeft = (w * 0.975f - girlWidth * GirlArt.FingertipsAcross).coerceAtLeast(w * 0.4f).dp,
-        girlTop = max(8f, h * 0.02f).dp,
-        girlWidth = girlWidth.dp,
-        girlHeight = (girlWidth / shape).dp,
+        markLeft = (w * 0.975f - markSize).coerceAtLeast(w * 0.45f).dp,
+        markTop = max(8f, (h - markSize) / 2f).dp,
+        markSize = markSize.dp,
         wordsSize = (128f * u).dp,
         wordsTop = (h * 0.06f).dp,
         dots = (17.5f * u).dp,
