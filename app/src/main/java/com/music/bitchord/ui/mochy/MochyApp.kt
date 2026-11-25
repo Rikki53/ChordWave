@@ -723,9 +723,13 @@ private fun DetailContent(
             }
             val page = if (shelf != null) segments.getOrNull(1) else segments.firstOrNull()
             when (page) {
+                // The shelf rides along: "library/local/songs" lists the Local tab's
+                // songs, not the account library's (batch 11 — the shelf was parsed
+                // here but never handed to the screen).
                 "songs" -> LibrarySongsScreen(
                     navigator = navigator,
                     pureBlack = pureBlack,
+                    shelf = shelf,
                 )
                 "playlists" -> LibraryPlaylistsScreen(
                     navigator = navigator,

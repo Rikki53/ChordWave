@@ -33,7 +33,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -106,7 +105,9 @@ fun LibraryHomeScreen(
     // that recovers a cold start whose first fetch never made it.
     LaunchedEffect(Unit) { viewModel.refreshIfNeeded() }
 
-    var tab by rememberSaveable { mutableStateOf(LibraryTab.All) }
+    // The open tab lives in the ViewModel, not here: this screen leaves composition while a
+    // card's page is open, and a rememberSaveable tab would reset to All on return (batch 11).
+    val tab by viewModel.selectedTab.collectAsState()
     // only the open tab's shelf is collected; null while it is first read
     val shelfData = tab.shelf?.let { collectShelfTabData(viewModel, it) }
     val localActions = rememberLocalImportActions(importViewModel, onPermissionGranted = viewModel::load)
@@ -214,7 +215,7 @@ fun LibraryHomeScreen(
             item(key = "tabs") {
                 LibraryTabChips(
                     selected = tab,
-                    onSelect = { tab = it },
+                    onSelect = viewModel::selectTab,
                     modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
                 )
                 Spacer(modifier = Modifier.height(14.dp))

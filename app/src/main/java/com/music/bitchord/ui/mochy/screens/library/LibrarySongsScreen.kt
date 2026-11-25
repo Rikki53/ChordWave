@@ -14,6 +14,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.music.bitchord.R
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
@@ -26,20 +27,32 @@ import com.music.bitchord.ui.mochy.player.menu.SongMenu
 import com.music.bitchord.ui.mochy.utils.listeningTime
 import com.music.bitchord.ui.mochy.utils.makeTimeString
 import com.music.bitchord.ui.mochy.viewmodels.LibraryHomeViewModel
+import com.music.bitchord.ui.mochy.viewmodels.LibraryShelfKind
 
+/**
+ * Songs only — every library song, or with a [shelf] the Local or Cached tab's
+ * songs (batch 11: the screen ignored the shelf, so "library/local/songs"
+ * would have listed the account library instead of the tab's songs).
+ */
 @Composable
 fun LibrarySongsScreen(
     navigator: MochyNavigator,
     modifier: Modifier = Modifier,
     pureBlack: Boolean = false,
+    shelf: LibraryShelfKind? = null,
 ) {
     val viewModel: LibraryHomeViewModel = hiltViewModel()
-    val songs by viewModel.songs.collectAsState()
+    // with the lifecycle: the Cached shelf looks at the cache every couple of seconds while watched
+    val songs by (shelf?.let(viewModel::shelf)?.songs ?: viewModel.songs).collectAsStateWithLifecycle()
+    // the account load state only drives the library page — a shelf's
+    // songs come from its own source, not from the account fetch.
     val isLoading by viewModel.isLoading.collectAsState()
     val loadFailed by viewModel.loadFailed.collectAsState()
     val playerConnection = LocalPlayerConnection.current ?: return
     val menuState = LocalMenuState.current
-    val title = stringResource(R.string.lib_all_songs_title)
+    // The shelf's page wears the shelf's name, like its queue does; the
+    // library page keeps its own title.
+    val title = shelf?.label ?: stringResource(R.string.lib_all_songs_title)
     val totalSeconds = remember(songs) { songs.sumOf { it.song.duration.coerceAtLeast(0) } }
 
     LibraryEntityListScreen(
@@ -85,9 +98,9 @@ fun LibrarySongsScreen(
         },
         modifier = modifier,
         pureBlack = pureBlack,
-        isLoading = isLoading,
-        loadFailed = loadFailed,
-        onRetry = viewModel::load,
+        isLoading = shelf == null && isLoading,
+        loadFailed = shelf == null && loadFailed,
+        onRetry = if (shelf == null) viewModel::load else null,
         // left queues the song, right takes it out of the library (it's already in it)
         rowWrapper = { song, row ->
             SongSwipeBox(

@@ -44,6 +44,7 @@ import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.innertube.YTItem
 import com.music.bitchord.ui.mochy.models.toMochySong
+import com.music.bitchord.ui.mochy.screens.library.LibraryTab
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -166,6 +167,23 @@ class LibraryHomeViewModel @Inject constructor(
 
     /** The service each imported playlist came from, by playlist id. Empty: CW has no import store yet. */
     val playlistSources: StateFlow<Map<String, ImportSource>> = MutableStateFlow(emptyMap())
+
+    // --- Library tab --------------------------------------------------------
+
+    /**
+     * The Library tab on screen (All / Local / Cached / ...). Kept here, not in
+     * the screen's rememberSaveable: the host renders the detail pages INSTEAD
+     * of the tab screen, so the screen leaves composition when a card opens
+     * and a rememberSaveable tab would reset to All on every return (batch 11).
+     * The ViewModel is activity-scoped, so the tab survives card pages and
+     * tab switches within a session; a fresh launch still starts on All.
+     */
+    private val _selectedTab = MutableStateFlow(LibraryTab.All)
+    val selectedTab: StateFlow<LibraryTab> = _selectedTab.asStateFlow()
+
+    fun selectTab(tab: LibraryTab) {
+        _selectedTab.value = tab
+    }
 
     // --- Shelves ------------------------------------------------------------
 

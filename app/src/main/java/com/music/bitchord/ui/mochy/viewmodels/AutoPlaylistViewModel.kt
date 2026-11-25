@@ -14,15 +14,19 @@
 //   sort toggle re-sorts instead of re-paging YouTube.
 // - downloaded: Downloads.getDownloadedSongs.
 // - uploaded: EMPTY — ChordWave has no uploaded-songs endpoint.
-// - local: downloads + every local-file playlist's songs.
+// - local: downloads + imported files + every local-file playlist's songs —
+//   the same catalogue as the Local shelf, so the Songs card's count and its
+//   page agree (batch 11: the import store's files were missing here).
 // - local_liked: the on-device songs that are liked.
-// - cached / cached_liked: EMPTY — ChordWave exposes no player-cache API.
+// - cached / cached_liked: the player cache's whole songs via
+//   AudioCache.cachedSongs() — the same source as the Cached shelf (batch 11:
+//   both pages used to read empty).
 // - songs: played songs (ListeningStats, with real play time) + downloads
 //   + on-device files, merged by id.
 // - recently_added: the same catalogue, CREATE_DATE desc (Mochy's rule).
-// A track that was never played, downloaded, or filed in a playlist is
-// invisible to the local pages — same limitation as the local-search
-// catalogue.
+// A track that was never played, downloaded, imported, or filed in a
+// playlist is invisible to the local pages — same limitation as the
+// local-search catalogue.
 // - No saved-state handle: the route arg comes from load(playlist), which
 //   the coordinator calls from the screen. `playlist` is therefore a
 //   `var ... by mutableStateOf("")` set by load(), not Mochy's val. The VM
@@ -43,12 +47,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.data.LikeState
+import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.OfflinePlaylist
 import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.mochy.constants.HideExplicitKey
 import com.music.bitchord.ui.mochy.constants.HideVideoSongsKey
 import com.music.bitchord.ui.mochy.constants.LikedSongSortDescendingKey
@@ -59,7 +65,9 @@ import com.music.bitchord.ui.mochy.constants.SongSortType
 import com.music.bitchord.ui.mochy.constants.SongSortTypeKey
 import com.music.bitchord.ui.mochy.extensions.toEnum
 import com.music.bitchord.ui.mochy.importer.ImportSource
+import com.music.bitchord.ui.mochy.importer.LocalImportStore
 import com.music.bitchord.ui.mochy.models.Song
+import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.utils.dataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -127,6 +135,10 @@ class AutoPlaylistViewModel @Inject constructor(
         val id: String?,
         val tick: Int,
         val playlists: List<OfflinePlaylist>,
+        /** The imported files, so the Local pages count them like the shelf does. */
+        val imported: List<Song>,
+        /** Live like overrides, so a like toggled elsewhere re-sorts the page. */
+        val likedOverrides: Map<String, LikeStatus>,
     )
 
     /** null until the first load */
@@ -148,8 +160,10 @@ class AutoPlaylistViewModel @Inject constructor(
             refreshTick,
             OfflinePlaylists.playlists,
             Downloads.saved,
-        ) { prefs, id, tick, playlists, _ ->
-            Inputs(prefs, id, tick, playlists)
+            LocalImportStore.songs,
+            LikeState.overrides,
+        ) { prefs, id, tick, playlists, _, imported, likedOverrides ->
+            Inputs(prefs, id, tick, playlists, imported, likedOverrides)
         }
             .flatMapLatest { inputs ->
                 val id = inputs.id ?: return@flatMapLatest flowOf<AutoPlaylistSongs?>(null)
@@ -207,24 +221,37 @@ class AutoPlaylistViewModel @Inject constructor(
             // state says so honestly until one exists.
             "uploaded" -> AutoPlaylistSongs(emptyList())
 
-            // Local is everything on this device: downloads and imported files together
+            // Local is everything on this device: downloads, imported files and the
+            // files the offline playlists reference — the same catalogue as the
+            // Local shelf, so the card's count and this page agree.
             "local" -> AutoPlaylistSongs(
-                visible(onDeviceSongs(inputs.playlists).sortedBySongSort(prefs.sortType, prefs.descending)),
+                visible(
+                    onDeviceSongs(inputs.playlists, inputs.imported, inputs.likedOverrides)
+                        .sortedBySongSort(prefs.sortType, prefs.descending),
+                ),
             )
 
             // the Local page's Liked songs: only the liked songs that are on this device.
             // Sorted like any song list - the page shows the song sort for it, not Liked's.
             "local_liked" -> AutoPlaylistSongs(
                 visible(
-                    onDeviceSongs(inputs.playlists).filter { it.song.liked }
+                    onDeviceSongs(inputs.playlists, inputs.imported, inputs.likedOverrides)
+                        .filter { it.song.liked }
                         .sortedBySongSort(prefs.sortType, prefs.descending),
                 ),
             )
 
             // The Cached page and its liked songs: what the player kept whole from
-            // streaming. ChordWave exposes no player-cache API, so both read empty
-            // until the cache is exposed (NEEDS.md C3).
-            "cached", "cached_liked" -> AutoPlaylistSongs(emptyList())
+            // streaming, read from the same AudioCache the Cached shelf reads.
+            "cached" -> AutoPlaylistSongs(
+                visible(cachedSongs(inputs.likedOverrides).sortedBySongSort(prefs.sortType, prefs.descending)),
+            )
+            "cached_liked" -> AutoPlaylistSongs(
+                visible(
+                    cachedSongs(inputs.likedOverrides).filter { it.song.liked }
+                        .sortedBySongSort(prefs.sortType, prefs.descending),
+                ),
+            )
 
             "songs" -> AutoPlaylistSongs(
                 visible(allSongs(inputs.playlists).sortedBySongSort(prefs.sortType, prefs.descending)),
@@ -266,8 +293,18 @@ class AutoPlaylistViewModel @Inject constructor(
     private suspend fun downloadedSongs(): List<Song> =
         Downloads.getDownloadedSongs(context).map { it.toDownloadedMochySong() }
 
-    /** Local is everything on this device: downloads and imported files together. */
-    private suspend fun onDeviceSongs(playlists: List<OfflinePlaylist>): List<Song> {
+    /**
+     * Local is everything on this device: downloads, imported files and the files the
+     * offline playlists reference — the same three sources as the Local shelf, so the
+     * Songs card's count and this page list the same songs. Liked is recomputed the
+     * shelf's way (like overrides, then the liked playlist's local uris), so the
+     * imported files carry their likes here too.
+     */
+    private suspend fun onDeviceSongs(
+        playlists: List<OfflinePlaylist>,
+        imported: List<Song>,
+        likedOverrides: Map<String, LikeStatus>,
+    ): List<Song> {
         val downloaded = downloadedSongs()
         val likedUris = playlists.firstOrNull { it.isLiked }?.songs
             ?.mapNotNull { it.localUri }?.toHashSet().orEmpty()
@@ -276,8 +313,29 @@ class AutoPlaylistViewModel @Inject constructor(
                 val song = file.toLocalFileMochySong()
                 if (file.localUri in likedUris) song.copy(song = song.song.copy(liked = true)) else song
             }
-        return (downloaded + files).distinctBy { it.id }
+        return (downloaded + imported + files)
+            .distinctBy { it.id }
+            .map { song ->
+                val liked = likedOverrides[song.id] == LikeStatus.LIKE ||
+                    (song.song.localUri != null && song.song.localUri in likedUris)
+                if (liked != song.song.liked) song.copy(song = song.song.copy(liked = liked)) else song
+            }
     }
+
+    /**
+     * The Cached page's songs: what the player kept whole from streaming, most
+     * recently played first — the same AudioCache read as the Cached shelf.
+     * Only whole songs count, like the shelf; a half-cached track plays from
+     * the network, not from here.
+     */
+    private suspend fun cachedSongs(likedOverrides: Map<String, LikeStatus>): List<Song> =
+        runCatching { AudioCache.cachedSongs() }.getOrNull().orEmpty()
+            .filter { it.complete }
+            .map { cached ->
+                val song = cached.song.toMochySong()
+                val liked = likedOverrides[cached.song.videoId] == LikeStatus.LIKE
+                if (liked) song.copy(song = song.song.copy(liked = true)) else song
+            }
 
     /**
      * Every song ChordWave knows locally: played songs (stats, with real
