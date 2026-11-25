@@ -309,6 +309,11 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
+                    android:host="chordwave.tonvix.my.id"
+                    android:pathPattern="/invite/......" />
+                <!-- Links shared before batch 31, on the old upstream domain. -->
+                <data
+                    android:scheme="https"
                     android:host="bitchord.kushagrasingh.in"
                     android:pathPattern="/invite/......" />
             </intent-filter>

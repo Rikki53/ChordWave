@@ -16,10 +16,14 @@ data class ParsedJamInvite(
 /** Relays a ChordWave web or scheme invite from [com.music.bitchord.MainActivity] to Compose. */
 object JamInviteLink {
 
-    const val ORIGIN = "https://bitchord.kushagrasingh.in"
+    // ChordWave's own link domain (batch 31; the party server itself is
+    // unchanged). Links shared before the move still parse via
+    // LEGACY_HOST below, but are never generated.
+    const val ORIGIN = "https://chordwave.tonvix.my.id"
 
     private const val EXTRA_CONSUMED = "bitchord.jamInviteConsumed"
-    private const val HOST = "bitchord.kushagrasingh.in"
+    private const val HOST = "chordwave.tonvix.my.id"
+    private const val LEGACY_HOST = "bitchord.kushagrasingh.in"
     // New links use chordwave://; bitchord:// links are still accepted but never generated.
     private const val CUSTOM_SCHEME = "chordwave"
     private const val LEGACY_SCHEME = "bitchord"
@@ -52,7 +56,8 @@ object JamInviteLink {
     /**
      * Parses an incoming invite:
      * 1. chordwave://party/<CODE>?server=<SERVER> (bitchord:// still accepted)
-     * 2. https://bitchord.kushagrasingh.in/invite/<CODE>?server=<SERVER>
+     * 2. https://chordwave.tonvix.my.id/invite/<CODE>?server=<SERVER>
+     *    (the old bitchord.kushagrasingh.in shape is still accepted)
      */
     fun parseInvite(value: String?): ParsedJamInvite? {
         val uri = runCatching { URI(value ?: return null) }.getOrNull() ?: return null
@@ -70,8 +75,9 @@ object JamInviteLink {
             return ParsedJamInvite(code = code, serverUrl = server)
         }
 
-        // 2. Official web domain: https://bitchord.kushagrasingh.in/invite/<CODE>
-        if (scheme == "https" && host == HOST) {
+        // 2. Official web domain: https://chordwave.tonvix.my.id/invite/<CODE>
+        // (links shared before batch 31, on the old upstream domain, still parse)
+        if (scheme == "https" && (host == HOST || host == LEGACY_HOST)) {
             val match = INVITE_PATH.matchEntire(uri.path.orEmpty()) ?: return null
             val code = match.groupValues[1].uppercase()
             return ParsedJamInvite(code = code, serverUrl = server)
