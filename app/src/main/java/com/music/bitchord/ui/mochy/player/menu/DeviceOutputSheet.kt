@@ -9,12 +9,16 @@
 //   locally and apply logs a Timber warning + TODO instead of faking a
 //   volume change. Contract in NEEDS.md §(b) D2.
 // - DROPPED (engine): the per-device list (AudioOutputs.devices —
-//   service.audioOutputs + setPreferredAudioDevice), the cast section
-//   (castConnectionHandler: discovery, targets, connect/disconnect), the
-//   USB passthrough detail, and the larp-mode row relabel
-//   (rememberLarpMode / larpDacDetail — a Mochy in-joke, not a CW feature).
-//   Their helpers (deviceLabel / deviceDetail / Kind.icon) went with them.
-//   With no devices, "Automatic" is always the selected row.
+//   service.audioOutputs + setPreferredAudioDevice), the USB passthrough
+//   detail, and the larp-mode row relabel (rememberLarpMode /
+//   larpDacDetail — a Mochy in-joke, not a CW feature). Their helpers
+//   (deviceLabel / deviceDetail / Kind.icon) went with them.
+// - CAST (batch 9): the cast section is back, driven by CW's own
+//   CastController (playback/cast) instead of Mochy's
+//   castConnectionHandler: discovery while the sheet is open, one row
+//   per receiver, tap to connect, tap the connected one (or Automatic)
+//   to disconnect and resume on this phone. Playback itself moves via
+//   CastPlayback, attached in PlaybackService.
 // The sheet opens, scrolls, and never crashes without the engines.
 
 package com.music.bitchord.ui.mochy.player.menu
@@ -40,11 +44,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoMode
+import androidx.compose.material.icons.rounded.Cast
+import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.SettingsBluetooth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +68,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.playback.cast.CastController
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.SheetIcon
 import timber.log.Timber
@@ -87,12 +97,22 @@ fun DeviceOutputSheet(onDismiss: () -> Unit) {
         mutableFloatStateOf(1f)
     }
 
-    // STUB (NEEDS.md §(b) D2): no audio-output engine, no cast engine.
-    // Mochy read service.audioOutputs.devices + castConnectionHandler here;
-    // with neither, the device list is empty and nothing is casting, so
-    // "Automatic" is selected and the cast section stays hidden.
+    // STUB (NEEDS.md §(b) D2): no audio-output engine, so "Automatic" is
+    // always the selected local row. Cast has an engine of its own —
+    // CastController, already started by PlaybackService and proven by
+    // Classic's CastDialog — so the cast section below is live.
     val anyChosen = false
-    val isCasting = false
+    val cast by CastController.state.collectAsStateWithLifecycle()
+    val isCasting = cast.casting
+
+    LaunchedEffect(Unit) { CastController.ensureStarted(context) }
+    // Active scan while somebody is looking at the list: finds a receiver
+    // in a couple of seconds instead of a minute. Re-runs when the
+    // framework comes up, so opening the sheet early still discovers.
+    DisposableEffect(cast.supported) {
+        val stop = CastController.discover(active = true)
+        onDispose { stop() }
+    }
 
     MenuSheetSurface(onDismiss = onDismiss, halfDetent = 0.66f, fullDetent = 0.92f) { _ ->
         Column(
@@ -141,15 +161,53 @@ fun DeviceOutputSheet(onDismiss: () -> Unit) {
                     icon = Icons.Rounded.AutoMode,
                     selected = !anyChosen && !isCasting,
                     onClick = {
-                        // TODO(phase3-adapter): setPreferredAudioDevice(null)
-                        // once the audio-output engine exists (NEEDS.md §(b) D2).
-                        Timber.w("DeviceOutputSheet: no audio-output engine; Automatic is already in effect")
+                        if (isCasting) {
+                            // Back to this phone: end the session and
+                            // resume here (see CastPlayback).
+                            CastController.disconnect(resumeHere = true)
+                        } else {
+                            // TODO(phase3-adapter): setPreferredAudioDevice(null)
+                            // once the audio-output engine exists (NEEDS.md §(b) D2).
+                            Timber.w("DeviceOutputSheet: no audio-output engine; Automatic is already in effect")
+                        }
                     },
                 )
-                // Mochy listed service.audioOutputs.devices here, then the
-                // cast targets under "Other devices on your network".
-                // Both engines are out of scope; the sections stay hidden
-                // until they exist rather than showing an empty list.
+                // Mochy listed service.audioOutputs.devices here; that
+                // engine is still out of scope, so the section stays
+                // hidden rather than showing an empty list. The cast
+                // targets below are live (see the header).
+                if (cast.supported) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    SectionLabel("Other devices on your network")
+                    if (cast.devices.isEmpty() && !isCasting) {
+                        Text(
+                            text = "Looking for devices on this Wi-Fi network…",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(start = 2.dp, bottom = 4.dp),
+                        )
+                    }
+                    cast.devices.forEach { device ->
+                        val connected = isCasting && device.connected
+                        DeviceRow(
+                            label = device.name,
+                            detail = when {
+                                connected -> "Connected — tap to disconnect"
+                                device.connecting -> "Connecting…"
+                                else -> "Tap to connect"
+                            },
+                            icon = if (connected) Icons.Rounded.CastConnected else Icons.Rounded.Cast,
+                            selected = connected,
+                            onClick = {
+                                when {
+                                    connected -> CastController.disconnect(resumeHere = true)
+                                    device.connecting -> Unit
+                                    else -> CastController.connect(device.id)
+                                }
+                            },
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
