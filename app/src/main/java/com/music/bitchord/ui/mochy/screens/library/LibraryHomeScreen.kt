@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +58,10 @@ import com.music.bitchord.ui.mochy.models.TransferBatch
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.LikedCover
+import com.music.bitchord.ui.mochy.component.CreatePlaylistDialog
 import com.music.bitchord.ui.mochy.component.LocalMenuState
+import com.music.bitchord.ui.mochy.component.rememberRevealSeenState
+import com.music.bitchord.ui.mochy.player.menu.PlaylistMenu
 import com.music.bitchord.ui.mochy.player.menu.SongMenu
 import com.music.bitchord.ui.mochy.screens.search.SearchAvatar
 import com.music.bitchord.ui.mochy.screens.search.SearchColors
@@ -130,6 +134,9 @@ fun LibraryHomeScreen(
     val (hideImportBanner, onHideImportBannerChange) = rememberPreference(HideLibraryImportBannerKey, defaultValue = false)
 
     var query by remember { mutableStateOf(TextFieldValue()) }
+    val revealSeen = rememberRevealSeenState()
+    val coroutineScope = rememberCoroutineScope()
+    var creatingPlaylist by remember { mutableStateOf(false) }
     val results = remember(query.text, songs, artists, albums, playlists, tab, shelfData) {
         val q = query.text.trim()
         when {
@@ -323,6 +330,24 @@ fun LibraryHomeScreen(
 
                 LibraryTab.Genres -> libraryGenresTab(genres, navigator)
 
+                LibraryTab.Playlists -> libraryPlaylistsTab(
+                    playlists = playlists,
+                    likedSongs = likedSongs,
+                    navigator = navigator,
+                    onNewPlaylist = { creatingPlaylist = true },
+                    onPlaylistMenu = { playlist ->
+                        menuState.show {
+                            PlaylistMenu(
+                                playlist = playlist,
+                                coroutineScope = coroutineScope,
+                                onDismiss = menuState::dismiss,
+                                navigator = navigator,
+                            )
+                        }
+                    },
+                    revealSeen = revealSeen,
+                )
+
                 LibraryTab.Imported -> libraryImportedTab(
                     importProgress = importProgress,
                     services = services,
@@ -341,6 +366,13 @@ fun LibraryHomeScreen(
                 )
             }
         }
+    }
+
+    if (creatingPlaylist) {
+        CreatePlaylistDialog(
+            onDismiss = { creatingPlaylist = false },
+            onPlaylistCreated = { playlistId -> navigator.navigate("local_playlist/$playlistId") },
+        )
     }
 }
 

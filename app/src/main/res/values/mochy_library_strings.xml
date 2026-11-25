@@ -24,6 +24,9 @@
     <string name="library_pinned">Pinned</string>
     <string name="library_recently_added">Recently added</string>
     <string name="library_tab_all">All</string>
+    <string name="library_tab_playlists">Playlist</string>
+    <string name="import_from_link">Import from link</string>
+    <string name="library_playlists_none">Your playlists will show up here.</string>
     <string name="library_tab_genres">Genres</string>
     <string name="library_tab_imported">Imported</string>
     <string name="library_tab_local">Local</string>

@@ -3,7 +3,7 @@
 // Mochy packages -> com.music.bitchord.ui.mochy.* staged equivalents. See NEEDS.md.
 // LibraryTabs.kt
 //
-// The All / Local / Cached / History / Genres / Imported switch at the top of the Library, and the
+// The All / Playlist / Local / Cached / History / Genres / Imported switch at the top of the Library, and the
 // small pieces the tabs share: the two-wide card grid, the caps section label and the "Manage" pill
 // of a tab. The strip is one row that scrolls sideways when the pills don't fit — it never wraps.
 
@@ -50,6 +50,7 @@ import com.music.bitchord.ui.mochy.component.RemoteFocus
  */
 enum class LibraryTab(val labelRes: Int, val shelf: LibraryShelfKind? = null) {
     All(R.string.library_tab_all),
+    Playlists(R.string.library_tab_playlists),
     Local(R.string.library_tab_local, LibraryShelfKind.Local),
     Cached(R.string.cached, LibraryShelfKind.Cached),
     History(R.string.history),

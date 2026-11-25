@@ -8,6 +8,7 @@
 
 package com.music.bitchord.ui.mochy.screens.library
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.component.GlassState
+import com.music.bitchord.ui.mochy.component.RevealSeenState
+import com.music.bitchord.ui.mochy.component.revealOnAppear
 import com.music.bitchord.ui.mochy.screens.search.rememberCollapseProgress
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -69,6 +72,12 @@ fun <T> LibraryEntityListScreen(
     isLoading: Boolean = false,
     loadFailed: Boolean = false,
     onRetry: (() -> Unit)? = null,
+    // content above the list, shown while not searching (the Playlist
+    // page's Liked / New / Import entries, batch 34); with one, the bare
+    // "nothing to show here" never appears
+    header: (@Composable () -> Unit)? = null,
+    // when given, the header and rows reveal on appear (batch 34)
+    revealSeen: RevealSeenState? = null,
 ) {
     var query by remember { mutableStateOf(TextFieldValue()) }
     val listState = rememberLazyListState()
@@ -107,11 +116,13 @@ fun <T> LibraryEntityListScreen(
         }
     }
 
-    val sectionIndex = remember(rows) {
+    val headerVisible = header != null && query.text.isBlank()
+    val sectionIndex = remember(rows, headerVisible) {
         buildMap {
             rows.forEachIndexed { index, row ->
-                // +1 for the leading rule item, so the rail scrolls to the right place.
-                if (row is IndexedRow.Header) put(row.section.key, index + 1)
+                // +1 for the leading rule item (and the header item when
+                // shown), so the rail scrolls to the right place.
+                if (row is IndexedRow.Header) put(row.section.key, index + 1 + if (headerVisible) 1 else 0)
             }
         }
     }
@@ -135,13 +146,33 @@ fun <T> LibraryEntityListScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            if (rows.isEmpty()) {
-                item(key = "empty") {
-                    when {
-                        isLoading -> LibraryLoadingState()
-                        loadFailed && onRetry != null -> LibraryErrorState(onRetry = onRetry)
-                        else -> LibraryEmptyState()
+            if (headerVisible) {
+                item(key = "header") {
+                    if (revealSeen != null) {
+                        Box(Modifier.revealOnAppear("entity_header", revealSeen, cascade = true)) {
+                            header!!()
+                        }
+                    } else {
+                        header!!()
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            if (rows.isEmpty()) {
+                // With a header the page is never bare: the entries above
+                // are the content, and only a load still running adds its
+                // spinner under them.
+                if (!headerVisible) {
+                    item(key = "empty") {
+                        when {
+                            isLoading -> LibraryLoadingState()
+                            loadFailed && onRetry != null -> LibraryErrorState(onRetry = onRetry)
+                            else -> LibraryEmptyState()
+                        }
+                    }
+                } else if (isLoading) {
+                    item(key = "empty") { LibraryLoadingState() }
                 }
                 return@LibraryScaffold
             }
@@ -172,6 +203,11 @@ fun <T> LibraryEntityListScreen(
                             songId = playingIdOf?.invoke(row.item),
                             onClick = { onClick(row.item) },
                             onLongClick = { onLongClick(row.item) },
+                            modifier = if (revealSeen != null) {
+                                Modifier.revealOnAppear("entity_${idOf(row.item)}", revealSeen, cascade = true)
+                            } else {
+                                Modifier
+                            },
                         )
                     }
                 }

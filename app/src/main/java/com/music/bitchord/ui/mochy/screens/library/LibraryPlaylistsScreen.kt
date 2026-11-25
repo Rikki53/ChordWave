@@ -8,14 +8,20 @@ package com.music.bitchord.ui.mochy.screens.library
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValueCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.importer.ImportSource
+import com.music.bitchord.ui.mochy.component.CreatePlaylistDialog
 import com.music.bitchord.ui.mochy.component.LocalMenuState
+import com.music.bitchord.ui.mochy.component.rememberRevealSeenState
 import com.music.bitchord.ui.mochy.player.menu.PlaylistMenu
 import com.music.bitchord.ui.mochy.viewmodels.LibraryHomeViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LibraryShelfKind
@@ -44,6 +50,9 @@ fun LibraryPlaylistsScreen(
     }
     val menuState = LocalMenuState.current
     val coroutineScope = rememberCoroutineScope()
+    val likedSongs by viewModel.likedSongs.collectAsStateWithLifecycle()
+    val revealSeen = rememberRevealSeenState()
+    var creatingPlaylist by remember { mutableStateOf(false) }
 
     LibraryEntityListScreen(
         title = "Playlist",
@@ -77,5 +86,28 @@ fun LibraryPlaylistsScreen(
         isLoading = shelf == null && source == null && isLoading,
         loadFailed = shelf == null && source == null && loadFailed,
         onRetry = if (shelf == null && source == null) viewModel::load else null,
+        // The main Playlist page always opens with Classic's entries —
+        // Liked music, New playlist, Import from link — so it is never
+        // the bare "Nothing to show here" it used to be (batch 34). The
+        // shelf and imported-source lists stay plain filtered lists.
+        header = if (shelf == null && source == null) {
+            {
+                PlaylistActionCards(
+                    likedSongs = likedSongs,
+                    navigator = navigator,
+                    onNewPlaylist = { creatingPlaylist = true },
+                )
+            }
+        } else {
+            null
+        },
+        revealSeen = if (shelf == null && source == null) revealSeen else null,
     )
+
+    if (creatingPlaylist) {
+        CreatePlaylistDialog(
+            onDismiss = { creatingPlaylist = false },
+            onPlaylistCreated = { playlistId -> navigator.navigate("local_playlist/$playlistId") },
+        )
+    }
 }
