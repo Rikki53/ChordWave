@@ -9,12 +9,16 @@
 // PlayerCanvasPlayback, and no caller passes it.
 package com.music.bitchord.ui.mochy.player
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import com.music.bitchord.data.canvas.CanvasArtwork
@@ -42,14 +46,20 @@ fun CanvasArtworkPlayer(
     val canvas = remember(primary, fallbackUrl) {
         CanvasArtwork(url = primary, fallbackUrl = fallbackUrl?.takeIf { it.isNotBlank() })
     }
+    var isVideoReady by remember { mutableStateOf(false) }
+    val alpha by animateFloatAsState(
+        targetValue = if (isVideoReady) 1f else 0f,
+        animationSpec = tween(durationMillis = 300),
+        label = "canvasAlpha"
+    )
     val currentOnReady by rememberUpdatedState(onReadyChange)
     val currentOnFrameColors by rememberUpdatedState(onFrameColors)
     val scope = rememberCoroutineScope()
     SharedCanvasArtworkPlayer(
         canvas = canvas,
         isPlaying = isPlaying,
-        modifier = modifier,
-        onRenderedChanged = { currentOnReady?.invoke(it) },
+        modifier = modifier.graphicsLayer { this.alpha = alpha },
+        onRenderedChanged = { isVideoReady = it; currentOnReady?.invoke(it) },
         onFrameCaptured = { frame ->
             if (currentOnFrameColors == null) return@SharedCanvasArtworkPlayer
             scope.launch(Dispatchers.Default) {

@@ -22,6 +22,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -75,6 +76,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
@@ -372,7 +374,18 @@ fun ArtistScreen(
                                 .padding(top = if (landscape) 0.dp else bannerHeight * ArtistAvatarAt)
                                 .padding(start = PlaylistInset - 3.dp, end = PlaylistInset)
                         ) {
-                            ArtistAvatar(url = header?.avatarUrl ?: photo?.resize(544, 544))
+                            // with no apple still over it, the banner is the very photo the circle shows, so the circle would only repeat it
+                            val avatarRepeatsBanner = header?.avatarUrl == null && appleStill == null
+                            val avatarAlpha by animateFloatAsState(
+                                targetValue = if (avatarRepeatsBanner) 0f else 1f,
+                                animationSpec = tween(300),
+                                label = "artistAvatar",
+                            )
+                            if (avatarAlpha > 0f) {
+                                Box(Modifier.graphicsLayer { alpha = avatarAlpha }) {
+                                    ArtistAvatar(url = header?.avatarUrl ?: photo?.resize(544, 544))
+                                }
+                            }
                             Spacer(Modifier.height(14.dp))
                             ArtistName(name = name, logoUrl = header?.logoUrl, logoAspect = header?.logoAspect)
                             val stats = artistStats(

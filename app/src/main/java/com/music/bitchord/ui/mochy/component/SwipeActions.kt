@@ -54,6 +54,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -69,6 +70,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.layout
@@ -158,6 +160,55 @@ private val SwipeLabelStyle = TextStyle(
     letterSpacing = (-0.02).em,
 )
 
+
+// how the fired colour pours across the row, then how long it lingers before it fades
+private val WashSpread = spring<Float>(dampingRatio = 0.9f, stiffness = 300f)
+private const val WashHoldMillis = 180
+private const val WashFadeMillis = 420
+
+/** the colour a fired swipe pours into the row it came from: it spreads across the slab from that side, then fades */
+@Stable
+private class SwipeWash {
+    var color by mutableStateOf(Color.Transparent)
+    var fromStart by mutableStateOf(true)
+    var spread by mutableFloatStateOf(0f)
+    var alpha by mutableFloatStateOf(0f)
+    private var job: Job? = null
+
+    fun play(scope: CoroutineScope, color: Color, fromStart: Boolean) {
+        job?.cancel()
+        this.color = color
+        this.fromStart = fromStart
+        spread = 0f
+        alpha = 1f
+        job = scope.launch {
+            launch { animate(0f, 1f, animationSpec = WashSpread) { value, _ -> spread = value } }
+            animate(1f, 0f, animationSpec = tween(WashFadeMillis, delayMillis = WashHoldMillis)) { value, _ -> alpha = value }
+        }
+    }
+
+    // a new drag starts clean, the old colour shouldn't still be fading under the finger
+    fun stop() {
+        job?.cancel()
+        alpha = 0f
+    }
+}
+
+/** draws a fired action's colour over the row's slab, grown [spread] of the way across from its side and faded to [alpha] */
+internal fun DrawScope.drawSwipeWash(color: Color, fromStart: Boolean, spread: Float, alpha: Float) {
+    if (alpha <= 0f) return
+    val inset = SlabInset.toPx()
+    val full = size.width - inset * 2f
+    val width = full * spread.coerceIn(0f, 1f)
+    if (width <= 0f) return
+    drawRoundRect(
+        color = color.copy(alpha = color.alpha * alpha),
+        topLeft = Offset(if (fromStart) inset else inset + full - width, 0f),
+        size = Size(width, size.height),
+        cornerRadius = CornerRadius(size.height / 2f),
+    )
+}
+
 /**
  * a row you can drag sideways, like Frame 117: the row slides on a dark rounded slab, and the
  * action for that side grows out of the edge into the gap it leaves, a dot first, then a circle,
@@ -190,6 +241,7 @@ fun SwipeActionsBox(
     var armed by remember { mutableIntStateOf(0) }
     var fired by remember { mutableIntStateOf(0) }
     val settle = remember { arrayOfNulls<Job>(1) }
+    val wash = remember { SwipeWash() }
     val startAction = remember { mutableStateOf<SwipeAction?>(null) }
     val endAction = remember { mutableStateOf<SwipeAction?>(null) }
 
@@ -275,6 +327,7 @@ fun SwipeActionsBox(
                     enabled = enabled,
                     onDragStarted = {
                         settle[0]?.cancel()
+                        wash.stop()
                         fired = 0
                         travel = unresisted(offset)
                     },
@@ -288,6 +341,8 @@ fun SwipeActionsBox(
                         if (action != null) {
                             fired = side
                             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            // a row that's its own card would hide the colour under itself, so only slab rows get it
+                            if (slab) wash.play(scope, action.color, fromStart = side == 1)
                             action.onTrigger()
                         }
                         armed = 0
@@ -348,6 +403,7 @@ fun SwipeActionsBox(
                                 cornerRadius = CornerRadius(size.height / 2f),
                             )
                         }
+                        drawSwipeWash(wash.color, wash.fromStart, wash.spread, wash.alpha)
                     },
             ) {
                 content()

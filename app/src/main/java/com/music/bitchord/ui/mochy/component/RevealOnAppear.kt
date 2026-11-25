@@ -159,6 +159,8 @@ fun Modifier.revealOnAppear(
     val slidePx = with(LocalDensity.current) { RevealSlideDistance.toPx() }
     return graphicsLayer {
         val p = progress.value
+        // faded per draw: as a buffer every revealing card was a gpu layer of its own for half a second, dozens at once in a fling
+        compositingStrategy = CompositingStrategy.ModulateAlpha
         alpha = p
         translationY = (1f - p) * slidePx
     }
