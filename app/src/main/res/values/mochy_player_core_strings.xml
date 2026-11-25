@@ -84,4 +84,5 @@
     <string name="larp_skibidi_title">Skibidi larper</string>
     <string name="larp_source">Source</string>
     <string name="player_menu_delete_download">Delete download</string>
+    <string name="player_menu_audio">Audio</string>
 </resources>

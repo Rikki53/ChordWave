@@ -1830,6 +1830,7 @@ private fun PlayerSheet(
             repeatMode = transportState.repeatMode,
             downloadFraction = menuExtras.downloadFraction,
             downloadCompleted = menuExtras.downloadCompleted,
+            videoShowing = videoShowing,
             // a lambda, so the chevron moving with the sheet doesn't recompose the whole player
             getChevronRect = { if (!landscapeFlagship && (showLyrics || showQueue)) lyricsChevronRect ?: chevronButtonRect else chevronButtonRect },
             screenWidth = screenWidth,
@@ -2080,6 +2081,8 @@ private fun ExpandMenuOverlay(
     downloadFraction: Float?,
     /** the song is saved: the Download label says so (tapping deletes it) instead of offering a re-download */
     downloadCompleted: Boolean,
+    /** a video is on the cover right now: the See video button then offers the way back to audio */
+    videoShowing: Boolean,
     getChevronRect: () -> androidx.compose.ui.geometry.Rect?,
     screenWidth: androidx.compose.ui.unit.Dp,
     screenHeight: androidx.compose.ui.unit.Dp,
@@ -2260,6 +2263,9 @@ private fun ExpandMenuOverlay(
                                 stringResource(R.string.downloading_percent, (downloadFraction * 100).toInt())
                             } else if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && isToggled) {
                                 stringResource(R.string.downloading)
+                            } else if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.SEE_VIDEO && videoShowing) {
+                                // the video is already on: the button is the way back to audio (batch 17)
+                                stringResource(R.string.player_menu_audio)
                             } else {
                                 item.first
                             }
