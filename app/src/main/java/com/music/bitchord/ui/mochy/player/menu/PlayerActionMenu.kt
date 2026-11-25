@@ -85,6 +85,7 @@ import com.music.bitchord.ui.mochy.component.SheetActionCardRow
 import com.music.bitchord.ui.mochy.component.SheetDownloadCard
 import com.music.bitchord.ui.mochy.component.SheetHeaderGap
 import com.music.bitchord.ui.mochy.component.SheetIcon
+import com.music.bitchord.ui.mochy.component.downloadFractionFor
 import com.music.bitchord.ui.mochy.component.downloadStateFor
 import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.constants.KeepScreenOn
@@ -131,6 +132,7 @@ fun PlayerActionMenu(
     val trackInfo = trackInfoFromMetadata(currentMetadata)
     val songId = currentMetadata?.id
     val downloadState = downloadStateFor(songId ?: "")
+    val downloadFraction = downloadFractionFor(songId ?: "")
     val inLibrary = currentMetadata?.inLibrary != null
     // only a song autoplay picked is ours to stop recommending, a song you chose yourself stays as it is
     val queue by playerConnection.queueSnapshot.collectAsState()
@@ -292,6 +294,7 @@ fun PlayerActionMenu(
                 SheetActionCardRow {
                     SheetDownloadCard(
                         downloadState = downloadState,
+                        downloadFraction = downloadFraction,
                         onDownload = {
                             currentMetadata?.let { metadata ->
                                 Downloads.enqueue(context, metadata.toCwSong(), from = "menu")

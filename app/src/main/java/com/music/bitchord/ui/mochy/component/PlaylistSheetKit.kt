@@ -458,7 +458,9 @@ internal fun SheetActionCard(
 /**
  * The Download card, following the download as it goes: "Download" to start it, a spinner while
  * it runs (tap to cancel), and "Remove download" once the song is saved. [downloadState] is a
- * media3 `Download.STATE_*`, or null when nothing was ever downloaded.
+ * media3 `Download.STATE_*`, or null when nothing was ever downloaded. [downloadFraction] is how
+ * far a running download has got (0f..1f, null when it isn't running) — the card says the
+ * percentage instead of a bare "Downloading" when it is known (batch 14).
  */
 @Composable
 internal fun SheetDownloadCard(
@@ -466,6 +468,7 @@ internal fun SheetDownloadCard(
     onDownload: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
+    downloadFraction: Float? = null,
 ) {
     when (downloadState) {
         Download.STATE_COMPLETED -> SheetActionCard(
@@ -482,7 +485,11 @@ internal fun SheetDownloadCard(
                     modifier = Modifier.size(24.dp),
                 )
             },
-            title = stringResource(R.string.downloading),
+            title = if (downloadFraction != null) {
+                stringResource(R.string.downloading_percent, (downloadFraction * 100).toInt())
+            } else {
+                stringResource(R.string.downloading)
+            },
             onClick = onRemove,
             modifier = modifier,
         )

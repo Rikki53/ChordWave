@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.exoplayer.offline.Download
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.ui.mochy.component.downloadFractionFor
 import com.music.bitchord.ui.mochy.component.downloadStateFor
 import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.constants.KeepScreenOn
@@ -44,9 +45,14 @@ class PlayerMenuExtras internal constructor(
     private val setKeepScreenOn: (Boolean) -> Unit,
     private val translating: Boolean,
     private val downloadState: Int?,
+    /** how far the song's download has got (0f..1f), or null when it isn't running — the dropdown's percentage */
+    val downloadFraction: Float?,
     private val openLyrics: () -> Unit,
     private val showAddToPlaylist: () -> Unit,
 ) {
+    /** the song is saved on this phone: the download button deletes it instead of starting one */
+    val downloadCompleted: Boolean get() = downloadState == Download.STATE_COMPLETED
+
     fun isActive(action: PlayerMenuAction): Boolean = when (action) {
         PlayerMenuAction.KEEP_AWAKE -> keepScreenOn
         PlayerMenuAction.TRANSLATE_LYRICS -> translating
@@ -101,6 +107,7 @@ fun rememberPlayerMenuExtras(playerConnection: MochyPlayerConnection, openLyrics
     val scope = rememberCoroutineScope()
     val song by playerConnection.mediaMetadata.collectAsState()
     val downloadState = downloadStateFor(song?.id ?: "")
+    val downloadFraction = downloadFractionFor(song?.id ?: "")
     val (keepScreenOn, setKeepScreenOn) = rememberPreference(KeepScreenOn, defaultValue = false)
     // TODO(studio): no lyrics-translation state in ChordWave yet; always off until the
     // translation engine lands. See NEEDS.md §(b).
@@ -125,6 +132,7 @@ fun rememberPlayerMenuExtras(playerConnection: MochyPlayerConnection, openLyrics
         setKeepScreenOn = setKeepScreenOn,
         translating = translating,
         downloadState = downloadState,
+        downloadFraction = downloadFraction,
         openLyrics = openLyrics,
         showAddToPlaylist = { addingToPlaylist = true },
     )

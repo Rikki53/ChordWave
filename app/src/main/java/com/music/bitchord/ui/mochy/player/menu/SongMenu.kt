@@ -95,6 +95,7 @@ import com.music.bitchord.ui.mochy.component.SheetDownloadCard
 import com.music.bitchord.ui.mochy.component.SheetHeader
 import com.music.bitchord.ui.mochy.component.SheetHeaderButton
 import com.music.bitchord.ui.mochy.component.SheetHeaderGap
+import com.music.bitchord.ui.mochy.component.downloadFractionFor
 import com.music.bitchord.ui.mochy.component.downloadStateFor
 import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.constants.ListItemHeight
@@ -133,6 +134,7 @@ fun SongMenu(
     val pins by SpeedDialStore.all.collectAsState()
     val isPinned = pins.any { it.id == song.id }
     val downloadState = downloadStateFor(originalSong.id)
+    val downloadFraction = downloadFractionFor(originalSong.id)
     val coroutineScope = rememberCoroutineScope()
 
     var songToEdit by remember { mutableStateOf<MediaMetadata?>(null) }
@@ -248,6 +250,7 @@ fun SongMenu(
             SheetActionCardRow {
                 SheetDownloadCard(
                     downloadState = downloadState,
+                    downloadFraction = downloadFraction,
                     onDownload = {
                         Downloads.enqueue(context, song.toCwSong(), from = "menu")
                     },

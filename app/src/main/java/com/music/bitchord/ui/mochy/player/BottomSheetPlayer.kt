@@ -1816,14 +1816,20 @@ private fun PlayerSheet(
                 // with a youtube video on the cover, the full video mode goes on top unless it's already one of the four
                 val fullVideo = com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.FULL_VIDEO
                 val withVideo = if (videoShowing && fullVideo !in set) listOf(fullVideo) + set else set
+                // the download is always in this menu, so nobody has to put it there in the editor
+                // first (batch 14) — unless the editor already did
+                val downloadAction = com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD
+                val withDownload = if (downloadAction !in withVideo) withVideo + downloadAction else withVideo
                 // share lyrics sits before rotate while the lyrics page is open, so the menu gains it there
-                val withShare = if (showLyrics) withVideo + com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.SHARE_LYRICS else withVideo
+                val withShare = if (showLyrics) withDownload + com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.SHARE_LYRICS else withDownload
                 // the turntable's rotate button sits last, the way the other styles keep theirs at the end
                 if (isTurntable && styleCanTurn) withShare + com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.ROTATE else withShare
             },
             isActive = ::menuActionActive,
             onAction = onMenuAction,
             repeatMode = transportState.repeatMode,
+            downloadFraction = menuExtras.downloadFraction,
+            downloadCompleted = menuExtras.downloadCompleted,
             // a lambda, so the chevron moving with the sheet doesn't recompose the whole player
             getChevronRect = { if (!landscapeFlagship && (showLyrics || showQueue)) lyricsChevronRect ?: chevronButtonRect else chevronButtonRect },
             screenWidth = screenWidth,
@@ -2070,6 +2076,10 @@ private fun ExpandMenuOverlay(
     isActive: (com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction) -> Boolean,
     onAction: (com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction) -> Unit,
     repeatMode: Int,
+    /** how far the song's download has got (0f..1f), null when it isn't running — the Download label's percentage */
+    downloadFraction: Float?,
+    /** the song is saved: the Download label says so (tapping deletes it) instead of offering a re-download */
+    downloadCompleted: Boolean,
     getChevronRect: () -> androidx.compose.ui.geometry.Rect?,
     screenWidth: androidx.compose.ui.unit.Dp,
     screenHeight: androidx.compose.ui.unit.Dp,
@@ -2242,9 +2252,14 @@ private fun ExpandMenuOverlay(
                         ) {
                             val action = slots[index]
                             val isToggled = isActive(action)
-                            // a downloaded song's button deletes it, so the words say that instead of download
-                            val labelText = if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && isToggled) {
+                            // a downloaded song's button deletes it, so the words say that instead of download;
+                            // while it is still coming down the words say how far it has got (batch 14)
+                            val labelText = if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && downloadCompleted) {
                                 stringResource(R.string.player_menu_delete_download)
+                            } else if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && downloadFraction != null) {
+                                stringResource(R.string.downloading_percent, (downloadFraction * 100).toInt())
+                            } else if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && isToggled) {
+                                stringResource(R.string.downloading)
                             } else {
                                 item.first
                             }
@@ -2270,9 +2285,11 @@ private fun ExpandMenuOverlay(
                                 ) "1" else null,
                                 onClick = {
                                     when (action) {
-                                        // toggles that stay open, so the change shows on the button
+                                        // toggles that stay open, so the change shows on the button — the
+                                        // download among them, so its percentage ticks up in view
                                         com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.REPEAT,
                                         com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.SHUFFLE,
+                                        com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD,
                                         com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.LIKE -> onAction(action)
                                         else -> { onDismiss(); onAction(action) }
                                     }

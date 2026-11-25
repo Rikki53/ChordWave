@@ -47,6 +47,16 @@ fun downloadStateFor(songId: String): Int? {
 }
 
 /**
+ * How far one track's download has got, 0f..1f, or null when it isn't running (queued, waiting
+ * for Wi-Fi, failed, saved or never downloaded) — the percentage the menus show while it runs.
+ */
+@Composable
+fun downloadFractionFor(songId: String): Float? {
+    val active by Downloads.active.collectAsState()
+    return (active[songId] as? DownloadState.Running)?.fraction
+}
+
+/**
  * Aggregate media3 state for a whole listing, following Mochy's album /
  * playlist rule: COMPLETED when every track is saved, DOWNLOADING when
  * every track is at least queued, STOPPED otherwise (including an empty

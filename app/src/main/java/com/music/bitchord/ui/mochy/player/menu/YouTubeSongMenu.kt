@@ -78,6 +78,7 @@ import com.music.bitchord.ui.mochy.component.SheetDownloadCard
 import com.music.bitchord.ui.mochy.component.SheetHeader
 import com.music.bitchord.ui.mochy.component.SheetHeaderButton
 import com.music.bitchord.ui.mochy.component.SheetHeaderGap
+import com.music.bitchord.ui.mochy.component.downloadFractionFor
 import com.music.bitchord.ui.mochy.component.downloadStateFor
 import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.constants.ListItemHeight
@@ -111,6 +112,7 @@ fun YouTubeSongMenu(
     val pins by SpeedDialStore.all.collectAsState()
     val isPinned = pins.any { it.id == song.id }
     val downloadState = downloadStateFor(song.id)
+    val downloadFraction = downloadFractionFor(song.id)
     val coroutineScope = rememberCoroutineScope()
     val artists = remember {
         song.artists.mapNotNull {
@@ -226,6 +228,7 @@ fun YouTubeSongMenu(
             SheetActionCardRow {
                 SheetDownloadCard(
                     downloadState = downloadState,
+                    downloadFraction = downloadFraction,
                     onDownload = {
                         Downloads.enqueue(context, song.toCwSong(), from = "menu")
                     },
