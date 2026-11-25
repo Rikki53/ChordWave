@@ -161,6 +161,16 @@ private val LocalizedSettingsTitles = mapOf(
     "Hi-res output" to R.string.playback_hires,
     "Hi-fi resampler" to R.string.playback_hifi,
     "Audio Lab" to R.string.settings_audio_lab_category,
+    "Playback" to R.string.settings_playback_category,
+    "Now playing" to R.string.settings_now_playing,
+    "Pause search history" to R.string.pause_search_history,
+    "Count plays on YouTube views" to R.string.settings_youtube_plays,
+    "Resume on Bluetooth connection" to R.string.playback_resume_bluetooth,
+    "Romanisation as the main line" to R.string.settings_romanize_as_main,
+    "Floating lyrics overlay bubble" to R.string.settings_floating_lyrics,
+    "Video quality" to R.string.video_quality,
+    "Canvas on Wi-Fi only" to R.string.appearance_canvas_wifi,
+    "Studio version for music videos" to R.string.settings_studio_for_videos,
     "Storage" to R.string.storage,
     "Sources" to R.string.source,
     "Listen together" to R.string.listen_together,
@@ -187,6 +197,8 @@ private val LocalizedSettingsPages = mapOf(
     "Sources" to R.string.source,
     "Listen together" to R.string.listen_together,
     "Audio Lab" to R.string.settings_audio_lab_category,
+    "Playback" to R.string.settings_playback_category,
+    "Now playing" to R.string.settings_now_playing,
     "Integrations" to R.string.integrations,
 )
 
@@ -218,37 +230,50 @@ private val SettingsIndex = listOf(
     SettingsEntry("Open with your finger", "Customisation", "customisation_settings", "player open swipe up mini player follow finger speed velocity gesture"),
 
     // App behaviour
-    SettingsEntry("App behaviour", "App behaviour", "general_settings", "general playback player behaviour"),
+    SettingsEntry("App behaviour", "App behaviour", "general_settings", "general app language updates network data library privacy"),
     SettingsEntry("Larp mode", "App behaviour", "general_settings", "larp 67 flac 768 khz wadax atlantis dac hi-res lossless bit-perfect flex"),
     SettingsEntry("App language", "App behaviour", "general_settings", "language bahasa locale device system indonesia english translate", R.string.app_language),
     SettingsEntry("Disable App Updates notice", "App behaviour", "general_settings", "update popup notification updater"),
+    SettingsEntry("Disable description on settings", "App behaviour", "general_settings", "hide subtitle text rows titles only"),
     SettingsEntry("Offline mode", "App behaviour", "general_settings", "play downloaded cache offline"),
     SettingsEntry("Data saver", "App behaviour", "general_settings", "data saver mobile metered cellular bandwidth lower quality canvas video"),
     SettingsEntry("Proxy", "App behaviour", "proxy_settings", "proxy socks http server vpn network region country blocked bot sign in"),
     SettingsEntry("Albums from liked songs", "App behaviour", "general_settings", "albums library liked songs old way apple music"),
-    SettingsEntry("Keep playing even when closed", "App behaviour", "general_settings", "background close stop playback"),
-    SettingsEntry("Play alongside other apps", "App behaviour", "general_settings", "audio focus mix pause other app video game sound together"),
-    SettingsEntry("Pause when muted", "App behaviour", "general_settings", "pause mute volume silent zero off automatic"),
-    SettingsEntry("Save Player's last state", "App behaviour", "general_settings", "persistent queue restore track state"),
     SettingsEntry("Local song auto metadata", "App behaviour", "general_settings", "match tags id3 covers lyrics"),
-    SettingsEntry("Keep shuffle on", "App behaviour", "general_settings", "shuffle persistent spotify random keep new playlist"),
-    SettingsEntry("Disable auto-playing YouTube video", "App behaviour", "general_settings", "music video live autoplay cover"),
-    SettingsEntry("Studio version for music videos", "App behaviour", "general_settings", "music video mv omv audio studio album version skit sound effects official"),
-    SettingsEntry("Translations from YouTube", "App behaviour", "general_settings", "captions translate lyrics language"),
-    SettingsEntry("Sync lyrics to music videos", "App behaviour", "general_settings", "lyrics video timing intro skit"),
-    SettingsEntry("Don't skip on failure", "App behaviour", "general_settings", "fail stream error stay skip"),
-    SettingsEntry("Skip timeout failure", "App behaviour", "general_settings", "skip timeout seconds failed stream"),
-    SettingsEntry("Skip Silence", "App behaviour", "general_settings", "silence trim gap interval"),
-    SettingsEntry("Audio format badge", "App behaviour", "general_settings", "format codec opus aac flac badge title quality"),
-    SettingsEntry("Show sample rate", "App behaviour", "general_settings", "sample rate khz hz format badge quality"),
-    SettingsEntry("Always enable Youtube background", "App behaviour", "general_settings", "youtube video background canvas"),
-    SettingsEntry("Enable animated canvas", "App behaviour", "general_settings", "canvas animation spotify looping visual"),
-    SettingsEntry("Canvas order", "App behaviour", "general_settings", "canvas order apple music tidal spotify source priority"),
-    SettingsEntry("Sharpest animated covers", "App behaviour", "general_settings", "canvas animated cover motion apple music quality hd 4k sharp resolution"),
-    SettingsEntry("Tinted lyrics", "App behaviour", "general_settings", "lyrics tinted soft light cover colours blend"),
-    SettingsEntry("Override lyrics sorting", "App behaviour", "general_settings", "lyrics provider order sort priority source"),
-    SettingsEntry("High quality bloom", "App behaviour", "general_settings", "lyrics bloom quality extra soft pass glow"),
-    SettingsEntry("Disable description on settings", "App behaviour", "general_settings", "hide subtitle text rows titles only"),
+    SettingsEntry("Pause search history", "App behaviour", "general_settings", "search history pause private incognito privacy", R.string.pause_search_history),
+    SettingsEntry("Count plays on YouTube views", "App behaviour", "general_settings", "youtube history plays views report count privacy", R.string.settings_youtube_plays),
+    SettingsEntry("Override lyrics sorting", "App behaviour", "general_settings", "lyrics provider order sort priority duet word sync apple music source", R.string.settings_lyrics_order_override),
+
+    // Playback
+    SettingsEntry("Playback", "Playback", "playback_settings", "background bluetooth shuffle skip silence mute queue failure"),
+    SettingsEntry("Keep playing even when closed", "Playback", "playback_settings", "background close stop playback"),
+    SettingsEntry("Play alongside other apps", "Playback", "playback_settings", "audio focus mix pause other app video game sound together"),
+    SettingsEntry("Resume on Bluetooth connection", "Playback", "playback_settings", "bluetooth headphones earbuds car connect resume auto play start", R.string.playback_resume_bluetooth),
+    SettingsEntry("Pause when muted", "Playback", "playback_settings", "pause mute volume silent zero off automatic", R.string.pause_music_when_media_is_muted),
+    SettingsEntry("Save Player's last state", "Playback", "playback_settings", "persistent queue restore track state"),
+    SettingsEntry("Keep shuffle on", "Playback", "playback_settings", "shuffle persistent spotify random keep new playlist"),
+    SettingsEntry("Skip Silence", "Playback", "playback_settings", "silence trim gap interval"),
+    SettingsEntry("Don't skip on failure", "Playback", "playback_settings", "fail stream error stay skip"),
+    SettingsEntry("Skip timeout failure", "Playback", "playback_settings", "skip timeout seconds failed stream"),
+
+    // Now playing
+    SettingsEntry("Now playing", "Now playing", "now_playing_settings", "player lyrics video canvas badge format"),
+    SettingsEntry("Audio format badge", "Now playing", "now_playing_settings", "format codec opus aac flac badge title quality"),
+    SettingsEntry("Show sample rate", "Now playing", "now_playing_settings", "sample rate khz hz format badge quality"),
+    SettingsEntry("Translations from YouTube", "Now playing", "now_playing_settings", "captions translate lyrics language"),
+    SettingsEntry("Sync lyrics to music videos", "Now playing", "now_playing_settings", "lyrics video timing intro skit"),
+    SettingsEntry("Romanisation as the main line", "Now playing", "now_playing_settings", "romaji romanization pinyin latin lyrics japanese korean chinese", R.string.settings_romanize_as_main),
+    SettingsEntry("High quality bloom", "Now playing", "now_playing_settings", "lyrics bloom quality extra soft pass glow"),
+    SettingsEntry("Tinted lyrics", "Now playing", "now_playing_settings", "lyrics soft light blend tint colour color cover inactive grey gray lines"),
+    SettingsEntry("Floating lyrics overlay bubble", "Now playing", "now_playing_settings", "floating lyrics overlay bubble pill other apps draw over", R.string.settings_floating_lyrics),
+    SettingsEntry("Always enable Youtube background", "Now playing", "now_playing_settings", "youtube video background canvas"),
+    SettingsEntry("Video quality", "Now playing", "now_playing_settings", "video quality resolution 4k 2160p 1440p 1080p 720p 480p sharp", R.string.video_quality),
+    SettingsEntry("Disable auto-playing YouTube video", "Now playing", "now_playing_settings", "music video live autoplay cover"),
+    SettingsEntry("Studio version for music videos", "Now playing", "now_playing_settings", "music video mv omv audio studio album version skit sound effects official", R.string.settings_studio_for_videos),
+    SettingsEntry("Enable animated canvas", "Now playing", "now_playing_settings", "canvas animation spotify looping visual"),
+    SettingsEntry("Canvas order", "Now playing", "now_playing_settings", "canvas order apple music tidal spotify source priority", R.string.canvas_order),
+    SettingsEntry("Canvas on Wi-Fi only", "Now playing", "now_playing_settings", "canvas wifi mobile data", R.string.appearance_canvas_wifi),
+    SettingsEntry("Sharpest animated covers", "Now playing", "now_playing_settings", "canvas animated cover motion apple music quality hd 4k sharp resolution", R.string.canvas_best_quality),
 
     // Audio Lab
     SettingsEntry("Audio Lab", "Audio Lab", "audio_lab", "sound effects equalizer fx quality"),
@@ -273,12 +298,12 @@ private val SettingsIndex = listOf(
     SettingsEntry("YouTube Music", "Audio Lab", "audio_quality", "youtube turn off disable provider only monochrome apple music"),
 
     // Integrations (sub-routes belong to the integrations worker; search links to the root)
-    SettingsEntry("Discord", "Integrations", "integrations_settings", "discord rich presence rpc status activity listening playing profile behaviour pause clear"),
-    SettingsEntry("Last.fm", "Integrations", "integrations_settings", "lastfm scrobble scrobbling history stats account sign in"),
-    SettingsEntry("Libre.fm", "Integrations", "integrations_settings", "librefm scrobble scrobbling history stats account sign in"),
-    SettingsEntry("Now Playing", "Integrations", "integrations_settings", "scrobble now playing status profile lastfm librefm"),
-    SettingsEntry("Send likes", "Integrations", "integrations_settings", "love loved songs lastfm librefm scrobble"),
-    SettingsEntry("YouTube Music", "Integrations", "import_sync", "youtube ytm sync account sign in likes library playlists history"),
+    SettingsEntry("Discord", "Integrations", "integrations_settings/discord", "discord rich presence rpc status activity listening playing profile behaviour pause clear"),
+    SettingsEntry("Last.fm", "Integrations", "integrations_settings/scrobble/LASTFM", "lastfm scrobble scrobbling history stats account sign in"),
+    SettingsEntry("Libre.fm", "Integrations", "integrations_settings/scrobble/LIBREFM", "librefm scrobble scrobbling history stats account sign in"),
+    SettingsEntry("Now Playing", "Integrations", "integrations_settings/scrobble/LASTFM", "scrobble now playing status profile lastfm librefm"),
+    SettingsEntry("Send likes", "Integrations", "integrations_settings/scrobble/LASTFM", "love loved songs lastfm librefm scrobble"),
+    SettingsEntry("YouTube Music", "Integrations", "youtube_sync", "youtube ytm sync account sign in likes library playlists history"),
     SettingsEntry("YouTube account", "Integrations", "youtube_sync", "account sign in login google youtube profile sync"),
     SettingsEntry("Device integration", "Integrations", "device_integration", "tv television phone tablet car head unit pair link sync stream remote control devices wifi"),
 
@@ -634,6 +659,20 @@ fun MochySettingsScreen(
                         )
 
                         CategoryBubble(
+                            title = stringResource(R.string.settings_playback_category),
+                            iconRes = R.drawable.play,
+                            selected = selected == "playback_settings",
+                            onClick = { open("playback_settings") }
+                        )
+
+                        CategoryBubble(
+                            title = stringResource(R.string.settings_now_playing),
+                            iconRes = R.drawable.lyrics,
+                            selected = selected == "now_playing_settings",
+                            onClick = { open("now_playing_settings") }
+                        )
+
+                        CategoryBubble(
                             title = stringResource(R.string.settings_app_behaviour),
                             iconRes = R.drawable.settings,
                             selected = selected == "general_settings",
@@ -655,6 +694,20 @@ fun MochySettingsScreen(
                         )
 
                         CategoryBubble(
+                            title = stringResource(R.string.integrations),
+                            iconRes = R.drawable.integration,
+                            selected = selected == "integrations_settings",
+                            onClick = { open("integrations_settings") }
+                        )
+
+                        CategoryBubble(
+                            title = stringResource(R.string.devices_title),
+                            iconRes = R.drawable.cast_connected,
+                            selected = false,
+                            onClick = { sheets.showDeviceIntegration(devicesLink) }
+                        )
+
+                        CategoryBubble(
                             title = stringResource(R.string.source),
                             iconRes = R.drawable.puzzle,
                             selected = selected == "sources",
@@ -666,13 +719,6 @@ fun MochySettingsScreen(
                             iconRes = R.drawable.group,
                             selected = selected == "listen_together",
                             onClick = { open("listen_together") }
-                        )
-
-                        CategoryBubble(
-                            title = stringResource(R.string.integrations),
-                            iconRes = R.drawable.integration,
-                            selected = selected == "integrations_settings",
-                            onClick = { open("integrations_settings") }
                         )
                     }
 

@@ -100,6 +100,8 @@ private val RouteOwners: List<Pair<String, String>> = listOf(
     "mochy_settings" to "settings",
     "profile" to "settings",
     "general_settings" to "settings",
+    "playback_settings" to "settings",
+    "now_playing_settings" to "settings",
     "experimental_settings" to "settings",
     "developer_space" to "settings",
     "developer_playground" to "settings",

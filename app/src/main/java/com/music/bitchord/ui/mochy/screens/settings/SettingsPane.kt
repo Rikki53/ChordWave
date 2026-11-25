@@ -49,6 +49,8 @@ val SettingsPaneRoutes = setOf(
     "audio_pass",
     "crossmix_settings",
     "general_settings",
+    "playback_settings",
+    "now_playing_settings",
     "customisation_settings",
     "storage_settings",
     "integrations_settings",

@@ -155,6 +155,8 @@ import com.music.bitchord.ui.mochy.screens.settings.CipherSettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.CrossmixSettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.ExperimentalSettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.MochySettingsScreen
+import com.music.bitchord.ui.mochy.screens.settings.NowPlayingSettingsScreen
+import com.music.bitchord.ui.mochy.screens.settings.PlaybackSettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.PlaybackDiagnosticsScreen
 import com.music.bitchord.ui.mochy.screens.settings.ProxySettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.importsync.AccountImportScreen
@@ -979,6 +981,8 @@ private fun DetailContent(
         // ---- Settings (Phase 4; verbatim Mochy route strings) ----
         route == "mochy_settings" -> MochySettingsScreen(navigator = navigator)
         route == "general_settings" -> AppBehaviourSettingsScreen(navigator = navigator)
+        route == "playback_settings" -> PlaybackSettingsScreen(navigator = navigator)
+        route == "now_playing_settings" -> NowPlayingSettingsScreen(navigator = navigator)
         route == "cipher_settings" -> CipherSettingsScreen(navigator = navigator)
         route == "crossmix_settings" -> CrossmixSettingsScreen(navigator = navigator)
         route == "experimental_settings" -> ExperimentalSettingsScreen(navigator = navigator)
