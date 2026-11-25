@@ -38,7 +38,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -56,8 +55,6 @@ import com.music.bitchord.ui.mochy.player.share.ShareRegions
 import com.music.bitchord.ui.mochy.player.share.ShareTitle
 import com.music.bitchord.ui.mochy.player.share.ShareWidth
 import com.music.bitchord.ui.mochy.player.share.showWordEditor
-import com.music.bitchord.ui.mochy.player.share.song.export.ShareApp
-import com.music.bitchord.ui.mochy.player.share.song.export.takesSticker
 import com.music.bitchord.ui.mochy.screens.audiolab.LabCard
 import com.music.bitchord.ui.mochy.screens.audiolab.LabSlider
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
@@ -163,7 +160,6 @@ private fun EditBackgroundPill(modifier: Modifier = Modifier, onClick: () -> Uni
 internal fun PopupSheetState.showCardStyle(session: SongShareSession) {
     val popup = this
     show(buttonBar = { SheetPillButton(text = stringResource(R.string.song_share_ok), onClick = popup::dismiss) }) {
-        val context = LocalContext.current
         val live = popup.rememberIsFront()
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
             ShareTitle(stringResource(R.string.song_share_card_title))
@@ -189,18 +185,6 @@ internal fun PopupSheetState.showCardStyle(session: SongShareSession) {
                     onValueChange = { session.cardBlur = it },
                     valueRange = 0f..1f,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                )
-            }
-            // only true when the stories path is set up; without it every app gets the finished picture, blur and all
-            if (ShareApp.entries.any { it.takesSticker(context) }) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.song_share_card_blur_note),
-                    fontFamily = InterFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 11.sp,
-                    color = ShareMuted,
-                    modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
             Spacer(Modifier.height(12.dp))

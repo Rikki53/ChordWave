@@ -30,6 +30,10 @@ import kotlin.math.min
 private const val FadeInMs = 250L
 private const val FadeOutMs = 700L
 
+// how long the gl thread waits for the main thread to draw one frame before
+// giving up on it: a stalled draw must never hold the whole export at 0%
+private const val FrameTimeoutMs = 15_000L
+
 // what this phone's h264 encoders can take; videos encode on their side, so 9:16 is asked as 16:9
 internal object ShareEncoders {
     private val cache = HashMap<Pair<ShareQuality, Int>, Boolean>()
@@ -112,8 +116,18 @@ internal class ExportFrames(
                 done.countDown()
             }
         }
+        var waitedMs = 0L
         while (!done.await(100, TimeUnit.MILLISECONDS)) {
             if (job.cancelled) return null
+            waitedMs += 100
+            if (waitedMs >= FrameTimeoutMs) {
+                // the main thread never got to this frame: it goes without
+                // the card rather than stalling the export at 0% forever;
+                // the queued draw still lands for the frames after it
+                if (failed == 0) Log.e("SongShare", "Share frame at $presentationTimeUs us not drawn within ${FrameTimeoutMs}ms; continuing without it")
+                failed++
+                return null
+            }
         }
         return result
     }

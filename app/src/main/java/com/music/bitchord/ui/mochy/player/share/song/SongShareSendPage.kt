@@ -5,7 +5,6 @@ package com.music.bitchord.ui.mochy.player.share.song
 
 import android.content.Context
 import android.util.Log
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,8 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +31,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -45,8 +41,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -55,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.transformer.ExportException
@@ -65,24 +58,21 @@ import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.SheetPillButton
 import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
 import com.music.bitchord.ui.mochy.player.share.ShareMuted
-import com.music.bitchord.ui.mochy.player.share.song.export.ShareApp
 import com.music.bitchord.ui.mochy.player.share.song.export.ShareEncoders
 import com.music.bitchord.ui.mochy.player.share.song.export.ShareExportJob
 import com.music.bitchord.ui.mochy.player.share.song.export.ShareQuality
 import com.music.bitchord.ui.mochy.player.share.song.export.ShareRequest
 import com.music.bitchord.ui.mochy.player.share.song.export.ShareTheme
-import com.music.bitchord.ui.mochy.player.share.song.export.exportAndShare
-import com.music.bitchord.ui.mochy.player.share.song.export.installedPackage
-import com.music.bitchord.ui.mochy.player.share.song.export.sendTo
-import com.music.bitchord.ui.mochy.player.share.song.export.takesSticker
+import com.music.bitchord.ui.mochy.player.share.song.export.ShareFile
+import com.music.bitchord.ui.mochy.player.share.song.export.exportFile
+import com.music.bitchord.ui.mochy.player.share.song.export.openShareSheet
+import com.music.bitchord.ui.mochy.player.share.song.export.saveToGallery
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
@@ -111,13 +101,26 @@ private class SendState(val session: SongShareSession) {
     var job by mutableStateOf<ShareExportJob?>(null)
     var progress by mutableFloatStateOf(0f)
     var note by mutableStateOf<Int?>(null)
+    var saved by mutableStateOf(false)
     var scope: CoroutineScope? = null
     var context: Context? = null
     var theme: ShareTheme? = null
     var songSource: DataSource.Factory? = null
     private var running: Job? = null
+    private var cachedKey: String? = null
+    private var cachedFile: ShareFile? = null
 
     val working: Boolean get() = job != null
+
+    // one export per look, reused by Save and Share alike — the Classic
+    // sheet's system: the video is made once, then saved, shared, or both
+    suspend fun fileFor(request: ShareRequest, key: String): ShareFile {
+        cachedFile?.takeIf { cachedKey == key && it.file.exists() }?.let { return it }
+        val file = request.exportFile()
+        cachedKey = key
+        cachedFile = file
+        return file
+    }
 
     fun start(work: suspend ShareRequest.() -> Int?) {
         if (working) return
@@ -199,6 +202,8 @@ private fun SendContent(send: SendState, live: Boolean) {
             send.quality = if (canUltraHd) ShareQuality.UltraHd else ShareQuality.FullHd
         }
     }
+    // a different quality or kind is a different file: "Saved!" stops applying
+    LaunchedEffect(send.quality, session.shareAsVideo) { send.saved = false }
     // the export's progress lives off the main thread; it's copied in a few times a second
     LaunchedEffect(send.job) {
         val job = send.job ?: return@LaunchedEffect
@@ -240,15 +245,6 @@ private fun SendContent(send: SendState, live: Boolean) {
             ShareAsVideoRow(session, enabled = !send.working)
         }
         Divider()
-        val stickers = ShareApp.entries.any { it.takesSticker(context) }
-        Caption(stringResource(if (stickers) R.string.song_share_send_apps_sticker else R.string.song_share_send_apps))
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            ShareApp.entries.forEach { app ->
-                AppTile(app, enabled = !send.working) { send.start { sendTo(app); null } }
-            }
-        }
-        Spacer(Modifier.height(16.dp))
         QualityPicker(send, canUltraHd, video)
         Divider()
         when {
@@ -279,10 +275,36 @@ private fun ShareAsVideoRow(session: SongShareSession, enabled: Boolean) {
 private fun SendButton(send: SendState) {
     if (send.working) {
         SheetPillButton(text = stringResource(R.string.song_share_cancel), onClick = send::cancel)
-    } else {
+        return
+    }
+    // Classic's system in Modern's clothes: one export, then Save keeps it
+    // in the gallery and Share hands it to the phone's own share sheet
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         SheetPillButton(
-            text = stringResource(R.string.song_share_export_button),
-            onClick = { send.start { if (exportAndShare()) R.string.song_share_saved else null } },
+            text = stringResource(if (send.saved) R.string.saved_bang else R.string.save),
+            onClick = {
+                send.start {
+                    val file = send.fileFor(this, "${quality}|${session.shareAsVideo}")
+                    if (saveToGallery(context, file)) {
+                        send.saved = true
+                        null
+                    } else {
+                        R.string.song_share_failed_retry
+                    }
+                }
+            },
+            modifier = Modifier.weight(1f),
+        )
+        SheetPillButton(
+            text = stringResource(R.string.share),
+            onClick = {
+                send.start {
+                    val file = send.fileFor(this, "${quality}|${session.shareAsVideo}")
+                    openShareSheet(context, session, file)
+                    null
+                }
+            },
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -302,44 +324,6 @@ private fun PreviewPill(playing: Boolean, enabled: Boolean, modifier: Modifier, 
             .clickable(remember { MutableInteractionSource() }, indication = RemoteFocus, enabled = enabled, onClick = onClick)
             .padding(horizontal = 26.dp, vertical = 7.dp),
     )
-}
-
-// the app's own icon from the phone; a missing app shows greyed out and says so
-@Composable
-private fun AppTile(app: ShareApp, enabled: Boolean, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val target by produceState<String?>(null, app) { value = withContext(Dispatchers.IO) { app.installedPackage(context) } }
-    val icon by produceState<ImageBitmap?>(null, target) {
-        val name = target ?: return@produceState
-        value = withContext(Dispatchers.IO) {
-            runCatching { context.packageManager.getApplicationIcon(name).toBitmap(144, 144).asImageBitmap() }.getOrNull()
-        }
-    }
-    val installed = target != null
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(68.dp)
-            .graphicsLayer { alpha = if (installed && enabled) 1f else 0.4f }
-            .clickable(remember { MutableInteractionSource() }, indication = RemoteFocus, enabled = installed && enabled, onClick = onClick),
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(Color.White),
-        ) {
-            icon?.let { Image(it, contentDescription = null, modifier = Modifier.fillMaxSize()) }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            stringResource(if (installed) app.label else R.string.song_share_app_missing),
-            fontFamily = InterFontFamily,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 11.sp,
-            color = Color.White,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-        )
-    }
 }
 
 // a video is named the way videos are (4k, 1080p); a picture just says which one is sharper
