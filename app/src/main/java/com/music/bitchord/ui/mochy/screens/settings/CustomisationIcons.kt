@@ -2,9 +2,9 @@
 //
 // Ported from Mochy Music (GPL-3.0): ui/screens/gesture/CustomisationIcons.kt,
 // reworked for ChordWave's own icon set (see NEEDS.md):
-// - ChordWave's AppIcon is a single Default icon now (25 Nov 2026): the 22
-//   upstream BitChord alternative icons were removed for 100% ChordWave
-//   branding, so the picker shows one family with one icon.
+// - Batch 23 rebuilt the alternatives in Mochy's style with ChordWave's
+//   ribbon: Mark (mint) and Monochrome (white) families, each with
+//   ready-made backgrounds and twelve custom colours.
 // - Art is the icon's preview foreground where it has one, else the icon
 //   itself, drawn full-bleed in the tile (no background/foreground split).
 package com.music.bitchord.ui.mochy.screens.settings
@@ -80,7 +80,14 @@ private val TileRingPicked = Color.White.copy(alpha = 0.9f)
 private class IconFamily(@StringRes val title: Int, val icons: List<AppIcon>)
 
 private val IconFamilies = listOf(
-    IconFamily(R.string.customise_icons_family_default, listOf(AppIcon.Default)),
+    IconFamily(
+        R.string.customise_icons_family_mark,
+        listOf(AppIcon.Default, AppIcon.MarkWhite, AppIcon.MarkBlack, AppIcon.MarkMaterial, AppIcon.MarkTransparent, AppIcon.MarkRed, AppIcon.MarkOrange, AppIcon.MarkYellow, AppIcon.MarkGreen, AppIcon.MarkTeal, AppIcon.MarkSky, AppIcon.MarkBlue, AppIcon.MarkIndigo, AppIcon.MarkPurple, AppIcon.MarkPink, AppIcon.MarkGraphite, AppIcon.MarkCream),
+    ),
+    IconFamily(
+        R.string.customise_icons_family_monochrome,
+        listOf(AppIcon.MonoDark, AppIcon.MonoWhite, AppIcon.MonoBlack, AppIcon.MonoMaterial, AppIcon.MonoTransparent, AppIcon.MonoRed, AppIcon.MonoOrange, AppIcon.MonoYellow, AppIcon.MonoGreen, AppIcon.MonoTeal, AppIcon.MonoSky, AppIcon.MonoBlue, AppIcon.MonoIndigo, AppIcon.MonoPurple, AppIcon.MonoPink, AppIcon.MonoGraphite, AppIcon.MonoCream),
+    ),
 )
 
 private fun AppIcon.family(): IconFamily = IconFamilies.first { it.icons.contains(this) }

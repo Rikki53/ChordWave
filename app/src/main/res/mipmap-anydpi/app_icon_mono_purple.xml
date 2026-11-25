@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- launcher icon (batch 23): the ChordWave ribbon in Mochy's icon style -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/app_icon_custom_purple" />
+    <foreground android:drawable="@drawable/ic_chordwave_mark" />
+    <monochrome android:drawable="@drawable/ic_chordwave_mark" />
+</adaptive-icon>

@@ -366,8 +366,8 @@
 
         <!--
           The launcher entry lives on an alias, not on MainActivity (see AppIcon).
-          Only the Default icon ships now: the upstream BitChord alternative icons
-          were removed 25 Nov 2026 for 100% ChordWave branding.
+          Exactly one alias is enabled at a time; AppIcon.apply switches them.
+          The alternatives (batch 23) wear ChordWave's ribbon in Mochy's style.
         -->
         <activity-alias
             android:name=".LauncherDefault"
@@ -375,6 +375,468 @@
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:roundIcon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkWhite"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_white"
+            android:roundIcon="@mipmap/app_icon_mark_white"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkBlack"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_black"
+            android:roundIcon="@mipmap/app_icon_mark_black"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkMaterial"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_material"
+            android:roundIcon="@mipmap/app_icon_mark_material"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkTransparent"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_transparent"
+            android:roundIcon="@mipmap/app_icon_mark_transparent"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkRed"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_red"
+            android:roundIcon="@mipmap/app_icon_mark_red"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkOrange"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_orange"
+            android:roundIcon="@mipmap/app_icon_mark_orange"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkYellow"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_yellow"
+            android:roundIcon="@mipmap/app_icon_mark_yellow"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkGreen"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_green"
+            android:roundIcon="@mipmap/app_icon_mark_green"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkTeal"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_teal"
+            android:roundIcon="@mipmap/app_icon_mark_teal"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkSky"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_sky"
+            android:roundIcon="@mipmap/app_icon_mark_sky"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkBlue"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_blue"
+            android:roundIcon="@mipmap/app_icon_mark_blue"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkIndigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_indigo"
+            android:roundIcon="@mipmap/app_icon_mark_indigo"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkPurple"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_purple"
+            android:roundIcon="@mipmap/app_icon_mark_purple"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkPink"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_pink"
+            android:roundIcon="@mipmap/app_icon_mark_pink"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkGraphite"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_graphite"
+            android:roundIcon="@mipmap/app_icon_mark_graphite"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMarkCream"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mark_cream"
+            android:roundIcon="@mipmap/app_icon_mark_cream"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoDark"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_dark"
+            android:roundIcon="@mipmap/app_icon_mono_dark"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoWhite"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_white"
+            android:roundIcon="@mipmap/app_icon_mono_white"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoBlack"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_black"
+            android:roundIcon="@mipmap/app_icon_mono_black"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoMaterial"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_material"
+            android:roundIcon="@mipmap/app_icon_mono_material"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoTransparent"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_transparent"
+            android:roundIcon="@mipmap/app_icon_mono_transparent"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoRed"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_red"
+            android:roundIcon="@mipmap/app_icon_mono_red"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoOrange"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_orange"
+            android:roundIcon="@mipmap/app_icon_mono_orange"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoYellow"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_yellow"
+            android:roundIcon="@mipmap/app_icon_mono_yellow"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoGreen"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_green"
+            android:roundIcon="@mipmap/app_icon_mono_green"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoTeal"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_teal"
+            android:roundIcon="@mipmap/app_icon_mono_teal"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoSky"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_sky"
+            android:roundIcon="@mipmap/app_icon_mono_sky"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoBlue"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_blue"
+            android:roundIcon="@mipmap/app_icon_mono_blue"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoIndigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_indigo"
+            android:roundIcon="@mipmap/app_icon_mono_indigo"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoPurple"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_purple"
+            android:roundIcon="@mipmap/app_icon_mono_purple"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoPink"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_pink"
+            android:roundIcon="@mipmap/app_icon_mono_pink"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoGraphite"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_graphite"
+            android:roundIcon="@mipmap/app_icon_mono_graphite"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherMonoCream"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_mono_cream"
+            android:roundIcon="@mipmap/app_icon_mono_cream"
             android:label="@string/app_name"
             android:targetActivity=".MainActivity">
             <intent-filter>

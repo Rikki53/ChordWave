@@ -356,6 +356,23 @@
     <string name="show_listen_together_button_subtitle">Off, the player shows only the audio output button between lyrics and the queue</string>
     <string name="app_icon">App icon</string>
     <string name="app_icon_default">Default</string>
+    <string name="app_icon_dark">Dark</string>
+    <string name="app_icon_white">White</string>
+    <string name="app_icon_black">Black</string>
+    <string name="app_icon_material">Material</string>
+    <string name="app_icon_transparent">Transparent</string>
+    <string name="app_icon_color_red">Red</string>
+    <string name="app_icon_color_orange">Orange</string>
+    <string name="app_icon_color_yellow">Yellow</string>
+    <string name="app_icon_color_green">Green</string>
+    <string name="app_icon_color_teal">Teal</string>
+    <string name="app_icon_color_sky">Sky</string>
+    <string name="app_icon_color_blue">Blue</string>
+    <string name="app_icon_color_indigo">Indigo</string>
+    <string name="app_icon_color_purple">Purple</string>
+    <string name="app_icon_color_pink">Pink</string>
+    <string name="app_icon_color_graphite">Graphite</string>
+    <string name="app_icon_color_cream">Cream</string>
     <string name="app_icon_monochrome" translatable="false">Monochrome</string>
     <string name="app_icon_liquid_glass" translatable="false">Liquid Glass</string>
     <string name="app_icon_liquid_glass_dark" translatable="false">Liquid Glass Dark</string>
