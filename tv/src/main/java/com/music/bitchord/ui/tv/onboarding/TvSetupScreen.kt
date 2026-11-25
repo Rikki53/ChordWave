@@ -2,12 +2,20 @@ package com.music.bitchord.ui.tv.onboarding
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -41,10 +49,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.ui.MainViewModel
@@ -62,6 +77,7 @@ import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvMidnightPalette
 import com.music.bitchord.ui.tv.theme.TvOledPalette
 import com.music.bitchord.ui.tv.theme.TvType
+import kotlinx.coroutines.delay
 
 private enum class SetupStep { Welcome, SignIn, Appearance, Preferences, Done }
 
@@ -106,7 +122,7 @@ fun TvSetupScreen(
             SetupStep.Welcome -> TvSetupPage(
                 title = "Welcome to ChordWave",
                 message = "Your music, made for the big screen.",
-                hero = { TvAppMark(size = 106.dp) },
+                hero = { TvRobotMascot() },
             ) {
                 TvSetupButton("Continue", initialFocus = true) { step = SetupStep.SignIn }
                 TvSetupButton("Set Up Later") { finish() }
@@ -349,4 +365,52 @@ private fun TvThemeSwatch(
             color = if (focused || selected) TvGlass.TextPrimary else TvGlass.TextSecondary,
         )
     }
+}
+
+
+private val MascotGlow = Color(0xFF8FD0FF)
+
+/**
+ * ChordWave's robot on the TV welcome (batch 44), after Mochy's TvMascot: she
+ * swings in with a little overshoot, then floats and sways while her phone
+ * glows. Mochy's welcome puts her at the right edge; this setup keeps its
+ * centred column, so she stands in the hero slot instead.
+ */
+@Composable
+private fun TvRobotMascot(modifier: Modifier = Modifier) {
+    val arrive = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(120)
+        arrive.animateTo(1f, spring(dampingRatio = 0.58f, stiffness = 110f))
+    }
+    val idle = rememberInfiniteTransition(label = "mascotIdle")
+    val bob by idle.animateFloat(-1f, 1f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "bob")
+    val sway by idle.animateFloat(-1f, 1f, infiniteRepeatable(tween(3700, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "sway")
+    val glow by idle.animateFloat(0.55f, 1f, infiniteRepeatable(tween(1900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "glow")
+    Image(
+        painter = painterResource(R.drawable.robot_tv_mascot),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        alignment = Alignment.BottomCenter,
+        modifier = modifier
+            .height(190.dp)
+            .graphicsLayer {
+                val p = arrive.value
+                // she pivots from her feet, so the sway reads as a lean and not a wobble
+                transformOrigin = TransformOrigin(0.5f, 1f)
+                translationY = (1f - p) * 36.dp.toPx() + bob * 5.dp.toPx()
+                rotationZ = (1f - p) * 8f + sway * 1.3f
+                alpha = p.coerceIn(0f, 1f)
+            }
+            // the screen she's holding up gives off a soft light, read while drawing so it never recomposes
+            .drawBehind {
+                val center = Offset(size.width - size.height * 0.2f, size.height * 0.36f)
+                val radius = size.height * 0.26f
+                drawCircle(
+                    Brush.radialGradient(listOf(MascotGlow.copy(alpha = 0.3f * glow), Color.Transparent), center, radius),
+                    radius = radius,
+                    center = center,
+                )
+            },
+    )
 }

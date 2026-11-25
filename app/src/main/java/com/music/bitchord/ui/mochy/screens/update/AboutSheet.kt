@@ -101,6 +101,8 @@ private val LeadDevs = listOf(
     LeadDevEntry(
         name = "Rikki53",
         githubUser = "rikki53",
+        // the ChordWave robot stands in until the GitHub avatar lands (batch 44)
+        fallbackAvatar = R.drawable.robot_avatar_fallback,
     ),
 )
 

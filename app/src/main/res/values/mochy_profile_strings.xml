@@ -28,6 +28,8 @@
 
     <!-- Community & Settings -->
     <string name="profile_meet_dev_contributors">meet da dev and contributors :3</string>
+    <string name="profile_discord_card">Discord presence</string>
+    <string name="profile_discord_cd">Discord</string>
     <string name="profile_settings_title">Settings</string>
     <string name="profile_open_settings">Open settings</string>
 

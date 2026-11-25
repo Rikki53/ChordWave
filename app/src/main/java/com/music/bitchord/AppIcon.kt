@@ -13,6 +13,9 @@ import android.content.pm.PackageManager
  * dark on pale backgrounds), each with ready-made backgrounds (white, black,
  * material, transparent) and twelve custom colours. The Default icon is
  * unchanged: the mint ribbon on #101116.
+ *
+ * Batch 44 adds the Robot family — ChordWave's robot character, where Mochy
+ * wears its Anime girl — on the same ready-made backgrounds and colours.
  */
 enum class AppIcon(val alias: String, val iconRes: Int, val labelRes: Int, val previewRes: Int? = null) {
     Default("LauncherDefault", R.mipmap.ic_launcher, R.string.app_icon_default),
@@ -48,7 +51,23 @@ enum class AppIcon(val alias: String, val iconRes: Int, val labelRes: Int, val p
     MonoPurple("LauncherMonoPurple", R.mipmap.app_icon_mono_purple, R.string.app_icon_color_purple, R.drawable.app_icon_preview_mono_purple),
     MonoPink("LauncherMonoPink", R.mipmap.app_icon_mono_pink, R.string.app_icon_color_pink, R.drawable.app_icon_preview_mono_pink),
     MonoGraphite("LauncherMonoGraphite", R.mipmap.app_icon_mono_graphite, R.string.app_icon_color_graphite, R.drawable.app_icon_preview_mono_graphite),
-    MonoCream("LauncherMonoCream", R.mipmap.app_icon_mono_cream, R.string.app_icon_color_cream, R.drawable.app_icon_preview_mono_cream),;
+    MonoCream("LauncherMonoCream", R.mipmap.app_icon_mono_cream, R.string.app_icon_color_cream, R.drawable.app_icon_preview_mono_cream),
+    RobotWhite("LauncherRobotWhite", R.mipmap.app_icon_robot_white, R.string.app_icon_white, R.drawable.app_icon_preview_robot_white),
+    RobotDark("LauncherRobotDark", R.mipmap.app_icon_robot_dark, R.string.app_icon_dark, R.drawable.app_icon_preview_robot_black),
+    RobotMaterial("LauncherRobotMaterial", R.mipmap.app_icon_robot_material, R.string.app_icon_material, R.drawable.app_icon_preview_robot_material),
+    RobotTransparent("LauncherRobotTransparent", R.mipmap.app_icon_robot_transparent, R.string.app_icon_transparent, R.drawable.app_icon_preview_robot_transparent),
+    RobotRed("LauncherRobotRed", R.mipmap.app_icon_robot_red, R.string.app_icon_color_red, R.drawable.app_icon_preview_robot_red),
+    RobotOrange("LauncherRobotOrange", R.mipmap.app_icon_robot_orange, R.string.app_icon_color_orange, R.drawable.app_icon_preview_robot_orange),
+    RobotYellow("LauncherRobotYellow", R.mipmap.app_icon_robot_yellow, R.string.app_icon_color_yellow, R.drawable.app_icon_preview_robot_yellow),
+    RobotGreen("LauncherRobotGreen", R.mipmap.app_icon_robot_green, R.string.app_icon_color_green, R.drawable.app_icon_preview_robot_green),
+    RobotTeal("LauncherRobotTeal", R.mipmap.app_icon_robot_teal, R.string.app_icon_color_teal, R.drawable.app_icon_preview_robot_teal),
+    RobotSky("LauncherRobotSky", R.mipmap.app_icon_robot_sky, R.string.app_icon_color_sky, R.drawable.app_icon_preview_robot_sky),
+    RobotBlue("LauncherRobotBlue", R.mipmap.app_icon_robot_blue, R.string.app_icon_color_blue, R.drawable.app_icon_preview_robot_blue),
+    RobotIndigo("LauncherRobotIndigo", R.mipmap.app_icon_robot_indigo, R.string.app_icon_color_indigo, R.drawable.app_icon_preview_robot_indigo),
+    RobotPurple("LauncherRobotPurple", R.mipmap.app_icon_robot_purple, R.string.app_icon_color_purple, R.drawable.app_icon_preview_robot_purple),
+    RobotPink("LauncherRobotPink", R.mipmap.app_icon_robot_pink, R.string.app_icon_color_pink, R.drawable.app_icon_preview_robot_pink),
+    RobotGraphite("LauncherRobotGraphite", R.mipmap.app_icon_robot_graphite, R.string.app_icon_color_graphite, R.drawable.app_icon_preview_robot_graphite),
+    RobotCream("LauncherRobotCream", R.mipmap.app_icon_robot_cream, R.string.app_icon_color_cream, R.drawable.app_icon_preview_robot_cream),;
 
     private fun component(context: Context) =
         ComponentName(context.packageName, "com.music.bitchord.$alias")

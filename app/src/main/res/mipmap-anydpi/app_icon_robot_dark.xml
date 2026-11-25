@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- launcher icon (batch 44): the ChordWave robot in Mochy's icon style -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/app_icon_black" />
+    <foreground android:drawable="@drawable/ic_launcher_robot" />
+    <monochrome android:drawable="@drawable/ic_chordwave_mark" />
+</adaptive-icon>

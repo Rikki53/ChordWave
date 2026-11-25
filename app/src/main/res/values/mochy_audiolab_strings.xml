@@ -139,6 +139,7 @@
     <string name="customise_icons_family_default">Default</string>
     <string name="customise_icons_family_mark">Mark</string>
     <string name="customise_icons_family_monochrome">Monochrome</string>
+    <string name="customise_icons_family_robot">Robot</string>
     <string name="customise_icons_family_liquid_glass">Liquid Glass</string>
     <string name="customise_icons_family_samsung_glass">Samsung Glass</string>
     <string name="customise_icons_family_pixel_glass">Pixel Glass</string>

@@ -10,7 +10,9 @@
 // the pull-down scratch-off monthly recap (Mochy reads per-play events for
 // it; ChordWave's listening buckets are aggregates — see the batch log) and
 // the landscape two-pane layout (the Modern host is phone-layout only).
-// The Discord card is NOT ported — that server is Mochy's own. The giant
+// The Discord card wears ChordWave's robot character (batch 44) and opens the
+// Discord presence settings — Mochy's card opens Mochy's own server, which
+// ChordWave does not have. The giant
 // header word is the app name, so it reads CHORDWAVE here.
 
 package com.music.bitchord.ui.mochy.screens.profile
@@ -29,6 +31,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -123,6 +126,7 @@ import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.mochy.LocalAppContentObscured
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.BlurDirection
+import com.music.bitchord.ui.mochy.component.rememberResourcePainter
 import com.music.bitchord.ui.mochy.component.FlatBarScrimAlpha
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.LocalMenuState
@@ -410,6 +414,8 @@ fun ProfileScreen(
                         )
                         Spacer(Modifier.height(16.dp))
                         DeveloperCard(onClick = { menuState.showAboutSheet() })
+                        Spacer(Modifier.height(16.dp))
+                        DiscordCard(onClick = { navigator.navigate("integrations_settings/discord") })
                         Spacer(Modifier.height(28.dp))
                         Text(stringResource(R.string.profile_settings_title), style = PageTitle.copy(fontSize = 15.sp), modifier = Modifier.padding(start = 2.dp, bottom = 10.dp))
                         OpenSettingsRow(onClick = { navigator.navigate("mochy_settings") })
@@ -764,6 +770,43 @@ private val DevFaces = listOf(
     "https://github.com/rikki53.png?size=160",
     "https://github.com/realidkroo.png?size=160",
 )
+
+/**
+ * Mochy's Discord card, with ChordWave's robot in the circle. Mochy's opens
+ * Mochy's Discord server; ChordWave has none yet, so this opens the Discord
+ * presence settings instead (batch 44).
+ */
+@Composable
+private fun DiscordCard(onClick: () -> Unit) {
+    val face = 30.dp
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(PageCard)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Image(
+            painter = rememberResourcePainter(R.drawable.robot_discord),
+            contentDescription = stringResource(R.string.profile_discord_cd),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(face)
+                .clip(CircleShape)
+                .background(Color.White),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            stringResource(R.string.profile_discord_card),
+            style = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = (-0.6).sp, color = Color.White),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
 
 @Composable
 private fun OpenSettingsRow(onClick: () -> Unit) {

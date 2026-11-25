@@ -88,6 +88,10 @@ private val IconFamilies = listOf(
         R.string.customise_icons_family_monochrome,
         listOf(AppIcon.MonoDark, AppIcon.MonoWhite, AppIcon.MonoBlack, AppIcon.MonoMaterial, AppIcon.MonoTransparent, AppIcon.MonoRed, AppIcon.MonoOrange, AppIcon.MonoYellow, AppIcon.MonoGreen, AppIcon.MonoTeal, AppIcon.MonoSky, AppIcon.MonoBlue, AppIcon.MonoIndigo, AppIcon.MonoPurple, AppIcon.MonoPink, AppIcon.MonoGraphite, AppIcon.MonoCream),
     ),
+    IconFamily(
+        R.string.customise_icons_family_robot,
+        listOf(AppIcon.RobotWhite, AppIcon.RobotDark, AppIcon.RobotMaterial, AppIcon.RobotTransparent, AppIcon.RobotRed, AppIcon.RobotOrange, AppIcon.RobotYellow, AppIcon.RobotGreen, AppIcon.RobotTeal, AppIcon.RobotSky, AppIcon.RobotBlue, AppIcon.RobotIndigo, AppIcon.RobotPurple, AppIcon.RobotPink, AppIcon.RobotGraphite, AppIcon.RobotCream),
+    ),
 )
 
 private fun AppIcon.family(): IconFamily = IconFamilies.first { it.icons.contains(this) }

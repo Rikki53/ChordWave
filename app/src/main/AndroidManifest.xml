@@ -854,6 +854,214 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotWhite"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_white"
+            android:roundIcon="@mipmap/app_icon_robot_white"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotDark"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_dark"
+            android:roundIcon="@mipmap/app_icon_robot_dark"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotMaterial"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_material"
+            android:roundIcon="@mipmap/app_icon_robot_material"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotTransparent"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_transparent"
+            android:roundIcon="@mipmap/app_icon_robot_transparent"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotRed"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_red"
+            android:roundIcon="@mipmap/app_icon_robot_red"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotOrange"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_orange"
+            android:roundIcon="@mipmap/app_icon_robot_orange"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotYellow"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_yellow"
+            android:roundIcon="@mipmap/app_icon_robot_yellow"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotGreen"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_green"
+            android:roundIcon="@mipmap/app_icon_robot_green"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotTeal"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_teal"
+            android:roundIcon="@mipmap/app_icon_robot_teal"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotSky"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_sky"
+            android:roundIcon="@mipmap/app_icon_robot_sky"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotBlue"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_blue"
+            android:roundIcon="@mipmap/app_icon_robot_blue"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotIndigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_indigo"
+            android:roundIcon="@mipmap/app_icon_robot_indigo"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotPurple"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_purple"
+            android:roundIcon="@mipmap/app_icon_robot_purple"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotPink"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_pink"
+            android:roundIcon="@mipmap/app_icon_robot_pink"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotGraphite"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_graphite"
+            android:roundIcon="@mipmap/app_icon_robot_graphite"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRobotCream"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_robot_cream"
+            android:roundIcon="@mipmap/app_icon_robot_cream"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
 
 

@@ -1,6 +1,6 @@
 // Ported from Mochy Music (GPL-3.0): ui/screens/setup/WelcomeStep.kt
-// the first onboarding page: ChordWave's animated mint ribbon over drifting welcomes, a tap anywhere moves on
-// (batch 22 replaced the original mascot character with our own mark)
+// the first onboarding page: ChordWave's robot character showing off her phone over drifting welcomes, a tap anywhere moves on
+// (batch 44: the robot runs on Mochy's own layered rig — see RobotRig.kt)
 
 package com.music.bitchord.ui.mochy.screens.setup
 
@@ -48,8 +48,10 @@ import com.music.bitchord.ui.mochy.LocalAppContentObscured
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.damageBoundary
 import com.music.bitchord.ui.mochy.screens.setup.onboarding.OnbTitleTracking
-import com.music.bitchord.ui.mochy.screens.setup.welcome.AnimatedRibbonMark
+import com.music.bitchord.ui.mochy.screens.setup.welcome.RobotArt
+import com.music.bitchord.ui.mochy.screens.setup.welcome.RobotMotion
 import com.music.bitchord.ui.mochy.screens.setup.welcome.WelcomeColors
+import com.music.bitchord.ui.mochy.screens.setup.welcome.WelcomeRobot
 import com.music.bitchord.ui.mochy.screens.setup.welcome.WelcomeDots
 import com.music.bitchord.ui.mochy.screens.setup.welcome.WelcomeWords
 import com.music.bitchord.ui.mochy.utils.AppMotion
@@ -91,11 +93,12 @@ fun WelcomeStep(isHiding: Boolean, onNext: () -> Unit) {
         WelcomeDots(layout.dots)
         WelcomeWords(clock.seconds, layout.wordsSize, layout.wordsTop)
 
-        AnimatedRibbonMark(
-            seconds = clock.seconds.floatValue,
+        WelcomeRobot(
+            motion = clock.robot,
+            seconds = clock.seconds,
             modifier = Modifier
-                .offset(x = layout.markLeft, y = layout.markTop)
-                .size(layout.markSize)
+                .offset(x = layout.robotLeft, y = layout.robotTop)
+                .size(layout.robotWidth, layout.robotHeight)
                 .graphicsLayer {
                     translationY = leave * 56.dp.toPx()
                     alpha = 1f - leave
@@ -169,9 +172,10 @@ fun WelcomeStep(isHiding: Boolean, onNext: () -> Unit) {
     }
 }
 
-// the page's one clock: each frame advances the time the ribbon, rings and words all read
+// the page's one clock: each frame it moves the robot, then the rings and words read the same time
 private class WelcomeClock {
     val seconds = mutableFloatStateOf(0f)
+    val robot = RobotMotion()
     var running by mutableStateOf(false)
         private set
 
@@ -185,6 +189,7 @@ private class WelcomeClock {
                     // a stall only counts as a short step, so nothing leaps forward after a hitch
                     if (last >= 0L) t += ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
                     last = now
+                    robot.update(t)
                     seconds.floatValue = t
                 }
             }
@@ -217,32 +222,36 @@ private class WelcomeLayout(
     val unit: Float,
     val titleStart: Dp,
     val titleTop: Dp,
-    val markLeft: Dp,
-    val markTop: Dp,
-    val markSize: Dp,
+    val robotLeft: Dp,
+    val robotTop: Dp,
+    val robotWidth: Dp,
+    val robotHeight: Dp,
     val wordsSize: Dp,
     val wordsTop: Dp,
     val dots: Dp,
     val fadeHeight: Dp,
 )
 
-// tall windows get the phone design; wide ones (tablets, foldables, landscape) put the ribbon on the right
+// tall windows get the phone design; wide ones (tablets, foldables, landscape) put the robot on the right
 private fun welcomeLayout(width: Dp, height: Dp): WelcomeLayout {
     val w = width.value
     val h = height.value
+    val shape = RobotArt.FrameWidth / RobotArt.FrameHeight
     if (w / h < 0.9f) {
         val u = min(w / 393f, h / 820f).coerceIn(0.8f, 1.9f)
         val titleTop = max(64f, 76f * u)
-        // the ribbon sits centered under the title, big enough to feel alive
-        val markSize = min(w * 0.78f, 340f * u)
-        val markTop = max(titleTop + 110f * u, h * 0.27f)
+        // big like a wallpaper: she spans the width and is cropped at the hips, under the title
+        val robotTop = max(titleTop + 98f * u, h * 0.25f)
+        val robotHeight = min(w * 1.08f / shape, (h - robotTop) * 1.12f)
+        val robotWidth = robotHeight * shape
         return WelcomeLayout(
             unit = u,
             titleStart = max(24f, 36f * u).dp,
             titleTop = titleTop.dp,
-            markLeft = ((w - markSize) / 2f).dp,
-            markTop = markTop.dp,
-            markSize = markSize.dp,
+            robotLeft = (w * 0.985f - robotWidth * RobotArt.FingertipsAcross).dp,
+            robotTop = robotTop.dp,
+            robotWidth = robotWidth.dp,
+            robotHeight = robotHeight.dp,
             wordsSize = (128f * u).dp,
             wordsTop = (h * 0.235f).dp,
             dots = (17.5f * u).dp,
@@ -250,14 +259,15 @@ private fun welcomeLayout(width: Dp, height: Dp): WelcomeLayout {
         )
     }
     val u = min(w / 900f, h / 520f).coerceIn(0.7f, 1.8f)
-    val markSize = min(h * 0.62f, w * 0.4f)
+    val robotWidth = min(h * 1.16f * shape, w * 0.62f)
     return WelcomeLayout(
         unit = u,
         titleStart = (48f * u).dp,
         titleTop = max(56f, h * 0.16f).dp,
-        markLeft = (w * 0.975f - markSize).coerceAtLeast(w * 0.45f).dp,
-        markTop = max(8f, (h - markSize) / 2f).dp,
-        markSize = markSize.dp,
+        robotLeft = (w * 0.975f - robotWidth * RobotArt.FingertipsAcross).coerceAtLeast(w * 0.4f).dp,
+        robotTop = max(8f, h * 0.02f).dp,
+        robotWidth = robotWidth.dp,
+        robotHeight = (robotWidth / shape).dp,
         wordsSize = (128f * u).dp,
         wordsTop = (h * 0.06f).dp,
         dots = (17.5f * u).dp,
