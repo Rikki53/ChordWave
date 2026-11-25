@@ -196,6 +196,7 @@ import com.music.bitchord.ui.mochy.utils.ArtistPageCache
 import com.music.bitchord.ui.mochy.utils.joinByBullet
 import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
 import com.music.bitchord.ui.mochy.utils.rememberPreference
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.utils.resize
 import com.music.bitchord.ui.mochy.utils.SnapLayoutInfoProvider
 import com.music.bitchord.ui.mochy.utils.stableSystemBars
@@ -539,9 +540,9 @@ private val HomeTopBarRise = 16.dp
 @Composable
 private fun HomeShell() {
     val homeStyle by rememberEnumPreference(HomeStyleKey, defaultValue = HomeStyle.MODERN)
-    val profilePicUri by rememberPreference(ProfilePicUriKey, "")
-    val profileImageUrl = profilePicUri
-        .takeIf { it.isNotBlank() }
+    // signed in, the top bar wears the Google account's photo (the same
+    // source the Profile ID Card uses); signed out, the local picture.
+    val profileImageUrl = rememberProfilePhotoUrl()
         ?.let { if (it.contains("://")) it else "file://$it" }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -803,7 +804,8 @@ fun HomeScreen(
     val localProfileImageUrl = profilePicUri
         .takeIf { it.isNotBlank() }
         ?.let { if (it.contains("://")) it else "file://$it" }
-    val profileImageUrl = localProfileImageUrl ?: accountImageUrl
+    // the account photo wins when signed in; the local picture is the fallback.
+    val profileImageUrl = accountImageUrl ?: localProfileImageUrl
     val context = LocalContext.current
     val profileImageRequest = remember(context, profileImageUrl) {
         profileImageUrl?.let { imageUrl ->

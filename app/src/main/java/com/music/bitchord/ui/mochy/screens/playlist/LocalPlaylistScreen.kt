@@ -130,7 +130,7 @@ import com.music.bitchord.ui.mochy.constants.PlaylistEditLockKey
 import com.music.bitchord.ui.mochy.constants.PlaylistSongSortDescendingKey
 import com.music.bitchord.ui.mochy.constants.PlaylistSongSortType
 import com.music.bitchord.ui.mochy.constants.PlaylistSongSortTypeKey
-import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.PlaylistSong
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
@@ -178,7 +178,6 @@ fun LocalPlaylistScreen(
     var locked by rememberPreference(PlaylistEditLockKey, defaultValue = true)
     var showSortDialog by remember { mutableStateOf(false) }
     val (accountName) = rememberPreference(AccountNameKey, "")
-    val (profilePicUri) = rememberPreference(ProfilePicUriKey, "")
 
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -341,7 +340,7 @@ fun LocalPlaylistScreen(
     val featuredArtists = remember(songs) {
         featuredArtistsOf(songs.flatMap { it.song.artists }, id = { it.id }, name = { it.name })
     }
-    val creatorAvatar = profilePicUri.takeIf { it.isNotBlank() }?.let { if (it.contains("://")) it else "file://$it" }
+    val creatorAvatar = rememberProfilePhotoUrl()?.let { if (it.contains("://")) it else "file://$it" }
 
     fun play(items: List<PlaylistSong>, startIndex: Int = 0) {
         val current = playlist ?: return

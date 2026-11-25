@@ -92,7 +92,7 @@ import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.utils.appleArtworkUrl
 import com.music.bitchord.ui.mochy.constants.HideExplicitKey
-import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.constants.ShowArtistBackgroundVideoKey
 import com.music.bitchord.ui.mochy.constants.ShowArtistDescriptionKey
 import com.music.bitchord.ui.mochy.constants.ShowArtistSubscriberCountKey
@@ -217,7 +217,6 @@ fun ArtistScreen(
     val showSubscriberCount by rememberPreference(key = ShowArtistSubscriberCountKey, defaultValue = true)
     val showMonthlyListeners by rememberPreference(key = ShowMonthlyListenersKey, defaultValue = true)
     val showBackgroundVideo by rememberPreference(key = ShowArtistBackgroundVideoKey, defaultValue = true)
-    val profilePic by rememberPreference(ProfilePicUriKey, defaultValue = "")
     val signedIn = rememberYouTubeSignedIn()
 
     val name = header?.name ?: page?.artist?.title ?: libraryArtist?.artist?.name.orEmpty()
@@ -550,7 +549,7 @@ fun ArtistScreen(
             morph = { morph.value },
             title = name,
             background = background,
-            profileImage = profilePic.ifBlank { null },
+            profileImage = rememberProfilePhotoUrl(),
             onBackClick = { navigator.popBackStack() },
             onBackLongClick = { navigator.clearDetails() },
             onProfileClick = { navigator.navigateToTab("profile") },

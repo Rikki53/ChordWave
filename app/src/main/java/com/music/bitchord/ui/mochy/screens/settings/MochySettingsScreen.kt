@@ -91,7 +91,7 @@ import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.SettingsHighlight
 import com.music.bitchord.ui.mochy.component.glassRoot
-import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.screens.search.SearchAvatar
 import com.music.bitchord.ui.mochy.screens.search.SearchField
@@ -362,7 +362,6 @@ fun MochySettingsScreen(
     val scrollState = rememberScrollState()
     val glassState = remember { GlassState() }
 
-    val (profilePicUri) = rememberPreference(ProfilePicUriKey, "")
 
     // The account card's state: SignedIn is the same process-wide flow
     // MainViewModel.onWebSession writes after a successful login, and
@@ -729,7 +728,7 @@ fun MochySettingsScreen(
                         val lift = (SettingsTitleBlockHeight / 2 - SettingsMarkSize / 2).toPx()
                         translationY = -(1f - collapseProgress) * lift
                     },
-                    imageUrl = profilePicUri.ifBlank { null },
+                    imageUrl = rememberProfilePhotoUrl(),
                     // Profile is out of scope (MAPPING.md), so the avatar opens
                     // the YouTube account page — Mochy's own placement for
                     // account access, and the sign-in lives one tap from there.

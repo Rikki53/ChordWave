@@ -55,7 +55,7 @@ import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.glassRoot
 import com.music.bitchord.ui.mochy.constants.OfflineModeKey
 import com.music.bitchord.ui.mochy.constants.PauseSearchHistoryKey
-import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
@@ -90,7 +90,6 @@ fun SearchSidePane(
     val focusRequester = remember { FocusRequester() }
     val pauseSearchHistory by rememberPreference(PauseSearchHistoryKey, defaultValue = false)
     val offlineMode by rememberPreference(OfflineModeKey, defaultValue = false)
-    val profilePicStr by rememberPreference(ProfilePicUriKey, defaultValue = "")
 
     val suggestionViewModel: OnlineSearchSuggestionViewModel = hiltViewModel()
     val suggestionState by suggestionViewModel.viewState.collectAsState()
@@ -162,7 +161,7 @@ fun SearchSidePane(
             pureBlack = pureBlack,
             title = stringResource(R.string.search),
             trailing = {
-                SearchAvatar(imageUrl = profilePicStr.ifBlank { null }, onClick = { navigator.navigateToTab("profile") })
+                SearchAvatar(imageUrl = rememberProfilePhotoUrl(), onClick = { navigator.navigateToTab("profile") })
             },
         ) {
             SearchField(

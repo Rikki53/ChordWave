@@ -89,7 +89,7 @@ import com.music.bitchord.ui.mochy.component.glassRoot
 import com.music.bitchord.ui.mochy.component.librarySwipeAction
 import com.music.bitchord.ui.mochy.component.queueSwipeAction
 import com.music.bitchord.ui.mochy.constants.PauseSearchHistoryKey
-import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
 import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
@@ -143,7 +143,6 @@ fun OnlineSearchResult(
     val focusManager = LocalFocusManager.current
     val coroutineScope = rememberCoroutineScope()
     val pauseSearchHistory by rememberPreference(PauseSearchHistoryKey, defaultValue = false)
-    val profilePicStr by rememberPreference(ProfilePicUriKey, defaultValue = "")
 
     // (Re)loads the page for this query; a repeat call with the same query
     // only fills whatever fetch is still missing.
@@ -392,7 +391,7 @@ fun OnlineSearchResult(
             pureBlack = pureBlack,
             title = stringResource(R.string.search),
             trailing = {
-                SearchAvatar(imageUrl = profilePicStr.ifBlank { null }, onClick = { navigator.navigateToTab("profile") })
+                SearchAvatar(imageUrl = rememberProfilePhotoUrl(), onClick = { navigator.navigateToTab("profile") })
             },
             below = {
                 SearchCategoryRow(

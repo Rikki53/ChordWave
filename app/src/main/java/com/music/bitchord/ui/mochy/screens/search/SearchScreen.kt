@@ -93,7 +93,7 @@ import com.music.bitchord.ui.mochy.component.glassRoot
 import com.music.bitchord.ui.mochy.component.queueSwipeAction
 import com.music.bitchord.ui.mochy.constants.OfflineModeKey
 import com.music.bitchord.ui.mochy.constants.PauseSearchHistoryKey
-import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.SearchHistory
 import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
@@ -146,7 +146,6 @@ fun SearchScreen(
     val playerConnection = LocalPlayerConnection.current
     val pauseSearchHistory by rememberPreference(PauseSearchHistoryKey, defaultValue = false)
     val offlineMode by rememberPreference(OfflineModeKey, defaultValue = false)
-    val profilePicStr by rememberPreference(ProfilePicUriKey, defaultValue = "")
 
     var query by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
@@ -311,7 +310,7 @@ fun SearchScreen(
             pureBlack = pureBlack,
             title = stringResource(R.string.search),
             trailing = {
-                SearchAvatar(imageUrl = profilePicStr.ifBlank { null }, onClick = { navigator.navigateToTab("profile") })
+                SearchAvatar(imageUrl = rememberProfilePhotoUrl(), onClick = { navigator.navigateToTab("profile") })
             },
         ) {
             SearchField(

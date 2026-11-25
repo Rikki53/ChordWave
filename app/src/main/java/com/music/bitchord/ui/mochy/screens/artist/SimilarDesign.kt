@@ -90,7 +90,7 @@ import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.R
-import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
 import com.music.bitchord.ui.mochy.component.BoneColor
@@ -174,7 +174,6 @@ internal fun SimilarPage(
     val coroutineScope = rememberCoroutineScope()
     val isPlaying by playerConnection.isEffectivelyPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
-    val profilePic by rememberPreference(ProfilePicUriKey, defaultValue = "")
 
     val themeColor by rememberCoverThemeColor(bandImageUrl)
     val background = animateColorAsState(
@@ -400,7 +399,7 @@ internal fun SimilarPage(
             morph = { morph.value },
             title = bigLine,
             background = background,
-            profileImage = profilePic.ifBlank { null },
+            profileImage = rememberProfilePhotoUrl(),
             onBackClick = { navigator.popBackStack() },
             onBackLongClick = { navigator.clearDetails() },
             onProfileClick = { navigator.navigateToTab("profile") },

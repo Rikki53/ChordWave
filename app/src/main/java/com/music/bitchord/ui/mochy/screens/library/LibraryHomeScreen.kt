@@ -51,7 +51,7 @@ import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.constants.HideLibraryImportBannerKey
-import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
+import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.TransferBatch
@@ -126,7 +126,6 @@ fun LibraryHomeScreen(
     val nowPlaying = playerConnection?.mediaMetadata?.collectAsState()
     val isPlaying = playerConnection?.isEffectivelyPlaying?.collectAsState()
 
-    val profilePicStr by rememberPreference(ProfilePicUriKey, defaultValue = "")
     val (hideImportBanner, onHideImportBannerChange) = rememberPreference(HideLibraryImportBannerKey, defaultValue = false)
 
     var query by remember { mutableStateOf(TextFieldValue()) }
@@ -196,7 +195,7 @@ fun LibraryHomeScreen(
             pureBlack = pureBlack,
             trailing = {
                 SearchAvatar(
-                    imageUrl = profilePicStr.ifBlank { null },
+                    imageUrl = rememberProfilePhotoUrl(),
                     onClick = { navigator.navigateToTab("profile") },
                 )
             },
