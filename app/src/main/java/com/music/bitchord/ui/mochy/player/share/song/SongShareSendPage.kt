@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.transformer.ExportException
 import com.music.bitchord.ui.mochy.playback.SongDataSourceFactory
 import com.music.bitchord.R
@@ -82,8 +83,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.FileNotFoundException
-import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import timber.log.Timber
 
@@ -161,9 +165,12 @@ private class SendState(val session: SongShareSession) {
     }
 }
 
-// only a failure to load something is worth blaming on the connection; a picture is made entirely on the phone
+// only a failure to reach the network is worth blaming on the connection; a
+// picture is made entirely on the phone, and a full disk or a broken encoder
+// is not the connection's fault
 private fun Throwable.isConnectionProblem(): Boolean = generateSequence(this) { it.cause }.any { cause ->
-    cause is IOException && cause !is FileNotFoundException ||
+    cause is UnknownHostException || cause is ConnectException || cause is SocketTimeoutException ||
+        cause is SocketException || cause is SSLException || cause is HttpDataSource.HttpDataSourceException ||
         cause is ExportException && cause.errorCode in ExportException.ERROR_CODE_IO_UNSPECIFIED..ExportException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE
 }
 

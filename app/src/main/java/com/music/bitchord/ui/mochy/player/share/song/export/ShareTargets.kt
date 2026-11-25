@@ -20,8 +20,11 @@ import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.player.share.song.ShareLayers
 import com.music.bitchord.ui.mochy.player.share.song.SongShareKind
 import com.music.bitchord.ui.mochy.player.share.song.SongShareSession
+import com.music.bitchord.ui.mochy.player.share.song.refreshMusicVideo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.File
 
 // the only three apps the share sends to directly
@@ -56,10 +59,30 @@ internal class ShareRequest(
 // the whole picture, or a layer of it, as a video or an image depending on the share's mode
 private suspend fun ShareRequest.export(layers: ShareLayers): ShareFile =
     if (session.isVideo) {
-        ShareFile(exportVideo(context, session, theme, quality, layers, songSource, job), "video/mp4")
+        ShareFile(exportVideoRetrying(layers), "video/mp4")
     } else {
         ShareFile(exportStill(context, session, theme, quality, layers), "image/png")
     }
+
+// one more try when a video export fails: fresh music-video links first (a
+// googlevideo link is tied to the address that minted it and dies quietly
+// when that changes), and from 4k a step down to 1080p — a finished 1080p
+// video beats none at all. A cancelled export is never retried, and when
+// neither change applies the failure stands as it is.
+private suspend fun ShareRequest.exportVideoRetrying(layers: ShareLayers): File {
+    try {
+        return exportVideo(context, session, theme, quality, layers, songSource, job)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        if (job.cancelled) throw e
+        val refreshed = refreshMusicVideo(session)
+        val retryQuality = if (quality == ShareQuality.UltraHd) ShareQuality.FullHd else quality
+        if (!refreshed && retryQuality == quality) throw e
+        Timber.w(e, "SongShare: video export failed; retrying with fresh links=$refreshed at $retryQuality")
+        return exportVideo(context, session, theme, retryQuality, layers, songSource, job)
+    }
+}
 
 // a lyrics video's words move with the song, so they can't be a sticker; they stay in the video instead
 private val ShareRequest.cardMoves: Boolean
@@ -127,9 +150,12 @@ internal fun copySongLink(context: Context, session: SongShareSession): Boolean 
     return true
 }
 
+// what travels with the picture or video: the song's name, then an
+// invitation to hear it together in ChordWave — the link opens the song in
+// the app when it is installed and the song's page when it is not
 private fun caption(context: Context, session: SongShareSession): String {
     val line = context.getString(R.string.song_share_caption, session.share.title, session.share.artist)
-    return session.link?.let { "$line\n$it" } ?: line
+    return session.link?.let { link -> "$line\n${context.getString(R.string.song_share_caption_invite, link)}" } ?: line
 }
 
 private fun uriOf(context: Context, file: File): Uri =

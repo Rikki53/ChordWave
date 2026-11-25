@@ -28,6 +28,7 @@ import com.music.bitchord.ui.mochy.lyrics.serializeLyricLines
 import com.music.bitchord.ui.mochy.player.lookUpVideo
 import com.music.bitchord.ui.mochy.player.share.coverPalette
 import com.music.bitchord.ui.mochy.player.video.matchSongToVideo
+import com.music.bitchord.ui.mochy.player.video.noteVideoRefused
 import com.music.bitchord.ui.mochy.player.video.resolveVideoStreams
 import com.music.bitchord.ui.mochy.utils.DataSaver
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
@@ -214,4 +215,16 @@ internal suspend fun freshMusicVideo(video: ShareMusicVideo): ShareMusicVideo {
         return video
     }
     return ShareMusicVideo(video.videoId, fresh, video.videoMsAt)
+}
+
+// fresh links for the music video whatever the clock says, for the export's
+// retry: a googlevideo link is tied to the address that minted it, so a
+// network change kills it long before it expires. The client whose link was
+// refused is benched first, so the new resolve asks the next one.
+internal suspend fun refreshMusicVideo(session: SongShareSession): Boolean {
+    val video = session.musicVideo.found ?: return false
+    video.streams.trackFor(1080)?.url?.let(::noteVideoRefused)
+    val fresh = resolveVideoStreams(video.videoId, durationMs = video.streams.durationMs).getOrNull() ?: return false
+    session.musicVideo = Fetched.Found(ShareMusicVideo(video.videoId, fresh, video.videoMsAt))
+    return true
 }

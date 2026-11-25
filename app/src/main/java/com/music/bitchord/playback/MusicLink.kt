@@ -198,5 +198,5 @@ object MusicLink {
     private fun firstUrl(text: String): String? =
         URL_IN_TEXT.find(text)?.value
 
-    private val URL_IN_TEXT = Regex("""https?://\S+""")
+    private val URL_IN_TEXT = Regex("""(?:https?|chordwave)://\S+""")
 }

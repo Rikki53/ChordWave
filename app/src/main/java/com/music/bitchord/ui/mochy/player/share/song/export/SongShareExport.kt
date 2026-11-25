@@ -270,7 +270,7 @@ private suspend fun videoBackground(session: SongShareSession, video: SongBackgr
             val music = freshMusicVideo(found)
             val track = music.trackFor(1080) ?: return@let null
             val item = clippedItem(
-                MediaItem.Builder().setUri(track.url).setMimeType(MimeTypes.VIDEO_MP4),
+                MediaItem.Builder().setUri(track.url).setMimeType(track.mimeType.takeIf { it.isNotBlank() } ?: MimeTypes.VIDEO_MP4),
                 music.videoMsAt(session.windowStartMs),
                 session.windowLengthMs,
             )
