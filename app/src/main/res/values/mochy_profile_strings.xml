@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ported from Mochy Music (GPL-3.0): profile_strings.xml (subset for the
-     simplified Profile page). Discord strings are NOT ported (Mochy's own
-     server); the pull-down/scratch/recap strings are NOT ported (the
-     simplified page has no morph/scratch header). The privacy hint is
-     rebranded to ChordWave. -->
+<!-- Ported from Mochy Music (GPL-3.0): profile_strings.xml. Discord strings
+     are NOT ported (Mochy's own server); the pull-down/scratch/recap strings
+     are NOT ported (the recap story is not ported — see the batch log).
+     The privacy hint is rebranded to ChordWave. -->
 <resources>
     <!-- Greetings -->
     <string name="profile_greeting_hello_again">Hello again</string>
@@ -41,4 +40,26 @@
     <string name="profile_picture_label">profile picture</string>
     <string name="profile_picture_cd">Profile picture</string>
     <string name="profile_picture_add_cd">Add a profile picture</string>
+
+    <!-- User Profile Page -->
+    <string name="profile_tag">PROFILE USR#%1$s</string>
+    <string name="profile_edit_button">Edit profile</string>
+    <string name="profile_total_listens">Total listens</string>
+    <plurals name="profile_unit_songs">
+        <item quantity="one">Song</item>
+        <item quantity="other">Songs</item>
+    </plurals>
+    <plurals name="profile_unit_minutes">
+        <item quantity="one">Min</item>
+        <item quantity="other">Mins</item>
+    </plurals>
+    <plurals name="profile_unit_hours">
+        <item quantity="one">Hour</item>
+        <item quantity="other">Hours</item>
+    </plurals>
+    <string name="profile_listening_to">Listening to</string>
+    <string name="profile_recent_empty">Songs you play will show up here.</string>
+    <string name="profile_your_playlists">Your playlists</string>
+    <string name="profile_top_artists">Top artists</string>
+    <string name="profile_top_artists_empty">The artists you play the most will show up here.</string>
 </resources>
