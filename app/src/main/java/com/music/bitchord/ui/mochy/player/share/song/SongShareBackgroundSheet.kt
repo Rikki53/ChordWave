@@ -16,6 +16,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -55,7 +58,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.data.canvas.CanvasSource
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.component.PopupSheetHandle
+import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.SheetPillButton
 import com.music.bitchord.ui.mochy.player.share.AddCircle
@@ -63,6 +69,7 @@ import com.music.bitchord.ui.mochy.player.share.BackdropOf
 import com.music.bitchord.ui.mochy.player.share.ColourBackgroundControls
 import com.music.bitchord.ui.mochy.player.share.PictureBackgroundControls
 import com.music.bitchord.ui.mochy.player.share.ShareBackground
+import com.music.bitchord.ui.mochy.player.share.ShareMuted
 import com.music.bitchord.ui.mochy.player.share.ShareBasicColours
 import com.music.bitchord.ui.mochy.player.share.ShareHint
 import com.music.bitchord.ui.mochy.player.share.backgroundPageCard
@@ -244,10 +251,17 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                             }
                         }
                     }
-                    BackgroundPage.MusicVideo, BackgroundPage.AnimatedCover -> {
+                    BackgroundPage.MusicVideo -> {
                         page.hint?.let { ShareHint(stringResource(it)) }
                         Spacer(Modifier.height(12.dp))
                         DimCard(dim, setDim) {}
+                    }
+                    BackgroundPage.AnimatedCover -> {
+                        page.hint?.let { ShareHint(stringResource(it)) }
+                        Spacer(Modifier.height(12.dp))
+                        DimCard(dim, setDim) {}
+                        Spacer(Modifier.height(12.dp))
+                        CanvasSourcePicker(session)
                     }
                     BackgroundPage.Music -> page.hint?.let { ShareHint(stringResource(it)) }
                     BackgroundPage.Picture -> {
@@ -314,6 +328,81 @@ private fun TextAction(text: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
     )
+}
+
+// which provider's animated cover plays: Apple and Spotify are always
+// shown, greyed out with the reason when the song has none — the same
+// choice the classic share sheet offers; another provider's clip only
+// when there is one
+@Composable
+private fun CanvasSourcePicker(session: SongShareSession) {
+    val clips = session.animatedCoverClips
+    val selected = session.animatedCoverSource
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        CanvasSourceRow(
+            label = stringResource(R.string.lyrics_share_apple_canvas),
+            hint = stringResource(
+                if (CanvasSource.APPLE in clips) R.string.song_share_bg_canvas_apple_hint
+                else R.string.song_share_bg_canvas_apple_missing,
+            ),
+            enabled = CanvasSource.APPLE in clips,
+            selected = selected == CanvasSource.APPLE,
+            onClick = { clips[CanvasSource.APPLE]?.let { session.pickAnimatedCover(CanvasSource.APPLE, it.url) } },
+        )
+        CanvasSourceRow(
+            label = stringResource(R.string.lyrics_share_spotify_canvas),
+            hint = stringResource(
+                when {
+                    CanvasSource.SPOTIFY in clips -> R.string.song_share_bg_canvas_spotify_hint
+                    AppSettings.disableSpotifyCanvas.value -> R.string.song_share_bg_canvas_spotify_off
+                    else -> R.string.song_share_bg_canvas_spotify_missing
+                },
+            ),
+            enabled = CanvasSource.SPOTIFY in clips,
+            selected = selected == CanvasSource.SPOTIFY,
+            onClick = { clips[CanvasSource.SPOTIFY]?.let { session.pickAnimatedCover(CanvasSource.SPOTIFY, it.url) } },
+        )
+        clips[CanvasSource.OTHER]?.let { other ->
+            CanvasSourceRow(
+                label = stringResource(R.string.song_share_bg_canvas_other),
+                hint = stringResource(R.string.song_share_bg_canvas_other_hint),
+                enabled = true,
+                selected = selected == CanvasSource.OTHER,
+                onClick = { session.pickAnimatedCover(CanvasSource.OTHER, other.url) },
+            )
+        }
+    }
+}
+
+// one provider's row: its name, what it offers or why it can't, and a filled dot when it is the one playing
+@Composable
+private fun CanvasSourceRow(label: String, hint: String, enabled: Boolean, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer { alpha = if (enabled) 1f else 0.45f }
+            .clip(RoundedCornerShape(16.dp))
+            .background(MenuRowSurface)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color.White)
+            Text(hint, fontFamily = InterFontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, color = ShareMuted)
+        }
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(CircleShape)
+                .border(2.dp, Color.White.copy(alpha = if (selected) 1f else 0.5f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White))
+            }
+        }
+    }
 }
 
 internal suspend fun videoDurationMs(context: Context, uri: Uri): Long = withContext(Dispatchers.IO) {

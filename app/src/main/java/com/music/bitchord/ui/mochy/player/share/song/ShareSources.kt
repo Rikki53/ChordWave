@@ -147,16 +147,25 @@ internal suspend fun loadAnimatedCover(context: Context, session: SongShareSessi
         return
     }
     // Same guard as the player: no Spotify clip when Spotify Canvas is off.
-    val artwork = CanvasRepository.canvasFor(
-        CwSong(
-            videoId = song.id,
-            title = song.title,
-            artist = artist,
-            thumbnailUrl = song.thumbnailUrl,
-            albumName = song.album?.title,
-        )
-    )?.takeUnless { AppSettings.disableSpotifyCanvas.value && it.source == CanvasSource.SPOTIFY }
+    val cwSong = CwSong(
+        videoId = song.id,
+        title = song.title,
+        artist = artist,
+        thumbnailUrl = song.thumbnailUrl,
+        albumName = song.album?.title,
+    )
+    val artwork = CanvasRepository.canvasFor(cwSong)
+        ?.takeUnless { AppSettings.disableSpotifyCanvas.value && it.source == CanvasSource.SPOTIFY }
     session.animatedCover = artwork?.url?.let { Fetched.Found(it) } ?: Fetched.Missing
+    session.animatedCoverSource = artwork?.source
+    // every provider's clip for the background pager's source choice — the
+    // same per-source lookup the classic sheet offers (Apple / Spotify /
+    // other), so the song's other clips are pickable instead of only the
+    // first hit above. The default clip is added when the lookup missed its
+    // source, so the choice always shows what is playing.
+    val clips = runCatching { CanvasRepository.shareClipsFor(cwSong) }.getOrDefault(emptyMap()).toMutableMap()
+    artwork?.let { clips.putIfAbsent(it.source, it) }
+    session.animatedCoverClips = clips
 }
 
 // the song's music video, its own picture when the song is a video; lined up as-is until matchMusicVideo has listened to both

@@ -43,6 +43,13 @@
     <string name="song_share_bg_music_video_hint">Lined up with the song, so it shows the same moment</string>
     <string name="song_share_bg_animated_cover">Moving cover</string>
     <string name="song_share_bg_animated_cover_hint">The album\'s moving cover, looping</string>
+    <string name="song_share_bg_canvas_apple_hint">Motion artwork from Apple Music</string>
+    <string name="song_share_bg_canvas_apple_missing">No Apple motion artwork for this song</string>
+    <string name="song_share_bg_canvas_spotify_hint">Canvas clip from Spotify</string>
+    <string name="song_share_bg_canvas_spotify_missing">No Spotify clip for this song</string>
+    <string name="song_share_bg_canvas_spotify_off">Spotify Canvas is off — turn it on in Settings</string>
+    <string name="song_share_bg_canvas_other">Other canvas</string>
+    <string name="song_share_bg_canvas_other_hint">Canvas clip from another provider</string>
     <string name="song_share_bg_music">Made from the music</string>
     <string name="song_share_bg_music_hint">Soft clouds of the cover\'s colours, drifting over the cover itself</string>
     <string name="song_share_bg_picture">Add your own image</string>

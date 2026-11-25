@@ -17,6 +17,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.luminance
+import com.music.bitchord.data.canvas.CanvasArtwork
+import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntry
@@ -174,6 +176,13 @@ internal class SongShareSession(val song: MediaMetadata) {
     var lyricsLook by mutableStateOf(ShareLyricsLook())
     var musicVideo by mutableStateOf<Fetched<ShareMusicVideo>>(Fetched.Looking)
     var animatedCover by mutableStateOf<Fetched<String>>(Fetched.Looking)
+
+    // the animated covers by provider, for the background pager's source choice;
+    // [animatedCover] is whichever source is picked
+    var animatedCoverClips by mutableStateOf<Map<CanvasSource, CanvasArtwork>>(emptyMap())
+
+    // which provider the animated cover now comes from
+    var animatedCoverSource by mutableStateOf<CanvasSource?>(null)
     var art by mutableStateOf(ShareArt())
 
     // the song playing under the pages; null until the host has made it
@@ -250,6 +259,12 @@ internal class SongShareSession(val song: MediaMetadata) {
     fun setVideo(video: SongBackground.Video) {
         lastVideo = video
         background = video
+    }
+
+    // pick which provider's animated cover plays; the preview and the export both read [animatedCover]
+    fun pickAnimatedCover(source: CanvasSource, url: String) {
+        animatedCoverSource = source
+        animatedCover = Fetched.Found(url)
     }
 
     // the song position for this frame: the preview's, or a loop of the window while there's no sound yet
