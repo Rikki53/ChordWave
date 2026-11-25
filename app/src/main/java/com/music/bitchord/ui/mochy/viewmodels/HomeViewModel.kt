@@ -28,6 +28,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.auth.SignedIn
 import com.music.bitchord.data.AppleArtistPhotos
+import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.TopPicks
 import com.music.bitchord.data.YtMusicRepository
@@ -152,6 +153,15 @@ class HomeViewModel @Inject constructor(
      * to ask. CW has no onboarding artist picker, so v1 always lands on empty (DATA-MAPPING §1 row 1).
      */
     val starterSongs = MutableStateFlow<List<StarterSong>?>(null)
+
+    /**
+     * Every audio file on the phone (MediaStore), for the gacha reel on a thin library:
+     * stats-based lists only hold songs already played, so a fresh install never
+     * reaches the 4-song pool. Null until the first local load; empty without the
+     * storage permission (getLocalMusic handles that). Note starterSongs stays
+     * empty in CW (no onboarding artist picker), so it cannot feed the pool.
+     */
+    val localSongs = MutableStateFlow<List<Song>?>(null)
 
     /** Library artists, for the hero before there's any history. Signed-in only; empty otherwise. */
     private val _libraryArtists = MutableStateFlow<List<Artist>>(emptyList())
@@ -559,6 +569,9 @@ class HomeViewModel @Inject constructor(
         loadKeepListening()
 
         localPlaylists.value = OfflinePlaylists.playlists.value.map { it.toMochyPlaylist() }
+        localSongs.value = runCatching { LocalMediaRepository.getLocalMusic(context) }
+            .getOrDefault(emptyList())
+            .map { it.toMochySong() }
         _lastPlayedSong.value = recentTracks.firstOrNull()?.toCwSong()?.toMochyMetadata()
 
         // No onboarding artist picker in CW: the hero's starter songs stay empty.

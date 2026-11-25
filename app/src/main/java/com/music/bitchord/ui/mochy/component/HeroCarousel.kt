@@ -383,6 +383,10 @@ internal fun heroCarouselItems(
     // the user's own playlists between the recommendations, a couple at a time
     addAll(playlistPicks.take(2))
 
+    // fill up to 5 regular cards from the user's own songs first, then from the
+    // new-install starters, so a thin library still slides (batch 3 item 2: the
+    // starters used to apply only when there were zero regular cards, so one
+    // played song collapsed the carousel to a single Continue card)
     val regular = count { it !is GachaItem }
     if (regular < 5) {
         keepListening?.filterIsInstance<Song>()
@@ -392,9 +396,13 @@ internal fun heroCarouselItems(
                 add(KeepListeningItem(song.toMediaMetadata(), isLastPlayed = false))
             }
     }
-
-    // nothing played yet: start from the imported playlists or the picked artists' songs
-    if (none { it !is GachaItem }) addAll(starterItems.take(5))
+    val filled = count { it !is GachaItem }
+    if (filled < 5) {
+        starterItems
+            .filter { item -> item.mediaId == null || none { it.mediaId == item.mediaId } }
+            .take(5 - filled)
+            .forEach { add(it) }
+    }
 }
 
 /**

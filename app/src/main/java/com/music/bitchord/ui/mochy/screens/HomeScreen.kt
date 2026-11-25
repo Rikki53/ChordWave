@@ -717,6 +717,7 @@ fun HomeScreen(
     }
     val homePage by viewModel.homePage.collectAsState()
     val dailyDiscover by viewModel.dailyDiscover.collectAsState()
+    val localSongs by viewModel.localSongs.collectAsState()
     val similarRecommendations by viewModel.similarRecommendations.collectAsState()
     val communityPlaylists by viewModel.communityPlaylists.collectAsState()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
@@ -752,13 +753,17 @@ fun HomeScreen(
 
     // the gacha's reel: songs you play most, favourites you've drifted from, recommendations and
     // recent plays, all mixed together (only ones with a cover, so the reel never shows a blank)
-    val gachaPool = remember(mostPlayedSongsForHome, forgottenFavorites, dailyDiscover, recentHistorySongs, keepListening) {
+    val gachaPool = remember(mostPlayedSongsForHome, forgottenFavorites, dailyDiscover, recentHistorySongs, keepListening, localSongs, recentlyPlayed) {
         buildList {
             mostPlayedSongsForHome?.forEach { add(it.toMediaMetadata()) }
             forgottenFavorites?.forEach { add(it.toMediaMetadata()) }
             dailyDiscover?.forEach { discover -> (discover.recommendation as? SongItem)?.let { add(it.toMediaMetadata()) } }
             recentHistorySongs?.forEach { add(it.toMediaMetadata()) }
             keepListening?.filterIsInstance<Song>()?.forEach { add(it.toMediaMetadata()) }
+            // a thin library: the reel also eats the phone's own files (unplayed
+            // local songs never reach the stats lists) + everything recently played
+            localSongs?.forEach { add(it.toMediaMetadata()) }
+            recentlyPlayed?.filterIsInstance<Song>()?.forEach { add(it.toMediaMetadata()) }
         }
             .filter { !it.thumbnailUrl.isNullOrEmpty() }
             .distinctBy { it.id }
