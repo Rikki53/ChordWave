@@ -17,8 +17,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.luminance
-import com.music.bitchord.data.canvas.CanvasArtwork
-import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntry
@@ -51,9 +49,6 @@ internal sealed interface ShareVideoSource {
 
     // the song's music video, lined up with the song
     data object MusicVideo : ShareVideoSource
-
-    // the album's looping animated cover
-    data object AnimatedCover : ShareVideoSource
 }
 
 internal sealed interface SongBackground {
@@ -70,22 +65,6 @@ internal sealed interface Fetched<out T> {
     data object Missing : Fetched<Nothing>
 
     data class Found<T>(val value: T) : Fetched<T>
-}
-
-// why there is no animated cover to offer, when the lookup came back empty —
-// so the picker can say the real reason instead of blaming the song
-internal enum class AnimatedCoverMiss {
-    // the animated-cover switch is off in settings
-    Disabled,
-
-    // Wi-Fi only is on for animated covers and this network is metered
-    Metered,
-
-    // Data Saver is on
-    DataSaver,
-
-    // looked, and no provider has a clip for this song
-    NotFound,
 }
 
 internal val <T> Fetched<T>.found: T? get() = (this as? Fetched.Found<T>)?.value
@@ -190,22 +169,11 @@ internal class SongShareSession(val song: MediaMetadata) {
 
     var lyricsOffsetMs by mutableLongStateOf(0L)
     var lyricsLook by mutableStateOf(ShareLyricsLook())
+
+    // the editor's own lyrics-animation pick (batch 28): once set, the
+    // player-settings seed in SongShare stops overwriting the motion style
+    var motionPickedInEditor = false
     var musicVideo by mutableStateOf<Fetched<ShareMusicVideo>>(Fetched.Looking)
-    var animatedCover by mutableStateOf<Fetched<String>>(Fetched.Looking)
-
-    // the animated covers by provider, for the background pager's source choice;
-    // [animatedCover] is whichever source is picked
-    var animatedCoverClips by mutableStateOf<Map<CanvasSource, CanvasArtwork>>(emptyMap())
-
-    // which provider the animated cover now comes from
-    var animatedCoverSource by mutableStateOf<CanvasSource?>(null)
-
-    // the per-provider clips have been looked up (found or not): the picker
-    // waits for this, because [animatedCover] is set before the clips arrive
-    var animatedCoverClipsLoaded by mutableStateOf(false)
-
-    // why no clip is on offer, when the lookup came back empty
-    var animatedCoverMiss by mutableStateOf<AnimatedCoverMiss?>(null)
     var art by mutableStateOf(ShareArt())
 
     // the song playing under the pages; null until the host has made it
@@ -284,19 +252,8 @@ internal class SongShareSession(val song: MediaMetadata) {
         background = video
     }
 
-    // pick which provider's animated cover plays; the preview and the export both read [animatedCover].
-    // Picking a clip also makes it the background: a clip on its own changes nothing on screen, and
-    // the style page's video choice has no background pager to do that step for it. The dim is kept
-    // from the video showing now (or the last one), so re-picking a source never resets it.
-    fun pickAnimatedCover(source: CanvasSource, url: String) {
-        animatedCoverSource = source
-        animatedCover = Fetched.Found(url)
-        val dim = (background as? SongBackground.Video)?.dim ?: lastVideo?.dim ?: 0.85f
-        setVideo(SongBackground.Video(ShareVideoSource.AnimatedCover, dim))
-    }
-
     // the style page's music-video choice: the song's own video as the background,
-    // with the same dim rule as [pickAnimatedCover] (batch 15)
+    // keeping the dim of the video showing now (or the last one)
     fun useMusicVideo() {
         val dim = (background as? SongBackground.Video)?.dim ?: lastVideo?.dim ?: 0.85f
         setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, dim))

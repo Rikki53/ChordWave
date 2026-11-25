@@ -59,8 +59,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
-import com.music.bitchord.data.canvas.CanvasSource
-import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.component.PopupSheetHandle
 import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
 import com.music.bitchord.ui.mochy.component.PopupSheetState
@@ -85,7 +83,6 @@ import kotlin.math.roundToInt
 
 // the video pages come first and the still ones after; a pager shows one kind or the other
 private enum class BackgroundPage(@StringRes val label: Int, @StringRes val hint: Int?, val video: Boolean) {
-    AnimatedCover(R.string.song_share_bg_animated_cover, R.string.song_share_bg_animated_cover_hint, video = true),
     MusicVideo(R.string.song_share_bg_music_video, R.string.song_share_bg_music_video_hint, video = true),
     OwnVideo(R.string.song_share_bg_own_video, R.string.song_share_bg_own_video_hint, video = true),
     Music(R.string.song_share_bg_music, R.string.song_share_bg_music_hint, video = false),
@@ -110,7 +107,6 @@ private fun pageOf(background: SongBackground): BackgroundPage = when (backgroun
     is SongBackground.Video -> when (background.source) {
         is ShareVideoSource.Own -> BackgroundPage.OwnVideo
         ShareVideoSource.MusicVideo -> BackgroundPage.MusicVideo
-        ShareVideoSource.AnimatedCover -> BackgroundPage.AnimatedCover
     }
     is SongBackground.Still -> when (background.background) {
         ShareBackground.FromMusic -> BackgroundPage.Music
@@ -123,11 +119,10 @@ private fun pageOf(background: SongBackground): BackgroundPage = when (backgroun
 private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetState, video: Boolean) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pages = remember(video, session.musicVideo is Fetched.Found, session.animatedCover is Fetched.Found) {
+    val pages = remember(video, session.musicVideo is Fetched.Found) {
         BackgroundPage.entries.filter { page ->
             page.video == video && when (page) {
                 BackgroundPage.MusicVideo -> session.musicVideo is Fetched.Found
-                BackgroundPage.AnimatedCover -> session.animatedCover is Fetched.Found
                 else -> true
             }
         }
@@ -149,7 +144,6 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
         when (pages.getOrNull(page) ?: return) {
             BackgroundPage.OwnVideo -> session.lastOwnVideo?.let { session.setVideo(SongBackground.Video(it, dim)) }
             BackgroundPage.MusicVideo -> session.setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, dim))
-            BackgroundPage.AnimatedCover -> session.setVideo(SongBackground.Video(ShareVideoSource.AnimatedCover, dim))
             BackgroundPage.Music -> session.setStill(ShareBackground.FromMusic)
             // no picture yet: keep what was there until one is picked
             BackgroundPage.Picture -> picture?.let(session::setStill)
@@ -210,8 +204,6 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                     }
                     BackgroundPage.MusicVideo ->
                         if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.MusicVideo, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }) else CoverStill(session)
-                    BackgroundPage.AnimatedCover ->
-                        if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.AnimatedCover, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }) else CoverStill(session)
                     BackgroundPage.Music -> BackdropOf(ShareBackground.FromMusic, session.song.thumbnailUrl, session.palette, animate = true)
                     BackgroundPage.Colour -> BackdropOf(ShareBackground.Solid(colour), null, session.palette, animate = false)
                     BackgroundPage.Picture -> {
@@ -258,13 +250,6 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                         page.hint?.let { ShareHint(stringResource(it)) }
                         Spacer(Modifier.height(12.dp))
                         DimCard(dim, setDim) {}
-                    }
-                    BackgroundPage.AnimatedCover -> {
-                        page.hint?.let { ShareHint(stringResource(it)) }
-                        Spacer(Modifier.height(12.dp))
-                        DimCard(dim, setDim) {}
-                        Spacer(Modifier.height(12.dp))
-                        CanvasSourcePicker(session)
                     }
                     BackgroundPage.Music -> page.hint?.let { ShareHint(stringResource(it)) }
                     BackgroundPage.Picture -> {
@@ -331,69 +316,6 @@ private fun TextAction(text: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
     )
-}
-
-// which provider's animated cover plays: Apple and Spotify are always
-// shown, greyed out with the reason when the song has none — the same
-// choice the classic share sheet offers; another provider's clip only
-// when there is one. While the clips are still loading the rows stay
-// visible but unusable, so the choice never looks absent — only the
-// reason changes. Shared with the style page (batch 12).
-@Composable
-internal fun CanvasSourcePicker(session: SongShareSession) {
-    val clips = session.animatedCoverClips
-    val selected = session.animatedCoverSource
-    // still looking: unusable, but shown. Keyed on the clips load finishing, not on
-    // [SongShareSession.animatedCover] — that is set before the per-provider clips arrive,
-    // and reading it here called songs clip-less while their clips were still loading.
-    val looking = !session.animatedCoverClipsLoaded
-    // why there is nothing to offer, when the reason is a setting rather than the song
-    val missHint = when (session.animatedCoverMiss) {
-        AnimatedCoverMiss.Disabled -> R.string.song_share_bg_canvas_off
-        AnimatedCoverMiss.Metered -> R.string.song_share_bg_canvas_metered
-        AnimatedCoverMiss.DataSaver -> R.string.song_share_bg_canvas_data_saver
-        else -> null
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        CanvasSourceRow(
-            label = stringResource(R.string.lyrics_share_apple_canvas),
-            hint = stringResource(
-                when {
-                    looking -> R.string.song_share_bg_canvas_looking
-                    CanvasSource.APPLE in clips -> R.string.song_share_bg_canvas_apple_hint
-                    missHint != null -> missHint
-                    else -> R.string.song_share_bg_canvas_apple_missing
-                },
-            ),
-            enabled = !looking && CanvasSource.APPLE in clips,
-            selected = selected == CanvasSource.APPLE,
-            onClick = { clips[CanvasSource.APPLE]?.let { session.pickAnimatedCover(CanvasSource.APPLE, it.url) } },
-        )
-        CanvasSourceRow(
-            label = stringResource(R.string.lyrics_share_spotify_canvas),
-            hint = stringResource(
-                when {
-                    looking -> R.string.song_share_bg_canvas_looking
-                    CanvasSource.SPOTIFY in clips -> R.string.song_share_bg_canvas_spotify_hint
-                    AppSettings.disableSpotifyCanvas.value -> R.string.song_share_bg_canvas_spotify_off
-                    missHint != null -> missHint
-                    else -> R.string.song_share_bg_canvas_spotify_missing
-                },
-            ),
-            enabled = !looking && CanvasSource.SPOTIFY in clips,
-            selected = selected == CanvasSource.SPOTIFY,
-            onClick = { clips[CanvasSource.SPOTIFY]?.let { session.pickAnimatedCover(CanvasSource.SPOTIFY, it.url) } },
-        )
-        clips[CanvasSource.OTHER]?.let { other ->
-            CanvasSourceRow(
-                label = stringResource(R.string.song_share_bg_canvas_other),
-                hint = stringResource(R.string.song_share_bg_canvas_other_hint),
-                enabled = true,
-                selected = selected == CanvasSource.OTHER,
-                onClick = { session.pickAnimatedCover(CanvasSource.OTHER, other.url) },
-            )
-        }
-    }
 }
 
 // one provider's row: its name, what it offers or why it can't, and a filled dot when it is the one playing

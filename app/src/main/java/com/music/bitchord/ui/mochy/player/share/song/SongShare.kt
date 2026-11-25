@@ -133,7 +133,6 @@ private fun SongShareDialog(
         }
         LaunchedEffect(session) {
             launch { loadShareArt(context, session) }
-            launch { loadAnimatedCover(context, session) }
             launch { findMusicVideo(session) }
             if (heldLyrics == null) {
                 loadShareLyrics(context, session)
@@ -195,7 +194,12 @@ private fun ReadLyricsLook(session: SongShareSession) {
     val (highBloom) = rememberPreference(LyricsHighBloomKey, defaultValue = true)
     val (lineBlur) = rememberPreference(ElementBlurKey, defaultValue = true)
     LaunchedEffect(motionStyle, highBloom, lineBlur) {
-        session.lyricsLook = ShareLyricsLook(motionStyle, highBloom, lineBlur)
+        // the editor's own animation pick (batch 28) wins over the player setting
+        session.lyricsLook = ShareLyricsLook(
+            if (session.motionPickedInEditor) session.lyricsLook.motionStyle else motionStyle,
+            highBloom,
+            lineBlur,
+        )
     }
 }
 

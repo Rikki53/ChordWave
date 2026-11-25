@@ -26,6 +26,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.translate
+import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -128,6 +130,7 @@ internal fun SungLine(
     textSize: Float,
     style: TextStyle,
     flow: CinematicFlow,
+    motion: LyricsMotionStyle = LyricsMotionStyle.MOTION,
 ) {
     SweptText(
         text = { color -> cinematicLine(session, line, text, color, textSize) },
@@ -136,6 +139,7 @@ internal fun SungLine(
         ranges = wordRanges(session, line, text),
         times = flow.words[line].orEmpty(),
         positionMs = flow.positionMs,
+        motion = motion,
     )
 }
 
@@ -171,7 +175,12 @@ internal fun timedPieces(entry: LyricsEntry, text: String, nextLineMs: Long?): T
     return TimedPieces(words, times)
 }
 
-// a line drawn faded, with a lit copy on top that shows only as far as the song has got and glows round the word being sung
+// how far a rising word starts below its place, as a share of its line's height (batch 28)
+private const val WordRiseShare = 0.35f
+
+// a line drawn faded, with a lit copy on top that shows only as far as the song has got and glows round the word being sung.
+// [motion] is the player settings' lyrics animation (batch 28): shaded styles
+// glow round the sung word, rising styles lift each word into place as it lands.
 @Composable
 internal fun SweptText(
     text: (ink: Color) -> AnnotatedString,
@@ -180,6 +189,7 @@ internal fun SweptText(
     ranges: List<IntRange>,
     times: List<SungWord>,
     positionMs: () -> Long,
+    motion: LyricsMotionStyle = LyricsMotionStyle.MOTION,
 ) {
     val waitingInk = ink.copy(alpha = ink.alpha * WaitingAlpha)
     // read only while drawing, so a new layout never recomposes the line
@@ -194,13 +204,46 @@ internal fun SweptText(
             // the lyrics page's glow round the word being sung, on a layer with room for it to spill
             modifier = Modifier
                 .layerBleed(GlowRoom)
-                .sweepBloom(highBloom = true) { sweepHead(laidOut[0], ranges, times, positionMs(), GlowRoom.toPx()) }
+                .then(
+                    if (motion.shaded) {
+                        Modifier.sweepBloom(highBloom = true) { sweepHead(laidOut[0], ranges, times, positionMs(), GlowRoom.toPx()) }
+                    } else {
+                        Modifier
+                    },
+                )
                 .padding(GlowRoom)
                 .drawWithContent {
                     val layout = laidOut[0] ?: return@drawWithContent
                     val now = positionMs()
                     val room = GlowRoom.toPx()
                     val length = layout.layoutInput.text.length
+                    if (motion.risesWords) {
+                        // each word drawn on its own, lifted into place as it's sung
+                        for (i in ranges.indices) {
+                            val range = ranges[i]
+                            val word = times.getOrNull(i) ?: continue
+                            if (range.isEmpty() || range.last >= length) continue
+                            val sung = ((now - word.startMs).toFloat() / (word.endMs - word.startMs).coerceAtLeast(1L)).coerceIn(0f, 1f)
+                            if (sung <= 0f) continue
+                            val first = layout.getBoundingBox(range.first)
+                            val last = layout.getBoundingBox(range.last)
+                            val top = min(first.top, last.top) - room
+                            val bottom = max(first.bottom, last.bottom) + room
+                            val rise = (bottom - top) * WordRiseShare * (1f - sung)
+                            val wordPath = Path()
+                            if (first.top == last.top) {
+                                val right = first.left + (last.right - first.left) * sung
+                                wordPath.addRect(Rect(first.left - room, top, if (sung >= 1f) right + room else right, bottom + rise))
+                            } else {
+                                // a word too long for its line lights both lines at once
+                                wordPath.addRect(Rect(0f, top, size.width, bottom + rise))
+                            }
+                            clipPath(wordPath) {
+                                translate(top = rise) { this@drawWithContent.drawContent() }
+                            }
+                        }
+                        return@drawWithContent
+                    }
                     lit.reset()
                     var any = false
                     for (i in ranges.indices) {

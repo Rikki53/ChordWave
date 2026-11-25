@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import coil3.compose.AsyncImage
+import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.resize
@@ -155,6 +156,8 @@ internal fun CinematicLayout(
     cover: ImageBitmap? = null,
     // in a video the words light up as they're sung; null keeps them all lit for a picture
     flow: CinematicFlow? = null,
+    // the player settings' lyrics animation, as picked in the editor (batch 28)
+    motion: LyricsMotionStyle = LyricsMotionStyle.MOTION,
     // the reading and the translation under each picked line, as the share's switches want them
     readings: List<List<String>> = emptyList(),
 ) {
@@ -186,7 +189,7 @@ internal fun CinematicLayout(
                         if (flow == null) {
                             Text(cinematicLine(session, line, text, ink, textSize), style = style)
                         } else {
-                            SungLine(session, line, text, ink, textSize, style, flow)
+                            SungLine(session, line, text, ink, textSize, style, flow, motion)
                         }
                         readings.getOrNull(i)?.forEach { reading ->
                             Text(reading, style = readingText(textSize, ink))

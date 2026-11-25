@@ -212,7 +212,8 @@ private fun SendContent(send: SendState, live: Boolean) {
             delay(100)
         }
     }
-    val previewHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
+    // big enough to judge the picture before exporting it (batch 28)
+    val previewHeight = (LocalConfiguration.current.screenHeightDp * 0.46f).dp
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         Text(

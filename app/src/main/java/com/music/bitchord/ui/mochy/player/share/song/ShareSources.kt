@@ -4,25 +4,18 @@
 package com.music.bitchord.ui.mochy.player.share.song
 
 import android.content.Context
-import android.net.ConnectivityManager
 import android.net.Uri
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.core.content.getSystemService
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.request.transformations
 import coil3.toBitmap
-import com.music.bitchord.data.canvas.CanvasRepository
-import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
-import com.music.bitchord.data.model.Song as CwSong
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.ui.mochy.constants.CanvasThumbnailAnimationKey
-import com.music.bitchord.ui.mochy.constants.CanvasWifiOnlyKey
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
 import com.music.bitchord.ui.mochy.lyrics.serializeLyricLines
 import com.music.bitchord.ui.mochy.player.lookUpVideo
@@ -30,10 +23,7 @@ import com.music.bitchord.ui.mochy.player.share.coverPalette
 import com.music.bitchord.ui.mochy.player.video.matchSongToVideo
 import com.music.bitchord.ui.mochy.player.video.noteVideoRefused
 import com.music.bitchord.ui.mochy.player.video.resolveVideoStreams
-import com.music.bitchord.ui.mochy.utils.DataSaver
-import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.SoftBlurTransformation
-import com.music.bitchord.ui.mochy.utils.dataStore
 import com.music.bitchord.ui.mochy.utils.resize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -122,59 +112,6 @@ internal suspend fun loadShareLyrics(context: Context, session: SongShareSession
 internal suspend fun loadLyricsOffset(session: SongShareSession) {
     session.lyricsOffsetMs = (AppSettings.lyricsOffsetForSong(session.song.id)
         ?: AppSettings.lyricsOffsetMs.value).toLong()
-}
-
-// the album's looping cover from the same places the player finds it
-//
-// CanvasRepository, behind the same guards the player uses: the canvas
-// switch, Wi-Fi-only on a metered network, and Data Saver.
-internal suspend fun loadAnimatedCover(context: Context, session: SongShareSession) {
-    val prefs = PreferencesCache.current(context.dataStore)
-    val canvasEnabled = prefs[CanvasThumbnailAnimationKey] ?: true
-    val canvasWifiOnly = prefs[CanvasWifiOnlyKey] ?: true
-    val song = session.song
-    val artist = song.artists.joinToString { it.name }
-    if (!canvasEnabled || song.id.isBlank() || song.title.isBlank() || artist.isBlank()) {
-        session.animatedCover = Fetched.Missing
-        session.animatedCoverMiss = if (!canvasEnabled) AnimatedCoverMiss.Disabled else AnimatedCoverMiss.NotFound
-        session.animatedCoverClipsLoaded = true
-        return
-    }
-    val connectivityManager = context.getSystemService<ConnectivityManager>()
-    if (canvasWifiOnly && connectivityManager?.isActiveNetworkMetered == true) {
-        session.animatedCover = Fetched.Missing
-        session.animatedCoverMiss = AnimatedCoverMiss.Metered
-        session.animatedCoverClipsLoaded = true
-        return
-    }
-    if (DataSaver.isActive(context)) {
-        session.animatedCover = Fetched.Missing
-        session.animatedCoverMiss = AnimatedCoverMiss.DataSaver
-        session.animatedCoverClipsLoaded = true
-        return
-    }
-    // Same guard as the player: no Spotify clip when Spotify Canvas is off.
-    val cwSong = CwSong(
-        videoId = song.id,
-        title = song.title,
-        artist = artist,
-        thumbnailUrl = song.thumbnailUrl,
-        albumName = song.album?.title,
-    )
-    val artwork = CanvasRepository.canvasFor(cwSong)
-        ?.takeUnless { AppSettings.disableSpotifyCanvas.value && it.source == CanvasSource.SPOTIFY }
-    session.animatedCover = artwork?.url?.let { Fetched.Found(it) } ?: Fetched.Missing
-    session.animatedCoverSource = artwork?.source
-    // every provider's clip for the background pager's source choice — the
-    // same per-source lookup the classic sheet offers (Apple / Spotify /
-    // other), so the song's other clips are pickable instead of only the
-    // first hit above. The default clip is added when the lookup missed its
-    // source, so the choice always shows what is playing.
-    val clips = runCatching { CanvasRepository.shareClipsFor(cwSong) }.getOrDefault(emptyMap()).toMutableMap()
-    artwork?.let { clips.putIfAbsent(it.source, it) }
-    session.animatedCoverClips = clips
-    session.animatedCoverMiss = if (artwork == null && clips.isEmpty()) AnimatedCoverMiss.NotFound else null
-    session.animatedCoverClipsLoaded = true
 }
 
 // the song's music video, its own picture when the song is a video; lined up as-is until matchMusicVideo has listened to both

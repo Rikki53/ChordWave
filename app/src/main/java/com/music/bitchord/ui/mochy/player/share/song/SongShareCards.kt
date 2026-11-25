@@ -172,7 +172,7 @@ private fun CardLyrics(session: SongShareSession, ink: Color, sung: Boolean, pos
                 if (sung) {
                     val next = entries.getOrNull(index + 1)?.time ?: end
                     val timing = remember(line.entry, text, next) { timedPieces(line.entry, text, next) }
-                    SweptText({ AnnotatedString(text) }, ink, stillText(size, ink), timing.ranges, timing.times, lyricsPosition)
+                    SweptText({ AnnotatedString(text) }, ink, stillText(size, ink), timing.ranges, timing.times, lyricsPosition, motion = session.lyricsLook.motionStyle)
                 } else {
                     Text(text, style = stillText(size, ink))
                 }

@@ -51,7 +51,6 @@ import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.damageBoundary
-import com.music.bitchord.ui.mochy.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.mochy.player.share.ShareHeight
 import com.music.bitchord.ui.mochy.player.share.ShareRegions
 import com.music.bitchord.ui.mochy.player.share.ShareWidth
@@ -131,9 +130,6 @@ internal fun ShareVideoLayer(
     val loops = session.preview?.loops ?: 0
     when (source) {
         null -> Unit
-        ShareVideoSource.AnimatedCover -> session.animatedCover.found?.let { url ->
-            CanvasArtworkPlayer(primaryUrl = url, fallbackUrl = null, isPlaying = playing, modifier = modifier)
-        }
         ShareVideoSource.MusicVideo -> session.musicVideo.found?.let { music ->
             val track = music.trackFor(PreviewVideoShortSide) ?: return@let
             val start = music.videoMsAt(session.windowStartMs).coerceAtLeast(0L)

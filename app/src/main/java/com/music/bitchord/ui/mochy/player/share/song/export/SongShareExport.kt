@@ -247,25 +247,9 @@ internal suspend fun exportVideo(
 
 private class VideoBackground(val item: MediaItem, val headers: Map<String, String>)
 
-// The mime type for a canvas (animated cover) URL, from its shape. A private
-// copy of Mochy's ui/player/canvasMimeType (CanvasArtworkPlayer.kt), which no
-// chunk has ported; if it is ported at ui.mochy.player, use that instead.
-private fun canvasMimeType(url: String, isFallback: Boolean = false): String {
-    val lower = url.lowercase(java.util.Locale.ROOT)
-    return when {
-        lower.contains(".m3u8") || lower.split('?').first().endsWith(".m3u8") -> MimeTypes.APPLICATION_M3U8
-        lower.contains(".mp4") -> MimeTypes.VIDEO_MP4
-        isFallback -> MimeTypes.VIDEO_MP4
-        else -> MimeTypes.APPLICATION_M3U8
-    }
-}
-
 private suspend fun videoBackground(session: SongShareSession, video: SongBackground.Video): VideoBackground? =
     when (val source = video.source) {
         is ShareVideoSource.Own -> VideoBackground(clippedItem(MediaItem.Builder().setUri(source.uri), source.startMs, source.lengthMs), emptyMap())
-        ShareVideoSource.AnimatedCover -> session.animatedCover.found?.let { url ->
-            VideoBackground(MediaItem.Builder().setUri(url).setMimeType(canvasMimeType(url)).build(), emptyMap())
-        }
         ShareVideoSource.MusicVideo -> session.musicVideo.found?.let { found ->
             val music = freshMusicVideo(found)
             val track = music.trackFor(1080) ?: return@let null

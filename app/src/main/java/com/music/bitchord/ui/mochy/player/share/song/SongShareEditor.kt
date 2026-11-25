@@ -82,7 +82,8 @@ private fun ColumnScope.EditorContent(session: SongShareSession, popup: PopupShe
         stringResource(if (cinematic) R.string.song_share_editor_hint_words else R.string.song_share_editor_hint),
     )
     val regions = remember { ShareRegions() }
-    val height = (LocalConfiguration.current.screenHeightDp * if (timeline) 0.47f else 0.58f).dp
+    // big enough to judge the picture before exporting it (batch 28)
+    val height = (LocalConfiguration.current.screenHeightDp * if (timeline) 0.52f else 0.64f).dp
     Box(Modifier.fillMaxWidth().height(height)) {
         SongSharePreview(
             session = session,

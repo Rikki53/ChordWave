@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.PopupSheetHandle
@@ -176,16 +177,12 @@ internal fun PopupSheetState.showStylePage(session: SongShareSession) {
             }
         }
         val pickVideo = { videoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
-        // the video choice, here on the share page itself: which provider's
-        // animated cover plays behind the words — no detour through Edit
-        // background (batch 12; that path still works unchanged). The song's
-        // own music video and a video from the phone sit under the covers,
-        // so a song with no animated cover still has a way to a video share
-        // from this page (batch 15).
+        // the video choice, here on the share page itself: the song's own
+        // music video or a video from the phone behind the words — no
+        // detour through Edit background (batch 12; that path still works
+        // unchanged). The animated-cover providers were removed in batch 28.
         SectionLabel(stringResource(R.string.song_share_type_video))
         Spacer(Modifier.height(10.dp))
-        CanvasSourcePicker(session)
-        Spacer(Modifier.height(8.dp))
         val musicVideoState = session.musicVideo
         CanvasSourceRow(
             label = stringResource(R.string.song_share_bg_music_video),
@@ -210,6 +207,26 @@ internal fun PopupSheetState.showStylePage(session: SongShareSession) {
         )
         Spacer(Modifier.height(20.dp))
         ReadingSwitches(session)
+        // how the words move as they're sung — the player settings' own
+        // choices (batch 28); only synced lyrics have anything to animate
+        if (session.lyricsSynced) {
+            SectionLabel(stringResource(R.string.appearance_lyrics_animation))
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 20.dp)) {
+                LyricsMotionStyle.entries.forEach { style ->
+                    CanvasSourceRow(
+                        label = style.displayName,
+                        hint = style.description,
+                        enabled = true,
+                        selected = session.lyricsLook.motionStyle == style,
+                        onClick = {
+                            session.motionPickedInEditor = true
+                            session.lyricsLook = session.lyricsLook.copy(motionStyle = style)
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 
