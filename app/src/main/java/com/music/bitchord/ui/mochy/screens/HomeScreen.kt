@@ -8,9 +8,10 @@
 // - The ViewModel is the ui.mochy.viewmodels.HomeViewModel adapter (DATA-MAPPING.md
 //   §1); the one direct database touch (hero playlist-pick tap) calls the adapter's
 //   suspend playlistSongs(playlistId) instead.
-// - The launch intro is stubbed (coordinator decision): the Modern host plays no
-//   intro, Home shows content at once. launchRise / launchMarkTarget /
-//   rememberLaunchHold / ReportLaunchHomeComposed are private no-ops below.
+// - The launch intro plays (batch 38): launchRise / launchMarkTarget /
+//   rememberLaunchHold / ReportLaunchHomeComposed come from
+//   ui/mochy/launch/LaunchIntro.kt — the splash mark flies into the logo
+//   while the skeleton rises in.
 // - HomeScreen itself makes no canvas calls (the canvas block lives in the staged
 //   HeroCarousel, where the coordinator applies the canvasEnabled = false guard),
 //   so there is nothing to stub here for rule 4.
@@ -120,6 +121,10 @@ import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.ArtistListCard
 import com.music.bitchord.ui.mochy.component.BlurDirection
 import com.music.bitchord.ui.mochy.component.BlurEffectCache
+import com.music.bitchord.ui.mochy.launch.ReportLaunchHomeComposed
+import com.music.bitchord.ui.mochy.launch.launchMarkTarget
+import com.music.bitchord.ui.mochy.launch.launchRise
+import com.music.bitchord.ui.mochy.launch.rememberLaunchHold
 import com.music.bitchord.ui.mochy.component.BonesHost
 import com.music.bitchord.ui.mochy.component.containerTransformSource
 import com.music.bitchord.ui.mochy.component.coverTintBackground
@@ -210,26 +215,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ---- Launch intro stubs (coordinator decision) ----
-// The Modern host plays no intro; Home shows content at once. These keep
-// Mochy's call shape so the body below stays a verbatim port, but do nothing:
-// launchRise / launchMarkTarget return the modifier untouched, the hold is
-// never on, and there is nothing to report. LaunchGate.skip() is called by
-// the host, not by HomeScreen.
-
-@Suppress("UNUSED_PARAMETER")
-@Composable
-private fun Modifier.launchRise(order: Int, distance: Dp = 56.dp): Modifier = this
-
-@Composable
-private fun Modifier.launchMarkTarget(): Modifier = this
-
-@Composable
-private fun rememberLaunchHold(): Boolean = false
-
-@Composable
-private fun ReportLaunchHomeComposed() {
-}
+// The launch intro's modifiers (launchRise / launchMarkTarget /
+// rememberLaunchHold / ReportLaunchHomeComposed) live in
+// ui/mochy/launch/LaunchIntro.kt (batch 38): the splash mark flies into
+// the logo above while the skeleton rises in.
 
 sealed class HomeSection(val id: String) {
     data object RecentlyPlayed : HomeSection("recently_played")

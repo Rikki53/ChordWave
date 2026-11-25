@@ -38,6 +38,7 @@ import com.music.bitchord.data.innertube.AndroidStreamHooks
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.mochy.launch.LaunchGate
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.stats.ArtistFacts
@@ -218,10 +219,14 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
                 loader.diskCache?.clear()
             }
         }
-        // Initialize LastFM with saved settings if available
-        initLastfm()
-        // The public "apps open right now" count; see Presence.
-        com.music.bitchord.data.presence.AndroidPresence.install(this)
+        // Not on the critical path (batch 38): the LastFM session and the
+        // public "apps open right now" count can land after the launch
+        // intro, the way Mochy holds its heavy startup work behind the gate.
+        CoroutineScope(Dispatchers.IO).launch {
+            LaunchGate.awaitIntro()
+            initLastfm()
+            com.music.bitchord.data.presence.AndroidPresence.install(this@BitChordApplication)
+        }
         backgroundInit.join()
     }
 

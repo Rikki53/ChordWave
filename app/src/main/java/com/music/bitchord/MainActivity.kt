@@ -17,6 +17,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.music.bitchord.ui.mochy.launch.LaunchGate
+import com.music.bitchord.ui.mochy.utils.handOffToLaunchIntro
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
@@ -455,8 +458,19 @@ internal fun inPageOrder(shown: List<String>, page: List<String>): Boolean {
 // annotation because the TV UI never calls hiltViewModel().
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+    // the launch intro (batch 38): a fresh launcher launch into Modern
+    // with onboarding done flies the splash mark into Home's logo
+    private var introRequested = false
+    private var introPlays = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen().handOffToLaunchIntro { introPlays }
         super.onCreate(savedInstanceState)
+        introRequested = savedInstanceState == null && intent?.action == Intent.ACTION_MAIN
+        introPlays = introRequested &&
+            AppSettings.uiMode.value == UiMode.MODERN &&
+            AppSettings.onboardingComplete.value
+        if (introPlays) LaunchGate.begin() else LaunchGate.skip()
         enableEdgeToEdge()
         // Before the composition, so a cold launch from a widget's artwork has
         // the request already standing by the time BitChordApp first reads it.
@@ -494,7 +508,7 @@ class MainActivity : AppCompatActivity() {
                 return@setContent
             }
             if (onboardingComplete && uiMode == UiMode.MODERN) {
-                MochyApp()
+                MochyApp(launchIntroRequested = introPlays)
                 return@setContent
             }
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()

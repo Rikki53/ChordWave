@@ -133,6 +133,9 @@ import com.music.bitchord.ui.mochy.constants.UsernameKey
 import com.music.bitchord.ui.mochy.importer.YouTubeSignOut
 import com.music.bitchord.ui.mochy.importer.account.AccountService
 import com.music.bitchord.ui.mochy.launch.LaunchGate
+import com.music.bitchord.ui.mochy.launch.LaunchIntroOverlay
+import com.music.bitchord.ui.mochy.launch.LaunchIntroState
+import com.music.bitchord.ui.mochy.launch.LocalLaunchIntro
 import com.music.bitchord.ui.mochy.screens.settings.AppBehaviourSettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.CipherSettingsScreen
 import com.music.bitchord.ui.mochy.screens.settings.CrossmixSettingsScreen
@@ -209,17 +212,20 @@ import kotlinx.coroutines.launch
  * sheet is dismissed.
  */
 @Composable
-fun MochyApp(modifier: Modifier = Modifier) {
+fun MochyApp(modifier: Modifier = Modifier, launchIntroRequested: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // The launch intro (batch 38): on a fresh launcher launch the splash
+    // mark flies into Home's logo; anything else skips the gate at once —
+    // otherwise the setup wizard would wait out the full 8 s awaitIntro
+    // timeout on first launch.
+    val launchIntro = remember { LaunchIntroState(plays = launchIntroRequested) }
+
     // Mochy-mode prefs (DataStore "settings") + data saver, once per host
     // lifetime. CW's own settings stay in AppSettings (SharedPreferences).
-    // The launch intro never plays in Modern mode, so the gate is skipped
-    // at once — otherwise the setup wizard would wait out the full 8 s
-    // awaitIntro timeout on first launch (nothing called skip() before).
     LaunchedEffect(Unit) {
-        LaunchGate.skip()
+        if (!launchIntro.plays) LaunchGate.skip()
         PreferencesCache.start(context, scope)
         DataSaver.attach(context)
     }
@@ -383,6 +389,7 @@ fun MochyApp(modifier: Modifier = Modifier) {
                     navBars.union(WindowInsets(bottom = bottom))
                 }
                 CompositionLocalProvider(
+                    LocalLaunchIntro provides launchIntro,
                     LocalPlayerConnection provides connection,
                     LocalPlayerBottomSheetState provides playerSheetState,
                     LocalIpodLibrarySource provides ipodLibrary,
@@ -657,6 +664,10 @@ private fun MochyContent(
         // player). Classic mounts its stories at the activity for the
         // same reason.
         ReplayStoriesHost()
+
+        // The launch intro over everything (batch 38): the splash mark
+        // holds while the essentials come up, then flies into Home's logo.
+        LaunchIntroOverlay(launchIntro, essentialsReady = controller != null)
     }
 }
 
