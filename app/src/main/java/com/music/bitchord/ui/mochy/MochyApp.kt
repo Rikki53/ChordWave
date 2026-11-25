@@ -441,6 +441,11 @@ fun MochyApp(modifier: Modifier = Modifier, launchIntroRequested: Boolean = fals
                                 modifier = modifier,
                             )
                         }
+
+                        // The launch intro over everything (batch 38): the
+                        // splash mark holds while the essentials come up,
+                        // then flies into Home's logo.
+                        LaunchIntroOverlay(launchIntro, essentialsReady = controller != null)
                     }
                 }
             }
@@ -664,10 +669,6 @@ private fun MochyContent(
         // player). Classic mounts its stories at the activity for the
         // same reason.
         ReplayStoriesHost()
-
-        // The launch intro over everything (batch 38): the splash mark
-        // holds while the essentials come up, then flies into Home's logo.
-        LaunchIntroOverlay(launchIntro, essentialsReady = controller != null)
     }
 }
 
