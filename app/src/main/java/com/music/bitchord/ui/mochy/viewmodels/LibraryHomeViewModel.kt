@@ -105,31 +105,16 @@ class LibraryHomeViewModel @Inject constructor(
     val loadFailed: StateFlow<Boolean> = _loadFailed.asStateFlow()
 
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
-    /** Liked + added library songs, in feed order (CW rows carry no add date to sort by). */
-    val songs: StateFlow<List<Song>> = _songs.asStateFlow()
 
     private val _likedSongs = MutableStateFlow<List<Song>>(emptyList())
-    val likedSongs: StateFlow<List<Song>> = _likedSongs.asStateFlow()
 
     private val _artistsBase = MutableStateFlow<List<Artist>>(emptyList())
 
     /** Artist pictures fetched after the list loads, by artist id. */
     private val _artistThumbs = MutableStateFlow<Map<String, String>>(emptyMap())
 
-    /** Shelf artists first (in shelf order), then song-derived artists by song count. */
-    val artists: StateFlow<List<Artist>> = combine(_artistsBase, _artistThumbs) { base, thumbs ->
-        if (thumbs.isEmpty()) {
-            base
-        } else {
-            base.map { artist ->
-                thumbs[artist.id]?.let { artist.copy(artist = artist.artist.copy(thumbnailUrl = it)) } ?: artist
-            }
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _albums = MutableStateFlow<List<Album>>(emptyList())
-    /** Saved albums first, then the albums the library's songs come from, distinct by id. */
-    val albums: StateFlow<List<Album>> = _albums.asStateFlow()
 
     private val _accountPlaylists = MutableStateFlow<List<Playlist>>(emptyList())
     private val _offlinePlaylists = MutableStateFlow<List<Playlist>>(emptyList())
@@ -269,6 +254,40 @@ class LibraryHomeViewModel @Inject constructor(
         artistThumbnails = _artistThumbs,
         refreshArtists = ::refreshArtistImages,
     )
+
+    // The library the All tab and its pages read: the account's lists when
+    // the account has any, the Local shelf's when it has none — signed out,
+    // or an account whose library is empty. Mochy's library lived in a
+    // local database and showed the same either way; here the phone's own
+    // songs, likes, artists and albums stand in, so the Library never reads
+    // as empty while the phone is full of music (batch 18).
+
+    /** Liked + added library songs, in feed order (CW rows carry no add date to sort by); the Local shelf's songs while the account has none. */
+    val songs: StateFlow<List<Song>> = combine(_songs, local.songs) { account, onDevice ->
+        account.ifEmpty { onDevice }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The account's liked songs, or the liked songs on this phone while the account has none. */
+    val likedSongs: StateFlow<List<Song>> = combine(_likedSongs, local.liked) { account, onDevice ->
+        account.ifEmpty { onDevice }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Shelf artists first (in shelf order), then song-derived artists by song count; the Local shelf's artists while the account has none. */
+    val artists: StateFlow<List<Artist>> = combine(_artistsBase, local.artists, _artistThumbs) { base, onDevice, thumbs ->
+        val picked = base.ifEmpty { onDevice }
+        if (thumbs.isEmpty()) {
+            picked
+        } else {
+            picked.map { artist ->
+                thumbs[artist.id]?.let { artist.copy(artist = artist.artist.copy(thumbnailUrl = it)) } ?: artist
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Saved albums first, then the albums the library's songs come from, distinct by id; the Local shelf's albums while the account has none. */
+    val albums: StateFlow<List<Album>> = combine(_albums, local.albums) { account, onDevice ->
+        account.ifEmpty { onDevice.mapNotNull { it.toLibraryAlbum() } }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun shelf(kind: LibraryShelfKind): LibraryShelf = when (kind) {
         LibraryShelfKind.Local -> local
@@ -611,3 +630,20 @@ data class ImportedSourceCard(
     val songCount: Int,
     val covers: List<String>,
 )
+
+// A shelf album as a library album: only when it has an album page to open
+// (a tag-only album of imported files has none — it stays on its shelf,
+// where opening it plays its songs), the same rule the account loader uses.
+private fun ShelfAlbum.toLibraryAlbum(): Album? {
+    val id = albumId ?: return null
+    return Album(
+        album = AlbumEntity(
+            id = id,
+            title = title,
+            thumbnailUrl = thumbnailUrl,
+            songCount = songs.size,
+            duration = 0,
+        ),
+        artists = songs.flatMap { it.artists }.distinctBy { it.id },
+    )
+}

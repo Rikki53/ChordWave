@@ -390,10 +390,11 @@ private fun LazyListScope.libraryAllTab(
         }
     }
 
-    // Account data (liked songs, playlists, albums, artists) vs what's on
-    // this phone (downloads): the two arrive on different paths, so the
-    // tab's state is decided by both, not by either alone.
-    val hasAccountData = songs.isNotEmpty() || albums > 0 || artists > 0 || playlists > 0 || pinnedItems.isNotEmpty()
+    // Library data (songs, liked songs, playlists, albums, artists — the
+    // account's when signed in, this phone's own while signed out) vs the
+    // downloads shelf: the two arrive on different paths, so the tab's
+    // state is decided by both, not by either alone.
+    val hasLibraryData = songs.isNotEmpty() || likedSongs.isNotEmpty() || albums > 0 || artists > 0 || playlists > 0 || pinnedItems.isNotEmpty()
     val hasLocalData = downloadedSongs.isNotEmpty() || downloadedReleases.isNotEmpty()
 
     // Nothing at all yet: one honest state, not four zero-count cards.
@@ -401,7 +402,7 @@ private fun LazyListScope.libraryAllTab(
     // things, and the tab used to show the same "import your music" line
     // for all of them — including while the first fetch was still running
     // and after it had failed, with no way to retry.
-    if (!hasAccountData && !hasLocalData) {
+    if (!hasLibraryData && !hasLocalData) {
         item(key = "library_state") {
             when {
                 isLoading -> LibraryLoadingState()
@@ -455,7 +456,7 @@ private fun LazyListScope.libraryAllTab(
     // while it is still loading, a spinner holds their place so four
     // 0-count cards never flash — and a failed or signed-out load says so
     // here instead, above the downloads that did arrive.
-    if (hasAccountData) {
+    if (hasLibraryData) {
         item(key = "categories") {
             LibraryCardGrid(
                 listOf(
