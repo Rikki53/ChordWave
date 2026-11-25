@@ -26,6 +26,11 @@
 // MochyPlayerConnection.playStation — the Classic playStation path
 // (RadioPlayback.kt). Long-press (or the row's menu button) opens the
 // station sheet (RadioStationMenu.kt).
+//
+// Animation (batch 24): rebuilt to match Mochy's reveal, the same one
+// Home uses — every section, card row and station row fades and rises
+// into place the first time it shows, cascading 60ms apart
+// (component/RevealOnAppear.kt).
 
 package com.music.bitchord.ui.mochy.screens.radio
 
@@ -40,6 +45,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -52,6 +58,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -92,6 +99,9 @@ import com.music.bitchord.radio.RadioStation
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.NavigationTitle
+import com.music.bitchord.ui.mochy.component.RevealSeenState
+import com.music.bitchord.ui.mochy.component.rememberRevealSeenState
+import com.music.bitchord.ui.mochy.component.revealOnAppear
 import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.component.detail.PlaylistTrackBones
 import com.music.bitchord.ui.mochy.component.detail.PlaylistTrackRow
@@ -154,6 +164,8 @@ fun RadioScreen(
             resultsListState.animateScrollToItem(0)
         }
     }
+    // Mochy's reveal: sections and rows rise in once, cascading (batch 24)
+    val revealSeen = rememberRevealSeenState()
     val bottomPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
         .calculateBottomPadding()
 
@@ -290,13 +302,14 @@ fun RadioScreen(
                         state = resultsListState,
                         contentPadding = PaddingValues(bottom = bottomPadding),
                     ) {
-                        item(key = "results_title") {
+                        radioItem("results_title", revealSeen) {
                             NavigationTitle(
                                 title = stringResource(R.string.mochy_radio_search_results),
                             )
                         }
                         items(shownResults, key = { it.uuid }) { station ->
                             StationRowItem(
+                                modifier = Modifier.revealOnAppear("result_${station.uuid}", revealSeen, cascade = true),
                                 station = station,
                                 isCurrent = station.streamUrl == currentStationUrl,
                                 isPlaying = isPlaying,
@@ -345,7 +358,7 @@ fun RadioScreen(
                     contentPadding = PaddingValues(bottom = bottomPadding),
                 ) {
                     if (!hasLocationPermission && !locationPrompted) {
-                        item(key = "location_prompt") {
+                        radioItem("location_prompt", revealSeen) {
                             LocationPromptCard(
                                 onClick = {
                                     locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -354,13 +367,15 @@ fun RadioScreen(
                         }
                     }
                     if (nearby.isNotEmpty()) {
-                        item(key = "nearby_title") {
+                        radioItem("nearby_title", revealSeen) {
                             NavigationTitle(
                                 title = stringResource(R.string.mochy_radio_nearby),
                             )
                         }
-                        item(key = "nearby_row") {
+                        radioItem("nearby_row", revealSeen) {
                             StationCardsRow(
+                                rowKey = "nearby",
+                                revealSeen = revealSeen,
                                 stations = nearby.map { it.station },
                                 isCurrent = { it.streamUrl == currentStationUrl },
                                 isPlaying = isPlaying,
@@ -376,13 +391,15 @@ fun RadioScreen(
                         }
                     }
                     if (favorites.isNotEmpty()) {
-                        item(key = "fav_title") {
+                        radioItem("fav_title", revealSeen) {
                             NavigationTitle(
                                 title = stringResource(R.string.radio_favourites),
                             )
                         }
-                        item(key = "fav_row") {
+                        radioItem("fav_row", revealSeen) {
                             StationCardsRow(
+                                rowKey = "fav",
+                                revealSeen = revealSeen,
                                 stations = favorites,
                                 isCurrent = { it.streamUrl == currentStationUrl },
                                 isPlaying = isPlaying,
@@ -394,13 +411,15 @@ fun RadioScreen(
                         }
                     }
                     if (indonesia.isNotEmpty()) {
-                        item(key = "id_title") {
+                        radioItem("id_title", revealSeen) {
                             NavigationTitle(
                                 title = stringResource(R.string.radio_indonesia),
                             )
                         }
-                        item(key = "id_row") {
+                        radioItem("id_row", revealSeen) {
                             StationCardsRow(
+                                rowKey = "id",
+                                revealSeen = revealSeen,
                                 stations = indonesia,
                                 isCurrent = { it.streamUrl == currentStationUrl },
                                 isPlaying = isPlaying,
@@ -412,13 +431,15 @@ fun RadioScreen(
                         }
                     }
                     if (top.isNotEmpty()) {
-                        item(key = "hero_title") {
+                        radioItem("hero_title", revealSeen) {
                             NavigationTitle(
                                 title = stringResource(R.string.mochy_radio_top_stations),
                             )
                         }
-                        item(key = "hero_row") {
+                        radioItem("hero_row", revealSeen) {
                             StationCardsRow(
+                                rowKey = "hero",
+                                revealSeen = revealSeen,
                                 stations = top.take(8),
                                 isCurrent = { it.streamUrl == currentStationUrl },
                                 isPlaying = isPlaying,
@@ -430,13 +451,15 @@ fun RadioScreen(
                         }
                     }
                     if (pop.isNotEmpty()) {
-                        item(key = "pop_title") {
+                        radioItem("pop_title", revealSeen) {
                             NavigationTitle(
                                 title = stringResource(R.string.mochy_radio_pop),
                             )
                         }
-                        item(key = "pop_row") {
+                        radioItem("pop_row", revealSeen) {
                             StationCardsRow(
+                                rowKey = "pop",
+                                revealSeen = revealSeen,
                                 stations = pop,
                                 isCurrent = { it.streamUrl == currentStationUrl },
                                 isPlaying = isPlaying,
@@ -448,13 +471,15 @@ fun RadioScreen(
                         }
                     }
                     if (dangdut.isNotEmpty()) {
-                        item(key = "dangdut_title") {
+                        radioItem("dangdut_title", revealSeen) {
                             NavigationTitle(
                                 title = stringResource(R.string.mochy_radio_dangdut),
                             )
                         }
-                        item(key = "dangdut_row") {
+                        radioItem("dangdut_row", revealSeen) {
                             StationCardsRow(
+                                rowKey = "dangdut",
+                                revealSeen = revealSeen,
                                 stations = dangdut,
                                 isCurrent = { it.streamUrl == currentStationUrl },
                                 isPlaying = isPlaying,
@@ -466,13 +491,14 @@ fun RadioScreen(
                         }
                     }
                     if (topClicked.isNotEmpty()) {
-                        item(key = "top_title") {
+                        radioItem("top_title", revealSeen) {
                             NavigationTitle(
                                 title = stringResource(R.string.radio_top_worldwide),
                             )
                         }
                         items(topClicked, key = { it.uuid }) { station ->
                             StationRowItem(
+                                modifier = Modifier.revealOnAppear("station_${station.uuid}", revealSeen, cascade = true),
                                 station = station,
                                 isCurrent = station.streamUrl == currentStationUrl,
                                 isPlaying = isPlaying,
@@ -486,6 +512,19 @@ fun RadioScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/** a Radio section that fades and slides up the first time it shows, like Home's rows */
+private fun LazyListScope.radioItem(
+    key: String,
+    revealSeen: RevealSeenState,
+    content: @Composable () -> Unit,
+) {
+    item(key = key) {
+        Box(modifier = Modifier.revealOnAppear(key, revealSeen, cascade = true)) {
+            content()
         }
     }
 }

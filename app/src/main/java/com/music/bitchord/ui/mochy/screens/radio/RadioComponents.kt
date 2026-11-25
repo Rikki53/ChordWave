@@ -24,7 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -49,6 +49,8 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.radio.RadioStation
 import com.music.bitchord.ui.mochy.component.GridItem
+import com.music.bitchord.ui.mochy.component.RevealSeenState
+import com.music.bitchord.ui.mochy.component.revealOnAppear
 import com.music.bitchord.ui.mochy.component.PlayingIndicatorBox
 import com.music.bitchord.ui.mochy.constants.GridThumbnailCornerRadius
 import com.music.bitchord.ui.mochy.viewmodels.NearbyStation
@@ -199,7 +201,8 @@ fun StationCard(
 }
 
 /** A swipeable row of station cards, Mochy Explore's LazyRow shape.
- * [subtitle] overrides every card's meta line when given. */
+ * [subtitle] overrides every card's meta line when given. With a
+ * [revealSeen], the cards cascade in once like Home's card rows (batch 24). */
 @Composable
 fun StationCardsRow(
     stations: List<RadioStation>,
@@ -211,6 +214,8 @@ fun StationCardsRow(
     onToggleFavorite: (RadioStation) -> Unit,
     modifier: Modifier = Modifier,
     subtitle: ((RadioStation) -> String)? = null,
+    rowKey: String = "stations",
+    revealSeen: RevealSeenState? = null,
 ) {
     LazyRow(
         modifier = modifier,
@@ -218,8 +223,9 @@ fun StationCardsRow(
             .only(WindowInsetsSides.Horizontal)
             .asPaddingValues(),
     ) {
-        items(stations, key = { it.uuid }) { station ->
-            StationCard(
+        itemsIndexed(stations, key = { _, station -> station.uuid }) { index, station ->
+            val card: @Composable () -> Unit = {
+                StationCard(
                 station = station,
                 isCurrent = isCurrent(station),
                 isPlaying = isPlaying,
@@ -228,7 +234,19 @@ fun StationCardsRow(
                 onLongClick = { onStationLongClick(station) },
                 onToggleFavorite = { onToggleFavorite(station) },
                 subtitle = subtitle?.invoke(station),
-            )
+                )
+            }
+            if (revealSeen != null) {
+                Box(
+                    modifier = Modifier.revealOnAppear(
+                        key = "$rowKey/${station.uuid}",
+                        seenState = revealSeen,
+                        delayMillis = minOf(index, 4) * 60,
+                    ),
+                ) { card() }
+            } else {
+                card()
+            }
         }
     }
 }
