@@ -1445,6 +1445,7 @@ fun HomeScreen(
                                 similarRecommendations = similarRecommendations,
                                 onRepeat = mostPlayedSongsForHome,
                                 forgottenFavorites = forgottenFavorites,
+                                localSongs = localSongs,
                                 modifier = Modifier.launchRise(order = 1),
                             )
                         }

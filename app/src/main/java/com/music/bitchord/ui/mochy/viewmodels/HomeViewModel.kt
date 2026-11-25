@@ -2,12 +2,14 @@
 // Mochy's HVM reads Room + its YouTube client; this one reads CW's
 // YtMusicRepository + ListeningStats).
 //
-// Scope: DATA-MAPPING §5 Phases A + B + C (items 1-17). Phase D is deferred:
-// homeCategories and allTimeHits stay empty lists, starterSongs stays empty,
-// attachPlayer records the connection and follows mediaMetadata/isPlaying but
-// skip/play-through signals are not counted (onListeningBreak is stale-only),
-// and speedDialItems is built from pins + keepListening + stats quick
-// picks (the pin store landed in the Nov 2026 merge).
+// Scope: DATA-MAPPING §5 Phases A + B + C (items 1-17) + Phase D (batch 4,
+// 25 Nov 2026): homeCategories is built CW-natively from radio() / artist
+// pages / genre shelves (no skip signals — attachPlayer still doesn't count
+// them, so the avoid sets stay empty), and allTimeHits reads the charts
+// page through moodGenreShelves("FEmusic_charts"). starterSongs stays
+// empty (no onboarding artist picker), and speedDialItems is built from
+// pins + keepListening + stats quick picks (the pin store landed in the
+// Nov 2026 merge).
 //
 // Round 2 item 6 (15 Nov 2026, Classic Home parity): the home feed ALSO
 // merges ChordWave's supplements (New releases + Explore) the way Classic's
@@ -67,6 +69,7 @@ import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
 import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
 import com.music.bitchord.ui.mochy.models.innertube.BrowseEndpoint
+import com.music.bitchord.ui.mochy.models.innertube.ChartsPage
 import com.music.bitchord.ui.mochy.models.innertube.HomePage
 import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
 import com.music.bitchord.ui.mochy.models.innertube.SongItem
@@ -175,13 +178,13 @@ class HomeViewModel @Inject constructor(
     val recentHistorySongs = MutableStateFlow<List<Song>?>(null)
     val artistListItems = MutableStateFlow<List<ArtistGroup>?>(null)
 
-    /** Phase D (no CW charts endpoint): stays empty, and HomeScreen hides the row. */
+    /** Batch 4: the charts page via moodGenreShelves("FEmusic_charts") (ChartsViewModel's call); empty until the first load lands, and HomeScreen hides the row. */
     val allTimeHits = MutableStateFlow<List<YTItem>?>(emptyList())
 
     private val liveShows = MutableStateFlow<List<HomeVideo>?>(null)
     private val musicVideos = MutableStateFlow<List<HomeVideo>?>(null)
 
-    /** Phase D (HomeRecommender port): stays empty, and HomeScreen interleaves zero categories. */
+    /** Batch 4: CW-native HomeRecommender port (loadCategories below); empty until the first load lands, and HomeScreen interleaves zero categories. */
     val homeCategories = MutableStateFlow<List<HomeCategory>?>(emptyList())
 
     /** YouTube's own all-video shelves in the feed, by section index */
@@ -394,6 +397,264 @@ class HomeViewModel @Inject constructor(
             .distinctBy { it.recommendation.id }
             .distinctBy { (it.recommendation as? SongItem)?.artists?.firstOrNull()?.name ?: it.recommendation.id }
         if (found.isNotEmpty()) dailyDiscover.value = found.shuffled()
+    }
+
+    // --- All-time hits (charts) ----------------------------------------------
+
+    /** Batch 4: Mochy's loadAllTimeHits over CW's charts browse (ChartsViewModel's call). */
+    private suspend fun loadAllTimeHits() {
+        val sections = YtMusicRepository.moodGenreShelves("FEmusic_charts", "ggMGCgQIgAQ%3D")
+            .getOrNull()?.toChartSections().orEmpty()
+        val section = sections.firstOrNull { it.chartType == ChartsPage.ChartType.TOP }
+            ?: sections.firstOrNull { it.items.isNotEmpty() }
+        val hits = section?.items?.distinctBy { it.id }?.filterAiGenerated(hideAi)?.take(20)
+        if (!hits.isNullOrEmpty()) allTimeHits.value = hits
+    }
+
+    // --- Home categories (CW-native HomeRecommender port, batch 4) ------------
+    //
+    // Mochy's HomeRecommender, rebuilt on CW's calls: radio() stands in for
+    // the next+related pair (as getDailyDiscover already does), artistPage()
+    // for the artist pages, moodGenreShelves() for genre pages, and the
+    // month's stats for the taste profile. No skip signals exist in CW yet
+    // (attachPlayer doesn't count them), so the avoid sets stay empty.
+
+    /** Rows built so far, by kind; arrangeCategories() deals them out in Home's order. */
+    private val categoryParts = HashMap<HomeCategory.Kind, List<HomeCategory>>()
+
+    /** Song seeds: liked, most-played, recent — one per artist, like getDailyDiscover. */
+    private suspend fun categorySongSeeds(count: Int): List<Song> {
+        val likedSongs = if (SignedIn.state(context).value) {
+            libraryPage().getOrNull()?.likedSongs.orEmpty().map { it.toMochySong() }
+        } else emptyList()
+        val mostPlayed = monthSummary?.songs.orEmpty().map { it.song.toMochySong() }
+        val recent = recentTracks.map { it.toCwSong().toMochySong() }
+        return buildList {
+            fun artistKey(song: Song) = song.artists.firstOrNull()?.let { it.id ?: it.name }
+            fun takeFrom(songs: List<Song>, n: Int) {
+                songs.shuffled()
+                    .filter { song -> none { it.id == song.id } && none { artistKey(it) == artistKey(song) } }
+                    .take(n)
+                    .forEach { add(it) }
+            }
+            takeFrom(likedSongs, 2)
+            takeFrom(mostPlayed.take(20), 2)
+            takeFrom(recent.take(15), 2)
+            if (size < count) takeFrom(recent, count - size)
+            if (size < count) takeFrom(mostPlayed, count - size)
+        }.take(count)
+    }
+
+    /**
+     * Mochy's HomeRecommender.pick, minus the skip-based avoid sets (CW has no
+     * skip signals yet): mostly songs you haven't heard, a few familiar ones so
+     * the row still feels like you, at most [perArtist] per artist.
+     */
+    private fun pickSongs(candidates: List<SongItem>, limit: Int, perArtist: Int, heard: Set<String>): List<SongItem> {
+        val usable = candidates
+            .filter { item -> !(hideVideoSongs && item.isVideoSong) && !(hideExplicit && item.explicit) && !(hideAi && item.looksAiGenerated()) }
+            .distinctBy { it.id }
+        val (heardSongs, unheard) = usable.partition { it.id in heard }
+        val familiar = (limit / 4).coerceAtLeast(1)
+        val chosen = unheard.take(limit * 2).shuffled().take(limit - minOf(familiar, heardSongs.size)) +
+            heardSongs.shuffled().take(familiar)
+        val perArtistCount = HashMap<String, Int>()
+        return chosen.shuffled().filter { song ->
+            val artist = song.artists.firstOrNull()?.name?.lowercase() ?: return@filter true
+            val count = perArtistCount.merge(artist, 1, Int::plus) ?: 1
+            count <= perArtist
+        }
+    }
+
+    /** A playlist after every three songs, the rest of the playlists at the end. */
+    private fun mixItems(songs: List<SongItem>, playlists: List<YTItem>): List<YTItem> = buildList {
+        var next = 0
+        songs.forEachIndexed { index, song ->
+            add(song)
+            if (index % 3 == 2 && next < playlists.size) add(playlists[next++])
+        }
+        addAll(playlists.drop(next))
+    }
+
+    /** "Because you like <song>": the song's radio, mostly new to you. */
+    private suspend fun becauseYouLikeCategories(seeds: List<Song>, heard: Set<String>): List<HomeCategory> =
+        coroutineScope {
+            seeds.map { seed ->
+                async(Dispatchers.IO) {
+                    val songs = YtMusicRepository.radio(seed.id).getOrNull().orEmpty()
+                        .filter { it.videoId != seed.id }
+                        .map { it.toSongItem() }
+                        .let { pickSongs(it, limit = 10, perArtist = 2, heard = heard) }
+                    if (songs.size < 4) return@async null
+                    HomeCategory(
+                        id = "because_${seed.id}",
+                        kind = HomeCategory.Kind.BecauseYouLike,
+                        title = seed.title,
+                        items = songs,
+                        thumbnailUrl = seed.thumbnailUrl,
+                    )
+                }
+            }.awaitAll().filterNotNull()
+        }
+
+    /** "More like <artist>": the artist's radio minus the artist, one song per artist. */
+    private suspend fun moreLikeCategories(seeds: List<RankedEntry>, heard: Set<String>): List<HomeCategory> =
+        coroutineScope {
+            seeds.map { seed ->
+                async(Dispatchers.IO) {
+                    val pageId = resolveArtistId(seed) ?: return@async null
+                    val page = artistPage(pageId) ?: return@async null
+                    val seedSongId = page.sections
+                        .flatMap { it.items }
+                        .filterIsInstance<SongItem>()
+                        .firstOrNull()?.id ?: return@async null
+                    val others = YtMusicRepository.radio(seedSongId).getOrNull().orEmpty()
+                        .map { it.toSongItem() }
+                        .filter { song -> song.artists.none { it.id == pageId || it.name.equals(seed.title, ignoreCase = true) } }
+                    val songs = pickSongs(others, limit = 12, perArtist = 1, heard = heard)
+                    if (songs.size < 4) return@async null
+                    val playlists = page.sections
+                        .firstOrNull { section -> section.items.isNotEmpty() && section.items.all { it is PlaylistItem } }
+                        ?.items.orEmpty()
+                        .filterExplicit(hideExplicit)
+                        .take(2)
+                    HomeCategory(
+                        id = "more_like_$pageId",
+                        kind = HomeCategory.Kind.MoreLikeArtist,
+                        title = seed.title,
+                        items = mixItems(songs, playlists),
+                        thumbnailUrl = page.artist.thumbnail,
+                        endpoint = BrowseEndpoint(browseId = pageId),
+                    )
+                }
+            }.awaitAll().filterNotNull()
+        }
+
+    /** Genres: up to three your top artists are filed under, the rest new to you. */
+    private suspend fun genreCategories(heard: Set<String>): List<HomeCategory> {
+        val grid = YtMusicRepository.moodAndGenres().getOrNull().orEmpty()
+        val genreTiles = grid.firstOrNull { it.title.contains("genre", ignoreCase = true) }?.items
+            ?: grid.maxByOrNull { it.items.size }?.items
+            ?: return emptyList()
+        fun norm(s: String) = s.lowercase().trim()
+        val yours = monthSummary?.genres.orEmpty().take(3).mapNotNull { genre ->
+            genreTiles.firstOrNull { tile ->
+                norm(tile.title) == norm(genre.title) ||
+                    norm(tile.title).contains(norm(genre.title)) ||
+                    norm(genre.title).contains(norm(tile.title))
+            }
+        }.distinctBy { it.browseId to it.params }
+        val fresh = genreTiles.filter { tile -> yours.none { it.browseId == tile.browseId } }
+            .shuffled().take((5 - yours.size).coerceAtLeast(0))
+        return coroutineScope {
+            (yours.map { it to HomeCategory.Kind.YourGenre } + fresh.map { it to HomeCategory.Kind.NewGenre })
+                .map { (tile, kind) ->
+                    async(Dispatchers.IO) {
+                        val shelves = YtMusicRepository.moodGenreShelves(tile.browseId, tile.params).getOrNull().orEmpty()
+                        val songs = shelves.flatMap { shelf -> shelf.items.mapNotNull { it.toYTItem(shelf.layout) } }
+                            .filterIsInstance<SongItem>()
+                            .let { pickSongs(it.shuffled().take(40), limit = 9, perArtist = 2, heard = heard) }
+                        if (songs.size < 4) return@async null
+                        HomeCategory(
+                            id = "genre_${tile.browseId}_${tile.params}",
+                            kind = kind,
+                            title = tile.title,
+                            items = songs,
+                            endpoint = BrowseEndpoint(browseId = tile.browseId, params = tile.params),
+                        )
+                    }
+                }.awaitAll().filterNotNull()
+        }
+    }
+
+    /** The newest singles and albums of the artists you play most, this year and last. */
+    private suspend fun newFromArtistsCategory(): HomeCategory? {
+        val artists = monthSummary?.artists.orEmpty().take(8)
+        if (artists.isEmpty()) return null
+        val pages = coroutineScope {
+            artists.map { async(Dispatchers.IO) { resolveArtistId(it)?.let { id -> artistPage(id) } } }.awaitAll()
+        }.filterNotNull()
+        val since = LocalDate.now().year - 1
+        val releases = pages.flatMap { page ->
+            page.sections
+                .filter { section -> section.items.isNotEmpty() && section.items.all { it is AlbumItem } }
+                .flatMap { it.items.take(2) }
+        }
+            .filterIsInstance<AlbumItem>()
+            .filter { (it.year ?: 0) >= since }
+            .filter { !(hideExplicit && it.explicit) }
+            .distinctBy { it.id }
+            .sortedByDescending { it.year }
+            .take(12)
+        if (releases.size < 3) return null
+        return HomeCategory(
+            id = "new_from_artists",
+            kind = HomeCategory.Kind.NewFromArtists,
+            title = "",
+            items = releases,
+        )
+    }
+
+    // an empty result is a failed request, so the rows already on screen stay
+    @Synchronized
+    private fun publishCategories(kind: HomeCategory.Kind, found: List<HomeCategory>) {
+        val rows = found.mapNotNull { row ->
+            row.copy(items = row.items.filterAiGenerated(hideAi)).takeIf { it.items.isNotEmpty() }
+        }
+        if (rows.isEmpty()) return
+        categoryParts[kind] = rows
+        homeCategories.value = arrangeCategories(categoryParts)
+    }
+
+    /**
+     * Mochy's HomeRecommender.arrange: a song row, an artist row and a genre row
+     * in turn, new releases after the first round, the new genres last. A song
+     * only shows up in the first row that has it, and a row left with fewer
+     * than four cards is dropped.
+     */
+    private fun arrangeCategories(parts: Map<HomeCategory.Kind, List<HomeCategory>>): List<HomeCategory> {
+        val rounds = listOf(
+            HomeCategory.Kind.BecauseYouLike,
+            HomeCategory.Kind.MoreLikeArtist,
+            HomeCategory.Kind.YourGenre,
+        ).map { ArrayDeque(parts[it].orEmpty()) }
+        val ordered = buildList {
+            var first = true
+            while (rounds.any { it.isNotEmpty() }) {
+                rounds.forEach { queue -> queue.removeFirstOrNull()?.let(::add) }
+                if (first) addAll(parts[HomeCategory.Kind.NewFromArtists].orEmpty())
+                first = false
+            }
+            if (first) addAll(parts[HomeCategory.Kind.NewFromArtists].orEmpty())
+            addAll(parts[HomeCategory.Kind.NewGenre].orEmpty())
+        }
+        val seen = HashSet<String>()
+        return ordered.mapNotNull { category ->
+            val items = category.items.filter { seen.add(it.id) }
+            if (items.size >= 4) category.copy(items = items) else null
+        }
+    }
+
+    /** Home's recommendation rows. Each kind shows as soon as it's ready rather than waiting on the slowest. */
+    private suspend fun loadCategories() {
+        val heard = buildSet {
+            recentTracks.forEach { add(it.id) }
+            monthSummary?.songs?.forEach { add(it.song.videoId) }
+        }
+        val songSeeds = categorySongSeeds(4)
+        val artistSeeds = monthSummary?.artists.orEmpty().take(10).shuffled().take(3)
+        supervisorScope {
+            launchSafely { publishCategories(HomeCategory.Kind.BecauseYouLike, becauseYouLikeCategories(songSeeds, heard)) }
+            launchSafely { publishCategories(HomeCategory.Kind.MoreLikeArtist, moreLikeCategories(artistSeeds, heard)) }
+            launchSafely {
+                val genres = genreCategories(heard)
+                publishCategories(HomeCategory.Kind.YourGenre, genres.filter { it.kind == HomeCategory.Kind.YourGenre })
+                publishCategories(HomeCategory.Kind.NewGenre, genres.filter { it.kind == HomeCategory.Kind.NewGenre })
+            }
+            launchSafely {
+                newFromArtistsCategory()?.let { publishCategories(HomeCategory.Kind.NewFromArtists, listOf(it)) }
+            }
+        }
     }
 
     // --- Quick picks (stats-based; CW's repo quickPicks() is a home-shelf feed, not most-played) ---
@@ -990,6 +1251,8 @@ class HomeViewModel @Inject constructor(
             launchSafely { getDailyDiscover() }
             launchSafely { getCommunityPlaylists() }
             launchSafely { loadSimilarRecommendations() }
+            launchSafely { loadAllTimeHits() }
+            launchSafely { loadCategories() }
             launchSafely { loadArtistVideos() }
             launchSafely { loadAccountPlaylists() }
             launchSafely { loadLibraryArtists() }

@@ -362,6 +362,7 @@ internal fun heroCarouselItems(
     keepListening: List<LocalItem>?,
     starterItems: List<HeroCarouselItem>,
     showGacha: Boolean,
+    localSongs: List<Song>? = null,
 ): List<HeroCarouselItem> = buildList {
     lastPlayedSong?.let { add(KeepListeningItem(it, isLastPlayed = true)) }
 
@@ -383,24 +384,35 @@ internal fun heroCarouselItems(
     // the user's own playlists between the recommendations, a couple at a time
     addAll(playlistPicks.take(2))
 
-    // fill up to 5 regular cards from the user's own songs first, then from the
-    // new-install starters, so a thin library still slides (batch 3 item 2: the
-    // starters used to apply only when there were zero regular cards, so one
-    // played song collapsed the carousel to a single Continue card)
+    // fill up to 7 regular cards — Mochy's hero carries up to seven (Continue +
+    // four discoveries + two playlist picks) — from the user's own songs first,
+    // then the phone's local files with covers, then the new-install starters,
+    // so a thin library still slides (batch 3 item 2: the starters used to
+    // apply only when there were zero regular cards, so one played song
+    // collapsed the carousel to a single Continue card)
     val regular = count { it !is GachaItem }
-    if (regular < 5) {
+    if (regular < 7) {
         keepListening?.filterIsInstance<Song>()
             ?.filter { song -> none { it.mediaId == song.id } }
-            ?.take(5 - regular)
+            ?.take(7 - regular)
             ?.forEach { song ->
                 add(KeepListeningItem(song.toMediaMetadata(), isLastPlayed = false))
             }
     }
-    val filled = count { it !is GachaItem }
-    if (filled < 5) {
+    var filled = count { it !is GachaItem }
+    if (filled < 7) {
+        localSongs
+            ?.filter { song -> song.thumbnailUrl != null && none { it.mediaId == song.id } }
+            ?.take(7 - filled)
+            ?.forEach { song ->
+                add(KeepListeningItem(song.toMediaMetadata(), isLastPlayed = false))
+            }
+        filled = count { it !is GachaItem }
+    }
+    if (filled < 7) {
         starterItems
             .filter { item -> item.mediaId == null || none { it.mediaId == item.mediaId } }
-            .take(5 - filled)
+            .take(7 - filled)
             .forEach { add(it) }
     }
 }
@@ -584,6 +596,7 @@ fun HeroCarousel(
     similarRecommendations: List<SimilarRecommendation>? = null,
     onRepeat: List<Song>? = null,
     forgottenFavorites: List<Song>? = null,
+    localSongs: List<Song>? = null,
 ) {
     val showGacha = gachaPool.size >= GachaMinPool
     // only the first song of each list is used, so a reload that reshuffles the tails doesn't
@@ -593,8 +606,8 @@ fun HeroCarousel(
         onRepeat?.firstOrNull()?.id,
         forgottenFavorites?.firstOrNull()?.id,
     ) { extraHeroPicks(similarRecommendations, onRepeat, forgottenFavorites) }
-    val carouselItems = remember(keepListening, lastPlayedSong, dailyDiscover, showGacha, starterItems, playlistPicks, extras) {
-        heroCarouselItems(lastPlayedSong, dailyDiscover, extras, playlistPicks, keepListening, starterItems, showGacha)
+    val carouselItems = remember(keepListening, lastPlayedSong, dailyDiscover, showGacha, starterItems, playlistPicks, extras, localSongs) {
+        heroCarouselItems(lastPlayedSong, dailyDiscover, extras, playlistPicks, keepListening, starterItems, showGacha, localSongs = localSongs)
     }
 
     val heroHeight = heroHeight()
