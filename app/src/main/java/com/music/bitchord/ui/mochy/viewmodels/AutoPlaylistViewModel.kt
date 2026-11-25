@@ -143,27 +143,33 @@ class AutoPlaylistViewModel @Inject constructor(
 
     /** null until the first load */
     val content: StateFlow<AutoPlaylistSongs?> =
+        // Two combines, not one of seven flows: the seven-flow typed overload
+        // would not resolve here (batch 11 compile fix — CI 45571448140).
         combine(
-            context.dataStore.data
-                .map {
-                    ListPrefs(
-                        sortType = it[SongSortTypeKey].toEnum(SongSortType.CREATE_DATE),
-                        descending = it[SongSortDescendingKey] ?: true,
-                        likedSortType = it[LikedSongSortTypeKey].toEnum(LikedSongSortType.CREATE_DATE),
-                        likedDescending = it[LikedSongSortDescendingKey] ?: true,
-                        hideExplicit = it[HideExplicitKey] ?: false,
-                        hideVideoSongs = it[HideVideoSongsKey] ?: false,
-                    )
-                }
-                .distinctUntilChanged(),
-            loadedId,
-            refreshTick,
-            OfflinePlaylists.playlists,
-            Downloads.saved,
+            combine(
+                context.dataStore.data
+                    .map {
+                        ListPrefs(
+                            sortType = it[SongSortTypeKey].toEnum(SongSortType.CREATE_DATE),
+                            descending = it[SongSortDescendingKey] ?: true,
+                            likedSortType = it[LikedSongSortTypeKey].toEnum(LikedSongSortType.CREATE_DATE),
+                            likedDescending = it[LikedSongSortDescendingKey] ?: true,
+                            hideExplicit = it[HideExplicitKey] ?: false,
+                            hideVideoSongs = it[HideVideoSongsKey] ?: false,
+                        )
+                    }
+                    .distinctUntilChanged(),
+                loadedId,
+                refreshTick,
+                OfflinePlaylists.playlists,
+                Downloads.saved,
+            ) { prefs, id, tick, playlists, _ ->
+                Inputs(prefs, id, tick, playlists, emptyList(), emptyMap())
+            },
             LocalImportStore.songs,
             LikeState.overrides,
-        ) { prefs, id, tick, playlists, _, imported, likedOverrides ->
-            Inputs(prefs, id, tick, playlists, imported, likedOverrides)
+        ) { base, imported, likedOverrides ->
+            base.copy(imported = imported, likedOverrides = likedOverrides)
         }
             .flatMapLatest { inputs ->
                 val id = inputs.id ?: return@flatMapLatest flowOf<AutoPlaylistSongs?>(null)
