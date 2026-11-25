@@ -46,6 +46,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -60,6 +61,7 @@ import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.pressBounce
+import com.music.bitchord.ui.mochy.screens.donate.showSupportSheet
 import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -311,6 +313,10 @@ private fun ColumnScope.AboutSheetContent(
                 AboutPillRow(
                     text = "ChordWave on GitHub \u2192",
                     onClick = { context.openUrl(ChordWaveRepoUrl) },
+                )
+                AboutPillRow(
+                    text = stringResource(R.string.about_support_me),
+                    onClick = { popup.showSupportSheet() },
                 )
             }
 
