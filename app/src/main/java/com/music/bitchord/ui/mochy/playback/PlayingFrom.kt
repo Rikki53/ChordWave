@@ -1,7 +1,7 @@
 // PlayingFrom.kt — data-only port of the two pure types in Mochy's
 // playback/ProviderSwitch.kt (GPL-3.0): where a song is playing from, and
 // what "force change" is doing. The ProviderSwitch engine itself (stop,
-// resolve, reload) is NOT ported — see NEEDS.md §(b).
+// resolve, reload) is ported in ProviderSwitch.kt (batch 37).
 
 package com.music.bitchord.ui.mochy.playback
 

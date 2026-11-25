@@ -85,7 +85,7 @@ fun StreamInfoSheet(onDismiss: () -> Unit) {
     var showForce by remember { mutableStateOf(false) }
     val stack = LocalMenuSheetStack.current ?: rememberMenuSheetStack()
     val snapshot by rememberNerdSnapshot()
-    val switchHost = remember { ProviderSwitchHost() }
+    val switchHost = remember { ProviderSwitchHost(playerConnection) }
     val switchState by switchHost.switchState.collectAsState()
 
     val from = remember(song.id, song.localUri, snapshot) { StreamStatsAdapter.playingFrom(song, snapshot) }

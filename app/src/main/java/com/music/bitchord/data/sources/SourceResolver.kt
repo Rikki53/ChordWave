@@ -117,6 +117,32 @@ object SourceResolver {
     }
 
     /**
+     * The track id of [target]'s recording on one chosen source, verified
+     * streamable — the "Play from" sheet's forced switch (batch 37). The
+     * same search and ranking [matchAndStream] uses, but the answer is the
+     * row itself: the caller reloads playback with a URI pinned to it, and
+     * [resolve] opens it exactly like a queued row from that source.
+     */
+    suspend fun forcedTrack(configId: String, target: TrackMatcher.Target): String? {
+        val source = SourceRegistry.activeForPlayback().firstOrNull { it.configId == configId } ?: return null
+        val request = requestForNow()
+        for (query in TrackMatcher.queries(target)) {
+            val candidates = attempt(source) {
+                source.search(query, limit = MATCH_CANDIDATES, request = request, target = target)
+            } ?: return null
+            val matches = TrackMatcher.ranked(candidates, target)
+            if (matches.isEmpty()) continue
+            val ordered = preferred(matches, target, request is StreamRequest.Lossless, SAME_RECORDING_SEC)
+            for (match in ordered.take(STREAM_ATTEMPTS)) {
+                val trackId = SourceRegistry.parseTrackKey(match.videoId)?.second ?: match.videoId
+                // it streams: this row is the forced route
+                if (attempt(source) { source.stream(trackId, request) } != null) return trackId
+            }
+        }
+        return null
+    }
+
+    /**
      * `&mix=` on an addon row's playback URI: which mix the row itself was,
      * [MIX_ATMOS] or [MIX_STEREO] as its search answer tagged it, or [MIX_ANY]
      * when it said neither.

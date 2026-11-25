@@ -34,13 +34,12 @@
 // - USB DAC mixer, cast device, audio-pass snapshot: no CW equivalent.
 // - Speed/pitch: need the connection's playbackParameters (player-core
 //   NEEDS.md §(b) B2, unlanded).
-// - Provider switching (ProviderSwitchHost.force): NO ChordWave API
-//   re-resolves the playing song from another provider mid-playback. The
-//   mechanism exists one layer down — SourceResolver pins a provider with
-//   the ?s=<configId> query on a bitchord://source URI — but stopping the
-//   song, rebuilding its media item with the pinned URI and reloading at
-//   the same position is playback-service work. Until it lands, force()
-//   reports the switch as Failed rather than pretending it happened.
+// - Provider switching (ProviderSwitchHost.force): WIRED (batch 37) —
+//   Mochy's ProviderSwitch engine (stop, resolve, reload at the same
+//   spot) ported in ui/mochy/playback/ProviderSwitch.kt, resolving
+//   through SourceResolver.forcedTrack and reloading with a
+//   source-pinned bitchord://source URI (or the song's own watch URI
+//   for YouTube).
 //
 // The sheet itself (StreamInfoSheet.kt, another chunk's file) is NOT edited
 // here: NEEDS.md §(merge) gives the exact lines that swap its null inputs
@@ -59,20 +58,25 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.StreamFormat
+import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.ui.mochy.models.MediaMetadata
+import com.music.bitchord.ui.mochy.playback.ForcedRoute
+import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
 import com.music.bitchord.ui.mochy.playback.PlayingFrom
+import com.music.bitchord.ui.mochy.playback.ProviderSwitch
 import com.music.bitchord.ui.mochy.playback.ProviderSwitchState
 import com.music.bitchord.ui.mochy.playback.StreamDetails
 import com.music.bitchord.ui.mochy.playback.StreamFacts
 import com.music.bitchord.ui.mochy.playback.YouTubeProviderId
 import com.music.bitchord.ui.mochy.playback.audio.AudioOutputs
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import timber.log.Timber
 
 object StreamStatsAdapter {
 
@@ -206,25 +210,87 @@ object StreamStatsAdapter {
 fun rememberNerdSnapshot(): State<NerdStats.Snapshot?> = NerdStats.current.collectAsState()
 
 /**
- * The force-change sheet's switch state. force() reports Failed: no
- * ChordWave API re-resolves the playing song from another provider
- * mid-playback (see the file header). The sheet shows the failure instead
- * of hanging on Working, and the log says why.
+ * The force-change sheet's switch: Mochy's ProviderSwitch engine
+ * (ui/mochy/playback/ProviderSwitch.kt) with this host over the player
+ * connection (batch 37). Resolving goes through SourceResolver — a
+ * source-pinned bitchord://source URI for addons, the song's own
+ * bitchord://watch URI for YouTube — and the reload replaces the
+ * current media item at the held position, so the song carries on
+ * where it was, from the picked provider.
  */
-class ProviderSwitchHost {
-    private val _switchState = MutableStateFlow<ProviderSwitchState>(ProviderSwitchState.Idle)
-    val switchState: StateFlow<ProviderSwitchState> = _switchState.asStateFlow()
+class ProviderSwitchHost(private val connection: MochyPlayerConnection) : ProviderSwitch.Host {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val switch = ProviderSwitch({ scope }, this)
+    val switchState: StateFlow<ProviderSwitchState> = switch.state
+
+    private var heldPositionMs = 0L
 
     fun force(providerId: String, optionId: String?) {
-        // TODO(phase3-adapter): provider switching needs playback-service
-        // support — stop the song, rebuild its media item with a
-        // source-pinned URI (SourceResolver, ?s=<configId>) and reload at
-        // the same position. Until then the switch fails honestly.
-        Timber.w("ProviderSwitchHost: forcing provider $providerId is not supported yet (Phase 3 adapter)")
-        _switchState.value = ProviderSwitchState.Failed(providerId)
+        // a picked quality applies before the switch resolves: YouTube's
+        // is written by the sheet itself; an addon's goes to its config,
+        // which is what its client reads when the stream is asked for
+        if (optionId != null && providerId != YouTubeProviderId) {
+            SourceRegistry.configs.value.firstOrNull { it.id == providerId }?.let { config ->
+                if (config.pickedQuality != optionId) SourceRegistry.update(config.copy(pickedQuality = optionId))
+            }
+        }
+        switch.force(providerId)
     }
 
-    fun reset() {
-        _switchState.value = ProviderSwitchState.Idle
+    fun reset() = switch.acknowledge()
+
+    override fun currentMediaId(): String? = connection.mediaMetadata.value?.id
+
+    override fun holdPlayback(): Boolean {
+        val player = connection.player ?: return false
+        heldPositionMs = player.currentPosition.coerceAtLeast(0L)
+        val wasPlaying = player.isPlaying
+        player.pause()
+        return wasPlaying
+    }
+
+    override fun resumePlayback() {
+        connection.player?.play()
+    }
+
+    override suspend fun resolve(providerId: String, mediaId: String): ForcedRoute? {
+        val song = connection.mediaMetadata.value ?: return null
+        if (song.id != mediaId) return null
+        // a device file has no other provider to move to
+        if (song.localUri != null || mediaId.startsWith("LOCAL_")) return null
+        val target = TrackMatcher.Target(
+            title = song.title,
+            artist = song.artists.joinToString { it.name },
+            durationSec = song.duration.takeIf { it > 0 },
+            album = song.album?.title,
+            isExplicit = song.explicit,
+            isVideo = song.isVideoSong,
+        )
+        return if (providerId == YouTubeProviderId) {
+            // already a YouTube song: its own id is the route
+            if (SourceRegistry.parseTrackKey(mediaId) == null) {
+                ForcedRoute(providerId, "bitchord://watch?v=$mediaId")
+            } else {
+                val youTube = SourceRegistry.activeForPlayback().firstOrNull { it.kind == SourceKind.YOUTUBE }
+                    ?: return null
+                val trackId = SourceResolver.forcedTrack(youTube.configId, target) ?: return null
+                ForcedRoute(providerId, "bitchord://watch?v=$trackId")
+            }
+        } else {
+            val trackId = SourceResolver.forcedTrack(providerId, target) ?: return null
+            ForcedRoute(providerId, SourceRegistry.trackUri(providerId, trackId))
+        }
+    }
+
+    override fun switchTo(mediaId: String, route: ForcedRoute, play: Boolean) {
+        val player = connection.player ?: return
+        val index = player.currentMediaItemIndex
+        val current = player.currentMediaItem ?: return
+        if (current.mediaId != mediaId) return
+        val reloaded = current.buildUpon().setUri(route.playbackUri).build()
+        player.replaceMediaItem(index, reloaded)
+        player.seekTo(index, heldPositionMs)
+        player.prepare()
+        player.playWhenReady = play
     }
 }

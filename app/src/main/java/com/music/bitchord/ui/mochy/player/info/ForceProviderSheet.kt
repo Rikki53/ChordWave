@@ -89,8 +89,8 @@ fun ForceProviderSheet(
     providers: List<ForceProviderEntry> = emptyList(),
     switchState: ProviderSwitchState = ProviderSwitchState.Idle,
     onForceProvider: (providerId: String, optionId: String?) -> Unit = { _, _ ->
-        // TODO(Phase 3 adapter): provider switching is not wired yet — see NEEDS.md §(b).
-        Timber.w("ForceProviderSheet: provider switching is not wired yet")
+        // fallback only: StreamInfoSheet passes the real switch host (batch 37)
+        Timber.w("ForceProviderSheet: no switch host wired")
     },
 ) {
     val (youTubeQuality, setYouTubeQuality) = rememberPreference(AudioQualityKey, AudioQuality.AUTO.name)
