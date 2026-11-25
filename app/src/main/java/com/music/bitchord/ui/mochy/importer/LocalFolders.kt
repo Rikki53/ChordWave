@@ -85,6 +85,8 @@ object LocalFolders {
                     val docId = cursor.getString(idCol) ?: continue
                     val mime = cursor.getString(mimeCol).orEmpty()
                     val name = cursor.getString(nameCol).orEmpty()
+                    // hidden folders (.thumbnails, .nomedia, ...) hold no music of their own
+                    if (name.startsWith(".")) continue
                     val docUri = DocumentsContract.buildDocumentUriUsingTree(tree, docId)
                     if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
                         collectAudio(context, tree, docUri, known, out, depth + 1)

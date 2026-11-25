@@ -27,4 +27,22 @@
     <string name="library_tab_genres">Genres</string>
     <string name="library_tab_imported">Imported</string>
     <string name="library_tab_local">Local</string>
+    <string name="lib_import_still_running">An import is still running. Try again once it\'s done.</string>
+    <string name="lib_local_no_access">ChordWave can\'t see your music without access</string>
+    <string name="lib_local_no_new_songs">No new songs in your music folders</string>
+    <string name="lib_all_songs_title">All Songs</string>
+    <string name="lib_songs_search">Find a song by its title or artist</string>
+    <string name="lib_stats_in_library_time">In your library · %1$s · %2$s to listen</string>
+    <string name="lib_added_when">Added %1$s</string>
+    <string name="lib_added_earlier">Earlier</string>
+    <string name="lib_recent_search">Find a song listed here, by its lyrics or its artist</string>
+    <string name="lib_time_hours_minutes">%1$dh %2$dm</string>
+    <string name="lib_time_minutes">%1$dm</string>
+    <string name="playlist_removed_song_from">Removed %1$s from %2$s</string>
+    <string name="playlist_fallback_name">playlist</string>
+    <string name="playlist_drag_to_move">Drag to move</string>
+    <string name="playlist_related">Related Playlists</string>
+    <string name="playlist_sort_order">Sort order</string>
+    <string name="playlist_sort_desc"> (Desc)</string>
+    <string name="playlist_sort_asc"> (Asc)</string>
 </resources>

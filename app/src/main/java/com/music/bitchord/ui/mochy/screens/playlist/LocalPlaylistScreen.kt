@@ -134,6 +134,7 @@ import com.music.bitchord.ui.mochy.constants.ProfilePicUriKey
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.PlaylistSong
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
+import com.music.bitchord.ui.mochy.utils.resize
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
 import com.music.bitchord.ui.mochy.player.menu.LocalPlaylistMenu
@@ -388,7 +389,8 @@ fun LocalPlaylistScreen(
                                 }
                             }
                             else -> {
-                                songs.forEach { song ->
+                                // imported files are already on the phone, with nothing online to download
+                                songs.filterNot { it.song.song.isLocal }.forEach { song ->
                                     Downloads.enqueue(context, song.song.toCwSong())
                                 }
                             }
@@ -557,7 +559,11 @@ fun LocalPlaylistScreen(
                     val removed = currentItem
                     deleteFromPlaylist()
                     TopToaster.show(
-                        text = "Removed ${removed.song.song.title} from ${playlist?.playlist?.name ?: "playlist"}",
+                        text = context.getString(
+                            R.string.playlist_removed_song_from,
+                            removed.song.song.title,
+                            playlist?.playlist?.name ?: context.getString(R.string.playlist_fallback_name),
+                        ),
                         thumbnail = removed.song.song.thumbnailUrl,
                         iconRes = R.drawable.playlist_add,
                         actionLabel = context.getString(R.string.undo),
@@ -627,7 +633,7 @@ fun LocalPlaylistScreen(
                                     ) {
                                         Icon(
                                             painter = painterResource(R.drawable.drag_handle),
-                                            contentDescription = "Drag to move",
+                                            contentDescription = stringResource(R.string.playlist_drag_to_move),
                                             tint = Color.White.copy(alpha = 0.78f),
                                         )
                                     }
@@ -724,7 +730,7 @@ fun LocalPlaylistScreen(
                             .fillMaxWidth()
                             .padding(top = 28.dp)
                     ) {
-                        PlaylistSectionTitle(title = "Related Playlists")
+                        PlaylistSectionTitle(title = stringResource(R.string.playlist_related))
                         Spacer(Modifier.height(9.dp))
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 36.dp),
@@ -751,7 +757,7 @@ fun LocalPlaylistScreen(
                                         val thumbUrl = related.playlist.thumbnailUrl ?: related.thumbnails.firstOrNull()
                                         if (thumbUrl != null) {
                                             AsyncImage(
-                                                model = thumbUrl,
+                                                model = thumbUrl.resize(320, 320),
                                                 contentDescription = null,
                                                 modifier = Modifier.fillMaxSize(),
                                                 contentScale = ContentScale.Crop
@@ -799,7 +805,7 @@ fun LocalPlaylistScreen(
     if (showSortDialog) {
         AlertDialog(
             onDismissRequest = { showSortDialog = false },
-            title = { Text("Sort order") },
+            title = { Text(stringResource(R.string.playlist_sort_order)) },
             text = {
                 Column {
                     PlaylistSongSortType.entries.forEach { type ->
@@ -823,7 +829,7 @@ fun LocalPlaylistScreen(
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = stringResource(playlistSortLabel(type)) +
-                                    if (sortType == type) (if (sortDescending) " (Desc)" else " (Asc)") else "",
+                                    if (sortType == type) (if (sortDescending) stringResource(R.string.playlist_sort_desc) else stringResource(R.string.playlist_sort_asc)) else "",
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }

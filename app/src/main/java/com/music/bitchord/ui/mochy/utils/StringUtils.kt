@@ -3,6 +3,9 @@
 
 package com.music.bitchord.ui.mochy.utils
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.music.bitchord.R
 import java.text.DecimalFormat
 import kotlin.math.absoluteValue
 
@@ -68,3 +71,15 @@ fun joinByBullet(vararg str: String?) =
         .filterNot {
             it.isNullOrEmpty()
         }.joinToString(separator = " • ")
+
+/** "152h 42m" or "42m" */
+@Composable
+fun listeningTime(totalSeconds: Int): String {
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    return if (hours > 0) {
+        stringResource(R.string.lib_time_hours_minutes, hours, minutes)
+    } else {
+        stringResource(R.string.lib_time_minutes, minutes)
+    }
+}

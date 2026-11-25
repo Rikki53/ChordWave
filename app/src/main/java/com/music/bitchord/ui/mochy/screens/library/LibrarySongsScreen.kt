@@ -8,7 +8,10 @@ package com.music.bitchord.ui.mochy.screens.library
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
@@ -19,6 +22,8 @@ import com.music.bitchord.ui.mochy.component.SongSwipeBox
 import com.music.bitchord.ui.mochy.component.librarySwipeAction
 import com.music.bitchord.ui.mochy.component.queueSwipeAction
 import com.music.bitchord.ui.mochy.player.menu.SongMenu
+import com.music.bitchord.ui.mochy.utils.listeningTime
+import com.music.bitchord.ui.mochy.utils.makeTimeString
 import com.music.bitchord.ui.mochy.viewmodels.LibraryHomeViewModel
 
 @Composable
@@ -33,15 +38,26 @@ fun LibrarySongsScreen(
     val loadFailed by viewModel.loadFailed.collectAsState()
     val playerConnection = LocalPlayerConnection.current ?: return
     val menuState = LocalMenuState.current
+    val title = stringResource(R.string.lib_all_songs_title)
+    val totalSeconds = remember(songs) { songs.sumOf { it.song.duration.coerceAtLeast(0) } }
 
     LibraryEntityListScreen(
-        title = "Songs",
-        subtitle = "All songs on your library listed here.",
-        searchPlaceholder = "Find a song by its title or artist",
+        title = title,
+        subtitle = stringResource(
+            R.string.lib_stats_in_library_time,
+            pluralStringResource(R.plurals.n_song, songs.size, songs.size),
+            listeningTime(totalSeconds),
+        ),
+        searchPlaceholder = stringResource(R.string.lib_songs_search),
         items = songs,
         idOf = { it.id },
         nameOf = { it.song.title },
-        subtitleOf = { it.artists.joinToString { a -> a.name }.ifBlank { null } },
+        subtitleOf = { song ->
+            listOfNotNull(
+                song.artists.joinToString { a -> a.name }.ifBlank { null },
+                song.song.duration.takeIf { it > 0 }?.let { makeTimeString(it * 1000L) },
+            ).joinToString(" • ").takeIf { it.isNotBlank() }
+        },
         thumbnailOf = { it.song.thumbnailUrl },
         playingIdOf = { it.id },
         onClick = { song ->
@@ -51,7 +67,7 @@ fun LibrarySongsScreen(
             val ordered = sortForLibraryIndex(songs) { it.song.title }
             playerConnection.playQueue(
                 ListQueue(
-                    title = "Songs",
+                    title = title,
                     items = ordered.map { it.toMediaItem() },
                     startIndex = ordered.indexOf(song).coerceAtLeast(0),
                 ),
