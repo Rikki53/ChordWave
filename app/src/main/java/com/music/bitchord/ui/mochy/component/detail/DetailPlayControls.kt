@@ -111,7 +111,7 @@ internal fun PlayPill(isPlaying: Boolean, onClick: () -> Unit) {
             Icon(
                 painter = painterResource(if (playing) R.drawable.ic_untitled_pause else R.drawable.ic_untitled_play),
                 contentDescription = null,
-                tint = tint ?: PillContent,
+                tint = PillContent,
                 modifier = Modifier.size(15.dp),
             )
         }
