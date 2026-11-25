@@ -211,7 +211,7 @@ fun SongInfoRow(
             if (sideAction == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.LIKE) {
                 PressScaleActionButton(
                     icon = if (trackInfo.liked) R.drawable.ic_untitled_heart else R.drawable.ic_untitled_heart_unfill,
-                    tint = if (trackInfo.liked) Color.White else Color.White.copy(alpha = 0.85f),
+                    tint = if (trackInfo.liked) LikeRed else Color.White.copy(alpha = 0.85f),
                     containerColor = if (trackInfo.liked) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.15f),
                     onClick = {
                         if (likeBurst != null) {

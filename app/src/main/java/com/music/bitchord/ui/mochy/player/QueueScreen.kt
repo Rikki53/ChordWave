@@ -355,7 +355,7 @@ fun QueueScreen(
             Spacer(modifier = Modifier.weight(1f))
             PressScaleActionButton(
                 icon = if (liked) R.drawable.ic_untitled_heart else R.drawable.ic_untitled_heart_unfill,
-                tint = if (liked) Color.White else Color.White.copy(alpha = 0.85f),
+                tint = if (liked) LikeRed else Color.White.copy(alpha = 0.85f),
                 containerColor = if (liked) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.15f),
                 onClick = {
                     if (likeBurst != null) {

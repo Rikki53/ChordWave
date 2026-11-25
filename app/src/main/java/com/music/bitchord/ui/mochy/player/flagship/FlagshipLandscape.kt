@@ -64,6 +64,7 @@ import com.music.bitchord.ui.mochy.constants.BlurQuality
 import com.music.bitchord.ui.mochy.component.BlurEffectCache
 import com.music.bitchord.ui.mochy.component.DownscaledBlur
 import com.music.bitchord.ui.mochy.component.LocalBlurQuality
+import com.music.bitchord.ui.mochy.player.LikeRed
 import com.music.bitchord.ui.mochy.player.CarouselCrossfade
 import com.music.bitchord.ui.mochy.player.CarouselPictures
 import com.music.bitchord.ui.mochy.player.LikeBurstState
@@ -635,7 +636,7 @@ private fun CoverButtons(
     ) {
         PressScaleActionButton(
             icon = if (liked) R.drawable.ic_untitled_heart else R.drawable.ic_untitled_heart_unfill,
-            tint = Color.White,
+            tint = if (liked) LikeRed else Color.White,
             containerColor = Color.White.copy(alpha = if (liked) 0.3f else 0.18f),
             size = ButtonSize,
             onClick = { likeBurst.likeFromButton(LikeSlot.PLAYER, liked, connection::toggleLike) },

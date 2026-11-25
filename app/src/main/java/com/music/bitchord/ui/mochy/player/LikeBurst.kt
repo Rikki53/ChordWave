@@ -64,7 +64,8 @@ import kotlin.random.Random
 /** Which like button a heart flies home to: the one on the page that's showing. */
 enum class LikeSlot { PLAYER, LYRICS, QUEUE }
 
-private val LikeRed = Color(0xFFFF2D55)
+/** The liked heart's red (batch 35): every heart in the app wears this once a song is liked. */
+internal val LikeRed = Color(0xFFFF2D55)
 private val LikePink = Color(0xFFFF8FAB)
 
 /** The heart at the centre, at rest. Drawn larger and scaled down, so the thump stays crisp. */

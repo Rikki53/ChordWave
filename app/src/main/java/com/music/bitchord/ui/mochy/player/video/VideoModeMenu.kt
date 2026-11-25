@@ -45,6 +45,7 @@ import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.component.SheetActionCard
 import com.music.bitchord.ui.mochy.component.SheetActionCardRow
 import com.music.bitchord.ui.mochy.component.SheetHeaderGap
+import com.music.bitchord.ui.mochy.player.LikeRed
 import com.music.bitchord.ui.mochy.player.PressScaleActionButton
 import com.music.bitchord.ui.mochy.player.menu.LocalMenuSheetClose
 import com.music.bitchord.ui.mochy.player.menu.LocalMenuSheetFloating
@@ -144,7 +145,7 @@ internal fun VideoModeMenu(
                     Spacer(modifier = Modifier.width(10.dp))
                     PressScaleActionButton(
                         icon = if (track.liked) R.drawable.ic_untitled_heart else R.drawable.ic_untitled_heart_unfill,
-                        tint = Color.White,
+                        tint = if (track.liked) LikeRed else Color.White,
                         containerColor = Color.White.copy(alpha = if (track.liked) 0.3f else 0.15f),
                         onClick = connection::toggleLike,
                     )

@@ -111,6 +111,7 @@ import com.music.bitchord.ui.mochy.component.ProgressiveGlassBackground
 import com.music.bitchord.ui.mochy.component.ScrollAwayCover
 import com.music.bitchord.ui.mochy.component.containerTransformSource
 import com.music.bitchord.ui.mochy.component.detail.CircleAction
+import com.music.bitchord.ui.mochy.player.LikeRed
 import com.music.bitchord.ui.mochy.component.detail.PillContent
 import com.music.bitchord.ui.mochy.component.detail.PillFill
 import com.music.bitchord.ui.mochy.component.detail.PlayPill
@@ -442,6 +443,7 @@ internal fun ArtistActions(
             icon = if (liked) R.drawable.ic_untitled_heart else R.drawable.ic_untitled_heart_unfill,
             contentDescription = if (liked) "Liked" else "Like",
             onClick = onLike,
+            tint = if (liked) LikeRed else null,
         )
         AnimatedVisibility(
             visible = showSubscribe,

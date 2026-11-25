@@ -111,7 +111,7 @@ internal fun PlayPill(isPlaying: Boolean, onClick: () -> Unit) {
             Icon(
                 painter = painterResource(if (playing) R.drawable.ic_untitled_pause else R.drawable.ic_untitled_play),
                 contentDescription = null,
-                tint = PillContent,
+                tint = tint ?: PillContent,
                 modifier = Modifier.size(15.dp),
             )
         }
@@ -137,6 +137,7 @@ internal fun CircleAction(
     contentDescription: String,
     onClick: () -> Unit,
     spinOnClick: Boolean = false,
+    tint: Color? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val spin = remember { Animatable(0f) }
@@ -166,7 +167,7 @@ internal fun CircleAction(
             Icon(
                 painter = painterResource(res),
                 contentDescription = contentDescription,
-                tint = PillContent,
+                tint = tint ?: PillContent,
                 modifier = Modifier
                     .size(17.dp)
                     .graphicsLayer { rotationZ = spin.value * 360f },

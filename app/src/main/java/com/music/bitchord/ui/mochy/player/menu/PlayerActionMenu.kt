@@ -94,6 +94,7 @@ import com.music.bitchord.ui.mochy.menu.songedit.SongEditSheet
 import com.music.bitchord.ui.mochy.menu.songedit.VideoPickerSheet
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.player.LikeRed
 import com.music.bitchord.ui.mochy.player.hasFoundVideo
 import com.music.bitchord.ui.mochy.player.models.TrackInfo
 import com.music.bitchord.ui.mochy.utils.rememberPreference
@@ -415,6 +416,7 @@ fun PlayerActionMenu(
                 MenuRow(
                     icon = if (trackInfo.liked) R.drawable.ic_untitled_heart else R.drawable.ic_untitled_heart_unfill,
                     title = if (trackInfo.liked) "remove from liked" else "add to liked",
+                    iconTint = if (trackInfo.liked) LikeRed else null,
                     onClick = { playerConnection.toggleLike() },
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -543,6 +545,7 @@ internal fun MenuRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    iconTint: Color? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val contentAlpha = if (enabled) 1f else 0.35f
@@ -560,7 +563,7 @@ internal fun MenuRow(
             )
             .padding(horizontal = 14.dp, vertical = 14.dp)
     ) {
-        SheetIcon(icon, tint = Color.White.copy(alpha = contentAlpha))
+        SheetIcon(icon, tint = iconTint ?: Color.White.copy(alpha = contentAlpha))
         Spacer(modifier = Modifier.width(14.dp))
         Text(
             text = title,

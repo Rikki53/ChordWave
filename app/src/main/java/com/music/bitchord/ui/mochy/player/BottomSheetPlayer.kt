@@ -1628,7 +1628,11 @@ private fun PlayerSheet(
                                         } else {
                                             lyricsSideAction.icon
                                         },
-                                        tint = if (lyricsSideActive) Color.White else Color.White.copy(alpha = 0.85f),
+                                        tint = when {
+                                            lyricsSideIsLike && trackInfo.liked -> LikeRed
+                                            lyricsSideActive -> Color.White
+                                            else -> Color.White.copy(alpha = 0.85f)
+                                        },
                                         containerColor = if (lyricsSideActive) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.15f),
                                         onClick = {
                                             if (lyricsSideIsLike) {
