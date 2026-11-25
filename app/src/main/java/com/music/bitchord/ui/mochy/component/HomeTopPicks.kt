@@ -467,8 +467,8 @@ fun FindYourMoodContent(
 ) {
     val coreMoods = remember { TopPickMood.entries.filter { it.isCoreMood } }
     BoxWithConstraints(modifier = modifier) {
-        // three tiles across, edge to edge, at the Home card spacing
-        val gridSize = (maxWidth - HomeCardSpacing * 2) / 3
+        // three tiles across, on the Home inset, at the Home card spacing
+        val gridSize = (maxWidth - HomeContentInset * 2 - HomeCardSpacing * 2) / 3
         Column {
             AnimatedVisibility(
                 visible = !expanded,
@@ -476,7 +476,7 @@ fun FindYourMoodContent(
                 exit = fadeOut() + shrinkVertically(),
             ) {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 0.dp),
+                    contentPadding = PaddingValues(horizontal = HomeContentInset),
                     horizontalArrangement = Arrangement.spacedBy(HomeCardSpacing),
                 ) {
                     items(coreMoods, key = { it.name }) { mood ->
@@ -497,7 +497,8 @@ fun FindYourMoodContent(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .padding(horizontal = HomeContentInset),
                 ) {
                     // Apple's seven moods first, then the activities, as on Classic
                     TopPickMood.entries.chunked(3).forEach { rowMoods ->

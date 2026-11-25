@@ -280,7 +280,7 @@ private fun rememberCardRowState(): LazyListState =
 private fun rememberTrackGridState(): LazyGridState =
     rememberLazyGridState(prefetchStrategy = remember { LazyGridPrefetchStrategy(nestedPrefetchItemCount = 6) })
 
-/** a horizontally scrolling row of cards, edge to edge (the section title above keeps the 36dp inset). cards cascade in once. */
+/** a horizontally scrolling row of cards, lined up with the section title. cards cascade in once. */
 @Composable
 private fun <T> HomeCardRow(
     rowKey: String,
@@ -291,7 +291,7 @@ private fun <T> HomeCardRow(
 ) {
     LazyRow(
         state = rememberCardRowState(),
-        contentPadding = PaddingValues(horizontal = 0.dp),
+        contentPadding = PaddingValues(horizontal = HomeContentInset),
         horizontalArrangement = Arrangement.spacedBy(HomeCardSpacing),
     ) {
         itemsIndexed(items = items, key = { _, item -> key(item) }) { index, item ->
@@ -327,7 +327,7 @@ private fun <T> HomeTrackGrid(
         state = state,
         rows = GridCells.Fixed(rows),
         flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
-        contentPadding = PaddingValues(horizontal = 0.dp),
+        contentPadding = PaddingValues(horizontal = HomeContentInset),
         horizontalArrangement = Arrangement.spacedBy(39.dp),
         verticalArrangement = Arrangement.spacedBy(rowSpacing),
         modifier = Modifier
@@ -1487,7 +1487,8 @@ fun HomeScreen(
                                     Column(
                                         verticalArrangement = Arrangement.spacedBy(10.dp),
                                         modifier = Modifier
-                                            .fillMaxWidth(),
+                                            .fillMaxWidth()
+                                            .padding(horizontal = HomeContentInset),
                                     ) {
                                         visibleItems.chunked(hopInColumns).forEach { rowItems ->
                                             Row(
@@ -1525,7 +1526,8 @@ fun HomeScreen(
                                 homeItem("now_playing_row", revealSeen, "trackRow") {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth(),
+                                            .fillMaxWidth()
+                                            .padding(horizontal = HomeContentInset),
                                     ) {
                                         HomeTrackRow(
                                             thumbnailUrl = nowPlaying.thumbnailUrl,
@@ -1788,7 +1790,7 @@ fun HomeScreen(
                                 homeItem("account_playlists_list", revealSeen, "cardRow") {
                                     LazyRow(
                                         state = rememberCardRowState(),
-                                        contentPadding = PaddingValues(horizontal = 0.dp),
+                                        contentPadding = PaddingValues(horizontal = HomeContentInset),
                                         horizontalArrangement = Arrangement.spacedBy(HomeCardSpacing)
                                     ) {
                                         localPlaylists?.let { items ->
