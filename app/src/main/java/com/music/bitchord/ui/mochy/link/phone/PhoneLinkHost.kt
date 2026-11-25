@@ -225,7 +225,7 @@ class PhoneLinkHost(context: Context) {
     internal fun acceptPairing(body: JSONObject, remoteHost: String, code: String): Result<Accepted> {
         val id = body.optString("phoneId").ifBlank { return Result.failure(PairException(PairException.Reason.Failed)) }
         // a phone on the old protocol sends the key itself instead of a public half; it has to update first
-        val otherPublic = body.optString("pub").ifBlank { return Result.failure(PairException.Reason.Outdated)) }
+        val otherPublic = body.optString("pub").ifBlank { return Result.failure(PairException(PairException.Reason.Outdated)) }
         val previous = _devices.value.firstOrNull { it.id == id }
         if (previous == null && _devices.value.size >= MaxDevices) return Result.failure(PairException(PairException.Reason.Full))
         val keyPair = LinkAuth.newKeyPair()
