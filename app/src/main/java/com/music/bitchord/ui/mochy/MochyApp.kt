@@ -159,6 +159,7 @@ import com.music.bitchord.ui.mochy.screens.listen.ListenTogetherScreen
 import com.music.bitchord.ui.mochy.screens.profile.ProfileScreen
 import com.music.bitchord.ui.mochy.screens.radio.RadioScreen
 import com.music.bitchord.ui.mochy.screens.replay.ReplayScreen
+import com.music.bitchord.ui.mochy.screens.replay.ReplayStoriesHost
 import com.music.bitchord.ui.mochy.screens.search.NewReleaseScreen
 import com.music.bitchord.ui.mochy.screens.settings.CustomisationScreen
 import com.music.bitchord.ui.mochy.screens.sources.SourcesScreen
@@ -627,6 +628,13 @@ private fun MochyContent(
             // into typing once the Search screen lands.
             onSearchDoubleTap = navigator::requestSearchFocus,
         )
+
+        // Replay stories over everything — the mini player and the tab
+        // bar included: a story covers the window, and inside the Replay
+        // page it ran under them (its share button sat behind the mini
+        // player). Classic mounts its stories at the activity for the
+        // same reason.
+        ReplayStoriesHost()
     }
 }
 

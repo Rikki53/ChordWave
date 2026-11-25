@@ -846,6 +846,10 @@
         <item quantity="one">%1$s minute</item>
         <item quantity="other">%1$s minutes</item>
     </plurals>
+    <plurals name="replay_seconds_unit">
+        <item quantity="one">%1$s second</item>
+        <item quantity="other">%1$s seconds</item>
+    </plurals>
     <string name="replay_mostly_around">%1$s</string>
     <string name="replay_private_counting">Built privately from your listening history on this device.</string>
     <string name="replay_share_card_description">A polished card with your main listening highlights.</string>

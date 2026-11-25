@@ -139,7 +139,21 @@ fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<H
         " " to false,
         context.getString(R.string.replay_intro_end) to false,
     )
-    ReplayStoryPage.MINUTES -> runs(
+    ReplayStoryPage.MINUTES -> if (totalMs > 0 && totalMs < 60_000) {
+        // Less than a minute of listening is real listening — "0 minutes"
+        // reads as if nothing was ever played. Say seconds instead.
+        runs(
+            context.getString(R.string.replay_minutes_start) to false,
+            " " to false,
+            context.resources.getQuantityString(
+                R.plurals.replay_seconds_unit,
+                (totalMs / 1_000).toInt(),
+                grouped(totalMs / 1_000),
+            ) to true,
+            " " to false,
+            context.getString(R.string.replay_minutes_end) to false,
+        )
+    } else runs(
         context.getString(R.string.replay_minutes_start) to false,
         " " to false,
         context.resources.getQuantityString(

@@ -82,6 +82,7 @@ import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.stats.ReplaySummary
+import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.rememberArtworkColors
@@ -252,6 +253,52 @@ fun ReplayStories(
             )
         }
     }
+}
+
+/**
+ * Stories above the whole app, not inside the Replay page.
+ *
+ * A story covers the window: mounted inside the page it ran under the
+ * mini player and the tab bar — the bottom of the card, share button
+ * included, sat behind them. Classic mounts its stories at the activity
+ * for the same reason; here the host sits last in MochyApp's Box, over
+ * the player sheet and the navigation bar. The Replay page only decides
+ * when they open.
+ */
+object ReplayStoriesOverlay {
+    var request by mutableStateOf<Request?>(null)
+        private set
+
+    data class Request(
+        val summary: ReplaySummary,
+        val start: ReplayStoryPage,
+        val onShare: (ReplayStoryPage) -> Unit,
+        val onClose: () -> Unit,
+    )
+
+    fun open(summary: ReplaySummary, start: ReplayStoryPage, onShare: (ReplayStoryPage) -> Unit, onClose: () -> Unit) {
+        request = Request(summary, start, onShare, onClose)
+    }
+
+    fun close() {
+        request = null
+    }
+}
+
+@Composable
+fun ReplayStoriesHost() {
+    val request = ReplayStoriesOverlay.request ?: return
+    val menuState = LocalMenuState.current
+    ReplayStories(
+        summary = request.summary,
+        start = request.start,
+        onClose = {
+            ReplayStoriesOverlay.close()
+            request.onClose()
+        },
+        onShare = request.onShare,
+        paused = menuState.isVisible,
+    )
 }
 
 /**

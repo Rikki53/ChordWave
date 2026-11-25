@@ -52,6 +52,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -262,6 +263,21 @@ fun ReplayScreen(
     val story = storyPage
     BackHandler(enabled = story != null) { storyPage = null }
 
+    // Stories are drawn by the host above the app chrome (see
+    // ReplayStoriesHost): this screen only decides when they open, and
+    // the host draws them. The clock pauses while the share sheet is up,
+    // or the card being sent would have moved on by the time an app was
+    // picked — the host reads that off the menu state itself.
+    LaunchedEffect(storyPage, summary) {
+        val start = storyPage
+        if (start != null && summary != null) {
+            ReplayStoriesOverlay.open(summary, start, onShare = { openShare(it) }, onClose = { storyPage = null })
+        } else {
+            ReplayStoriesOverlay.close()
+        }
+    }
+    DisposableEffect(Unit) { onDispose { ReplayStoriesOverlay.close() } }
+
     Box(Modifier.fillMaxSize()) {
         MeshGradientBackground(palette = palette, trackKey = leadArtwork, animated = false)
         // Most of the mesh goes back under ink: a page of ranked lists
@@ -420,21 +436,6 @@ fun ReplayScreen(
             }
         }
 
-        // Stories over the page, not a route: back closes the story first
-        // (see the BackHandler above). The clock pauses while the share
-        // sheet is up, or the card being sent would have moved on by the
-        // time an app was picked.
-        val currentStory = story
-        val currentSummary = summary
-        if (currentStory != null && currentSummary != null) {
-            ReplayStories(
-                summary = currentSummary,
-                start = currentStory,
-                onClose = { storyPage = null },
-                onShare = { openShare(it) },
-                paused = menuState.isVisible,
-            )
-        }
     }
 }
 
