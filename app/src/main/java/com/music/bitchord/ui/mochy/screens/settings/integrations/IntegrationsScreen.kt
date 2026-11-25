@@ -17,6 +17,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.SubSettingsScaffold
+import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
+import com.music.bitchord.ui.mochy.screens.devices.rememberDevicesLink
+import com.music.bitchord.ui.mochy.screens.devices.showDeviceIntegration
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.screens.settings.integrations.discord.DiscordRoute
 
@@ -27,6 +30,8 @@ private val YouTubeMusicRed = Color(0xFFFF0000)
 
 @Composable
 fun IntegrationsScreen(navigator: MochyNavigator) {
+    val sheets = LocalZoomOutOverlayState.current
+    val devicesLink = rememberDevicesLink()
     SubSettingsScaffold(
         title = stringResource(R.string.integrations),
         onBack = { navigator.popBackStack() },
@@ -56,6 +61,12 @@ fun IntegrationsScreen(navigator: MochyNavigator) {
                 icon = R.drawable.provider_youtube_music,
                 iconBackground = YouTubeMusicRed,
                 onClick = { navigator.navigate("youtube_sync") },
+            )
+            IntegrationRow(
+                name = stringResource(R.string.devices_title),
+                description = stringResource(R.string.devices_row_detail),
+                icon = R.drawable.cast_connected,
+                onClick = { sheets.showDeviceIntegration(devicesLink) },
             )
         }
 

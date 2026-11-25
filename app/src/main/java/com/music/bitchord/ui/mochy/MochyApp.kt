@@ -3,6 +3,7 @@ package com.music.bitchord.ui.mochy
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -73,6 +74,10 @@ import com.music.bitchord.ui.mochy.constants.PureBlackKey
 import com.music.bitchord.ui.mochy.importer.ImportSource
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.link.DeviceLink
+import com.music.bitchord.ui.mochy.link.LinkPlayer
+import com.music.bitchord.ui.mochy.screens.devices.ControllingPill
+import com.music.bitchord.ui.mochy.screens.devices.DeviceIntegrationOpener
 import com.music.bitchord.ui.mochy.playback.LyricsProviderBridge
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
 import com.music.bitchord.ui.mochy.player.BottomSheetPlayer
@@ -228,7 +233,12 @@ fun MochyApp(modifier: Modifier = Modifier) {
         onDispose { connection.bind(null) }
     }
     DisposableEffect(connection) {
-        onDispose { connection.dispose() }
+        // the device link steers this player while ChordWave is on screen (batch 19)
+        LinkPlayer.connection = connection
+        onDispose {
+            LinkPlayer.release(connection)
+            connection.dispose()
+        }
     }
 
     // Lyrics pipeline: Modern mode never runs BitChordApp's lyrics-loading
@@ -286,6 +296,7 @@ fun MochyApp(modifier: Modifier = Modifier) {
     // Update notification taps (UpdateDeepLink relay): the opener below
     // shows the version sheet each time the count goes up.
     val updateRequests by UpdateDeepLink.requests.collectAsState()
+    val deviceRequests by DeviceLink.openRequests.collectAsState()
 
     // A Listen Together invite arriving while Modern is active opens the
     // party page (Classic precedent: MainActivity navigates to its own
@@ -321,12 +332,19 @@ fun MochyApp(modifier: Modifier = Modifier) {
 
     // The connection's progress poll rests while the app is hidden instead
     // of recomposing the player for nobody.
+    val deviceHost = remember { DeviceLink.host(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, connection) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> connection.isUiVisible.value = true
-                Lifecycle.Event.ON_STOP -> connection.isUiVisible.value = false
+                Lifecycle.Event.ON_START -> {
+                    connection.isUiVisible.value = true
+                    deviceHost.appShown()
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    connection.isUiVisible.value = false
+                    deviceHost.appHidden()
+                }
                 else -> Unit
             }
         }
@@ -385,6 +403,10 @@ fun MochyApp(modifier: Modifier = Modifier) {
                     // app zooms out and dims behind the active sheet.
                     PopupSheetHost(states = listOf(menuState)) {
                         UpdateNotificationOpener(requests = updateRequests)
+                        DeviceIntegrationOpener(requests = deviceRequests)
+                        Box(Modifier.fillMaxSize()) {
+                            ControllingPill(Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 8.dp))
+                        }
                         SetupWizardContainer(
                             isVisible = (!setupCompleted && !onboardingComplete) || forceShowSetup,
                             onSetupCompleted = { username, uri ->

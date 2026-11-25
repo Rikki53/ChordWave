@@ -28,6 +28,10 @@
 package com.music.bitchord.ui.mochy.screens.settings
 
 import androidx.activity.compose.BackHandler
+import com.music.bitchord.ui.mochy.screens.devices.showDeviceIntegration
+import com.music.bitchord.ui.mochy.screens.devices.rememberDevicesLink
+import com.music.bitchord.ui.mochy.screens.devices.DeviceIntegrationRoute
+import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -276,6 +280,7 @@ private val SettingsIndex = listOf(
     SettingsEntry("Send likes", "Integrations", "integrations_settings", "love loved songs lastfm librefm scrobble"),
     SettingsEntry("YouTube Music", "Integrations", "import_sync", "youtube ytm sync account sign in likes library playlists history"),
     SettingsEntry("YouTube account", "Integrations", "youtube_sync", "account sign in login google youtube profile sync"),
+    SettingsEntry("Device integration", "Integrations", "device_integration", "tv television phone tablet car head unit pair link sync stream remote control devices wifi"),
 
     // Storage
     SettingsEntry("Storage", "Storage", "storage_settings", "space disk size cache downloads clear free junk delete"),
@@ -386,6 +391,8 @@ fun MochySettingsScreen(
     val recommendedItem = remember { RecommendedOptions.random() }
 
     val context = LocalContext.current
+    val sheets = LocalZoomOutOverlayState.current
+    val devicesLink = rememberDevicesLink()
     val results = remember(query.text, context) {
         val q = query.text.trim()
         if (q.isBlank()) {
@@ -470,7 +477,11 @@ fun MochySettingsScreen(
                                             query = TextFieldValue()
                                             focusManager.clearFocus()
                                         }
-                                        open(entry.route)
+                                        if (entry.route == DeviceIntegrationRoute) {
+                                            sheets.showDeviceIntegration(devicesLink)
+                                        } else {
+                                            open(entry.route)
+                                        }
                                     }
                                     .padding(horizontal = 16.dp, vertical = 14.dp)
                             ) {

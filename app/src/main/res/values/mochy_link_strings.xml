@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Device integration (batch 19): strings adapted from Mochy Music's
+     device_link_strings.xml (GPL-3.0), reworded for ChordWave. -->
+<resources>
+    <!-- device integration: the sheet that lists paired devices -->
+    <string name="devices_title">Device integration</string>
+    <string name="devices_row_detail">Link your TV, computer, another phone or a tablet on the same Wi-Fi</string>
+    <string name="devices_hero">Connect up to 10 devices on your Wi-Fi: your other phone, tablet, computer, TV, car head unit and more.</string>
+    <string name="devices_mine">My devices</string>
+    <string name="devices_add_more">Add more devices here</string>
+    <string name="devices_full">That\'s 10 devices, the most one phone keeps. Unlink one to add another.</string>
+    <string name="devices_options">Options</string>
+    <string name="devices_control">Control</string>
+    <string name="devices_controlling_button">Controlling</string>
+    <string name="devices_device_settings">Device settings</string>
+    <string name="devices_status_controlling">Controlling it from here</string>
+    <string name="devices_status_connected_detail">You can control each other</string>
+    <string name="devices_stay_reachable">Stay reachable in the background</string>
+    <string name="devices_stay_reachable_detail">Your devices can sync, stream and control even when ChordWave is closed. Shows a quiet notification.</string>
+    <string name="devices_in_player_menu">Show my devices in the player menu</string>
+    <string name="devices_in_player_menu_detail">Play on them, line songs up there, or control them from the player\'s menu</string>
+    <string name="devices_notification_title">Your devices can reach this phone</string>
+    <string name="devices_notification_text">%1$s can sync, stream and control from here</string>
+    <string name="devices_kind_phone">Phone</string>
+    <string name="devices_kind_tablet">Tablet</string>
+    <string name="devices_kind_tv">TV</string>
+    <string name="devices_kind_car">Car</string>
+    <string name="devices_kind_computer">Computer</string>
+
+    <!-- one device's own sheet -->
+    <string name="devices_ok">OK</string>
+    <string name="devices_remote_control">Enable remote control</string>
+    <string name="devices_remote_control_tv_detail">Play, skip and change its settings from this phone</string>
+    <string name="devices_remote_control_phone_detail">Play, skip and change settings on each other from either phone</string>
+    <string name="devices_remote_control_computer_detail">Play, skip and change settings on each other from this phone or the computer</string>
+    <string name="devices_auto_control">Take control when it connects</string>
+    <string name="devices_auto_control_detail">As soon as ChordWave opens on it, this phone becomes its remote</string>
+    <string name="devices_unlink_question">Unlink %1$s? It keeps what it already has.</string>
+
+    <!-- adding a device -->
+    <string name="devices_add_title">Add device</string>
+    <string name="devices_pairing_code">Pairing mode code</string>
+    <string name="devices_detected">Detected</string>
+    <string name="devices_looking">Looking for devices…</string>
+    <string name="devices_looking_detail">Open Add device on your other phone or in ChordWave\'s Device integration on your computer, or the phone page in ChordWave on your TV</string>
+    <string name="devices_connect">Connect</string>
+    <string name="devices_or">Or</string>
+    <string name="devices_enter_code">Enter code</string>
+    <string name="devices_enter_code_none">Nothing\'s in pairing mode on this Wi-Fi yet. Open it on the other device first.</string>
+    <string name="devices_pair_detail">Type the code %1$s shows</string>
+    <string name="devices_paired_with">Paired with %1$s</string>
+    <string name="devices_wrong_code">That code didn\'t match. Check the other screen and try again.</string>
+    <string name="devices_pair_full">One of you already has 10 devices. Unlink one first.</string>
+    <string name="devices_pair_failed">Couldn\'t reach it. Make sure both are on the same Wi-Fi.</string>
+    <string name="devices_pair_outdated">That device runs an older ChordWave. Update it, then try the code again</string>
+
+    <!-- remote control mode -->
+    <string name="remote_controlling">Controlling %1$s</string>
+    <string name="remote_stop">Stop controlling</string>
+    <string name="remote_playing">Playing</string>
+    <string name="remote_paused">Paused</string>
+    <string name="remote_connecting">Asking what\'s on…</string>
+    <string name="remote_unreachable">Can\'t reach it right now. Is ChordWave open on it?</string>
+    <string name="remote_up_next">Up next</string>
+    <string name="remote_hand_over">Play this phone\'s queue on %1$s</string>
+    <string name="remote_queued_on">Added to the queue on %1$s</string>
+    <string name="remote_like">Like</string>
+    <string name="remote_add_to_playlist">Add to playlist</string>
+    <string name="remote_previous">Previous</string>
+    <string name="remote_play_pause">Play or pause</string>
+    <string name="remote_next">Next</string>
+    <string name="remote_remove_from_queue">Remove from the queue</string>
+
+    <!-- the link itself: notices, statuses and the player menu -->
+    <string name="tv_done">Done</string>
+    <string name="tv_cancel">Cancel</string>
+    <string name="tv_unlink">Unlink</string>
+    <string name="tv_link_channel">TV link</string>
+    <string name="tv_link_events_channel">TV sync</string>
+    <string name="tv_link_notice_connected">Connected to %1$s</string>
+    <string name="tv_link_notice_connected_detail">Your TV can sync and stream from this phone</string>
+    <string name="tv_link_notify">Tell me when the TV syncs</string>
+    <string name="tv_link_notify_detail">A short note when your TV connects and when it has your latest library</string>
+    <string name="tv_link_pairing">Linking…</string>
+    <string name="tv_link_status_connected">Connected to %1$s</string>
+    <string name="tv_link_status_connected_detail">Your library is in step</string>
+    <string name="tv_link_status_open">Open now</string>
+    <string name="tv_link_status_open_synced">Open now · synced %1$s</string>
+    <string name="tv_link_status_seen">Last open %1$s</string>
+    <string name="tv_link_status_waiting">Waiting for ChordWave to open on it</string>
+    <string name="tv_menu_control">Control %1$s</string>
+    <string name="tv_menu_next_sent">Lined up next on %1$s</string>
+    <string name="tv_menu_nothing_on">Nothing playing</string>
+    <string name="tv_menu_play_next_on">Play next on %1$s</string>
+    <string name="tv_menu_play_on">Play on %1$s</string>
+    <string name="tv_menu_sent">Playing on %1$s</string>
+    <string name="tv_menu_unreachable">Couldn\'t reach %1$s. Make sure ChordWave is open on it.</string>
+    <string name="tv_pair_address_hint">192.168.1.20</string>
+    <string name="tv_pair_sheet_address_detail">Type the address your TV shows under its code, then the code</string>
+    <string name="tv_pair_sheet_by_address">Link by address</string>
+    <string name="tv_pair_sheet_title">Link %1$s</string>
+</resources>

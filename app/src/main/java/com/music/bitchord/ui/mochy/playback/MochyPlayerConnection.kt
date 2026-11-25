@@ -86,6 +86,7 @@ import com.music.bitchord.playback.fromAutoplay
 import com.music.bitchord.playback.toSong
 import com.music.bitchord.ui.mochy.constants.InfiniteQueueKey
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
+import com.music.bitchord.ui.mochy.link.LinkPlayer
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntity
 import com.music.bitchord.ui.mochy.lyrics.LyricsSourceState
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
@@ -933,6 +934,8 @@ class MochyPlayerConnection(context: Context) {
     private var playQueueJob: Job? = null
 
     fun playQueue(queue: Queue) {
+        // while a paired device is being steered, queues picked here play there instead (batch 19)
+        if (LinkPlayer.queueInterceptor?.invoke(queue) == true) return
         val p = controller ?: return
         playQueueJob?.cancel()
         playQueueJob = scope.launch {
@@ -1008,6 +1011,7 @@ class MochyPlayerConnection(context: Context) {
     fun playNext(items: List<MediaItem>) {
         val p = controller ?: return
         if (items.isEmpty()) return
+        if (LinkPlayer.nextInterceptor?.invoke(items) == true) return
         p.addMediaItems((p.currentMediaItemIndex + 1).coerceAtLeast(0), items)
     }
 
@@ -1016,6 +1020,7 @@ class MochyPlayerConnection(context: Context) {
     fun addToQueue(items: List<MediaItem>) {
         val p = controller ?: return
         if (items.isEmpty()) return
+        if (LinkPlayer.queueEndInterceptor?.invoke(items) == true) return
         p.addMediaItems(items)
     }
 

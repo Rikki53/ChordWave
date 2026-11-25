@@ -20,6 +20,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- Saving a track to Music outlives the screen it was asked from. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Device integration: the link service keeps this phone reachable
+         for paired devices; boot restores it; android 17 asks before
+         talking to other devices on the wi-fi. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Karaoke remote on the LAN (NSD discovery listens for multicast),
@@ -457,6 +463,23 @@
             android:name=".karaoke.ai.KaraokeAiService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- Device integration: keeps this phone reachable for its paired
+             devices while ChordWave is closed, with a quiet notification.
+             Started by the app and by the boot receiver below only. -->
+        <service
+            android:name=".ui.mochy.link.phone.PhoneLinkService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <receiver
+            android:name=".ui.mochy.link.phone.PhoneLinkBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- The tap on a "new songs in this playlist" notification. See PlaylistSync. -->
         <receiver
