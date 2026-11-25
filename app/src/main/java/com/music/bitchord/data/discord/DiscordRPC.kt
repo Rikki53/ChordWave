@@ -68,6 +68,10 @@ class DiscordRPC(
         activityType: String = "listening",
         activityName: String = "",
         audioQuality: String? = null,
+        detailsTemplate: String = "",
+        stateTemplate: String = "",
+        largeTextTemplate: String = "",
+        smallTextTemplate: String = "",
     ) = runCatching {
         val currentTime = System.currentTimeMillis()
 
@@ -79,6 +83,17 @@ class DiscordRPC(
         } else {
             song.title
         }
+
+        // Presence text templates (batch 43): blank keeps the built-in lines.
+        val detailsLine = if (detailsTemplate.isBlank()) {
+            songTitleWithRate
+        } else {
+            val resolved = resolveVariables(detailsTemplate, song, audioQuality)
+            if (playbackSpeed != 1.0f) "$resolved [${String.format(Locale.ROOT, "%.2fx", playbackSpeed)}]" else resolved
+        }
+        val stateLine = if (stateTemplate.isBlank()) song.artist else resolveVariables(stateTemplate, song, audioQuality)
+        val largeTextLine = if (largeTextTemplate.isBlank()) audioQuality else resolveVariables(largeTextTemplate, song, audioQuality).ifBlank { null }
+        val smallTextLine = if (smallTextTemplate.isBlank()) null else resolveVariables(smallTextTemplate, song, audioQuality).ifBlank { null }
 
         val remainingDuration = durationMillis - currentPlaybackTimeMillis
         val adjustedRemainingDuration = (remainingDuration / playbackSpeed).toLong()
@@ -110,8 +125,8 @@ class DiscordRPC(
 
         setActivity(
             name = name,
-            details = songTitleWithRate,
-            state = song.artist,
+            details = detailsLine,
+            state = stateLine,
             detailsUrl = watchUrl(song),
             // Asked for at a size Discord's own card actually draws — the row
             // thumbnail our lists use is 160px and reads soft blown up to the
@@ -130,8 +145,8 @@ class DiscordRPC(
             // The card's optional third information line. Kept absent for
             // ordinary lossy streams so Discord only calls attention to a
             // measured premium format.
-            largeText = audioQuality,
-            smallText = null,
+            largeText = largeTextLine,
+            smallText = smallTextLine,
             buttons = if (buttonsList.isNotEmpty()) buttonsList else null,
             type = type,
             statusDisplayType = if (useDetails) StatusDisplayType.DETAILS else StatusDisplayType.STATE,
@@ -166,13 +181,14 @@ class DiscordRPC(
 
         /**
          * Resolves template variables in text.
-         * Supported: {song_name}, {artist_name}, {album_name}
+         * Supported: {song_name}, {artist_name}, {album_name}, {quality}
          */
-        fun resolveVariables(text: String, song: Song): String {
+        fun resolveVariables(text: String, song: Song, quality: String? = null): String {
             return text
                 .replace("{song_name}", song.title)
                 .replace("{artist_name}", song.artist)
                 .replace("{album_name}", song.albumName ?: "")
+                .replace("{quality}", quality ?: "")
         }
     }
 }

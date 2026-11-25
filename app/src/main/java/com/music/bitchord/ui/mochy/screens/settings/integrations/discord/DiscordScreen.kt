@@ -85,6 +85,10 @@ fun DiscordScreen(navigator: MochyNavigator) {
     val status by AppSettings.discordStatus.collectAsState()
     val activityType by AppSettings.discordActivityType.collectAsState()
     val activityName by AppSettings.discordActivityName.collectAsState()
+    val details by AppSettings.discordDetails.collectAsState()
+    val state by AppSettings.discordState.collectAsState()
+    val largeText by AppSettings.discordLargeText.collectAsState()
+    val smallText by AppSettings.discordSmallText.collectAsState()
     val button1Text by AppSettings.discordButton1Text.collectAsState()
     val button1Visible by AppSettings.discordButton1Visible.collectAsState()
     val button2Text by AppSettings.discordButton2Text.collectAsState()
@@ -174,6 +178,10 @@ fun DiscordScreen(navigator: MochyNavigator) {
                 status = status,
                 activityType = activityType,
                 activityName = activityName,
+                details = details,
+                state = state,
+                largeText = largeText,
+                smallText = smallText,
                 button1Text = button1Text,
                 button1Visible = button1Visible,
                 button2Text = button2Text,
@@ -280,6 +288,10 @@ private fun CustomizeSection(
     status: String,
     activityType: String,
     activityName: String,
+    details: String,
+    state: String,
+    largeText: String,
+    smallText: String,
     button1Text: String,
     button1Visible: Boolean,
     button2Text: String,
@@ -363,13 +375,13 @@ private fun CustomizeSection(
     DiscordSectionTitle("Strings customisation")
     DiscordNoticeCard(stringResource(R.string.discord_strings_note))
     Spacer(gap)
-    DiscordTextCard("Details string", "", {}, hint = "Song title", enabled = false)
+    DiscordTextCard("Details string", details, AppSettings::setDiscordDetails, hint = "{song_name}")
     Spacer(gap)
-    DiscordTextCard("State string", "", {}, hint = "Artist", enabled = false)
+    DiscordTextCard("State string", state, AppSettings::setDiscordState, hint = "{artist_name}")
     Spacer(gap)
-    DiscordTextCard("Large image hover text", "", {}, hint = "Audio quality line", enabled = false)
+    DiscordTextCard("Large image hover text", largeText, AppSettings::setDiscordLargeText, hint = "{quality}")
     Spacer(gap)
-    DiscordTextCard("Small image hover text", "", {}, hint = "Not sent", enabled = false)
+    DiscordTextCard("Small image hover text", smallText, AppSettings::setDiscordSmallText, hint = "{album_name}")
 
     DiscordSectionTitle("Image customisation")
     DiscordNoticeCard(stringResource(R.string.discord_images_note))

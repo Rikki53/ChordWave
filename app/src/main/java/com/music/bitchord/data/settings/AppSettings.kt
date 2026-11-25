@@ -973,6 +973,17 @@ object AppSettings {
     /** Overrides the "Listening to ___" line; empty means the app's own name. */
     val discordActivityName = MutableStateFlow("")
 
+    /**
+     * Presence text templates (batch 43, Mochy parity). Empty keeps the
+     * built-in lines: details = song title, state = artist, large hover =
+     * the audio-quality line, small hover = not sent. Variables:
+     * {song_name}, {artist_name}, {album_name}, {quality}.
+     */
+    val discordDetails = MutableStateFlow("")
+    val discordState = MutableStateFlow("")
+    val discordLargeText = MutableStateFlow("")
+    val discordSmallText = MutableStateFlow("")
+
     val discordButton1Text = MutableStateFlow("")
     val discordButton1Visible = MutableStateFlow(true)
     val discordButton2Text = MutableStateFlow("")
@@ -1420,6 +1431,10 @@ object AppSettings {
         discordStatus.value = prefs.getString(KEY_DISCORD_STATUS, "online").orEmpty()
         discordActivityType.value = prefs.getString(KEY_DISCORD_ACTIVITY_TYPE, "listening").orEmpty()
         discordActivityName.value = prefs.getString(KEY_DISCORD_ACTIVITY_NAME, "").orEmpty()
+        discordDetails.value = prefs.getString(KEY_DISCORD_DETAILS, "").orEmpty()
+        discordState.value = prefs.getString(KEY_DISCORD_STATE, "").orEmpty()
+        discordLargeText.value = prefs.getString(KEY_DISCORD_LARGE_TEXT, "").orEmpty()
+        discordSmallText.value = prefs.getString(KEY_DISCORD_SMALL_TEXT, "").orEmpty()
         discordButton1Text.value = prefs.getString(KEY_DISCORD_BUTTON_1_TEXT, "").orEmpty()
         discordButton1Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_1_VISIBLE, true)
         discordButton2Text.value = prefs.getString(KEY_DISCORD_BUTTON_2_TEXT, "").orEmpty()
@@ -2480,6 +2495,26 @@ object AppSettings {
         prefs.edit().putString(KEY_DISCORD_ACTIVITY_NAME, value).apply()
     }
 
+    fun setDiscordDetails(value: String) {
+        discordDetails.value = value
+        prefs.edit().putString(KEY_DISCORD_DETAILS, value).apply()
+    }
+
+    fun setDiscordState(value: String) {
+        discordState.value = value
+        prefs.edit().putString(KEY_DISCORD_STATE, value).apply()
+    }
+
+    fun setDiscordLargeText(value: String) {
+        discordLargeText.value = value
+        prefs.edit().putString(KEY_DISCORD_LARGE_TEXT, value).apply()
+    }
+
+    fun setDiscordSmallText(value: String) {
+        discordSmallText.value = value
+        prefs.edit().putString(KEY_DISCORD_SMALL_TEXT, value).apply()
+    }
+
     fun setDiscordButton1Text(value: String) {
         discordButton1Text.value = value
         prefs.edit().putString(KEY_DISCORD_BUTTON_1_TEXT, value).apply()
@@ -2958,6 +2993,10 @@ object AppSettings {
     private const val KEY_DISCORD_STATUS = "discord_status"
     private const val KEY_DISCORD_ACTIVITY_TYPE = "discord_activity_type"
     private const val KEY_DISCORD_ACTIVITY_NAME = "discord_activity_name"
+    private const val KEY_DISCORD_DETAILS = "discord_details"
+    private const val KEY_DISCORD_STATE = "discord_state"
+    private const val KEY_DISCORD_LARGE_TEXT = "discord_large_text"
+    private const val KEY_DISCORD_SMALL_TEXT = "discord_small_text"
     private const val KEY_DISCORD_BUTTON_1_TEXT = "discord_button_1_text"
     private const val KEY_DISCORD_BUTTON_1_VISIBLE = "discord_button_1_visible"
     private const val KEY_DISCORD_BUTTON_2_TEXT = "discord_button_2_text"

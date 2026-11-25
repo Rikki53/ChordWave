@@ -100,6 +100,7 @@ import com.music.bitchord.ui.mochy.player.models.TrackInfo
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.utils.resize
 import timber.log.Timber
+import com.music.bitchord.ui.mochy.screens.settings.rememberFloatingLyricsSwitch
 
 /**
  * @param fromLyrics true when the menu was opened from the lyrics page. The lyrics tools are only
@@ -593,24 +594,15 @@ private fun KeepScreenOnRow() {
 // the line being sung floating over other apps once mochy is out of sight
 @Composable
 private fun FloatingLyricsRow() {
-    // STUB (NEEDS.md §(b) F1): CW has no floating-lyrics engine. The switch
-    // stays off and logs instead of promising an overlay that never appears.
-    // Mochy read floating.rememberFloatingLyricsSwitch().
+    // Batch 43: wired to the real switch (batch 32's FloatingLyricsService),
+    // the same one Now playing settings uses.
+    val (floatingLyrics, onFloatingLyricsChange) = rememberFloatingLyricsSwitch()
     MenuRow(
         icon = R.drawable.lyrics,
         title = stringResource(R.string.settings_floating_lyrics),
-        onClick = {
-            // TODO(phase3-adapter): floating lyrics engine (NEEDS.md §(b) F1).
-            Timber.w("PlayerActionMenu: floating lyrics not available (no engine yet)")
-        },
+        onClick = { onFloatingLyricsChange(!floatingLyrics) },
         trailing = {
-            AppSwitch(
-                checked = false,
-                onCheckedChange = {
-                    // TODO(phase3-adapter): floating lyrics engine (NEEDS.md §(b) F1).
-                    Timber.w("PlayerActionMenu: floating lyrics not available (no engine yet)")
-                },
-            )
+            AppSwitch(checked = floatingLyrics, onCheckedChange = onFloatingLyricsChange)
         },
     )
 }

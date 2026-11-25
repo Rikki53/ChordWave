@@ -76,7 +76,7 @@
     <!-- REWRITTEN: CW signs in with the account token, adapted from CW's own discord_token_warning. -->
     <string name="discord_permissions_note">ChordWave signs in with your account token, which stays encrypted on this device and is sent only to Discord. It grants access to your full account, and account automation violates Discord\'s terms — use it only if you accept that risk. ChordWave only reads your name and picture, and shows what you\'re playing.</string>
     <!-- NEW: replaces "Empty a box to hide that line" — the text lines are filled in by CW. -->
-    <string name="discord_strings_note">ChordWave fills these lines in for you.</string>
+    <string name="discord_strings_note">Use {song_name}, {artist_name}, {album_name} and {quality}. Leave a line empty for the built-in one.</string>
     <string name="discord_use_details">Use details instead of state</string>
     <!-- NEW -->
     <string name="discord_use_details_desc">Shows the song title as the main line of the status instead of the activity name.</string>
