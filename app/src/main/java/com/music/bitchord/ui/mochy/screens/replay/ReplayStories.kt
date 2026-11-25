@@ -225,32 +225,54 @@ fun ReplayStories(
     // every one — see [storyHue].
     val palette = rememberArtworkColors(artwork).rotated(storyHue(page))
 
-    // The system bars are kept outside the frame rather than padded for
-    // inside it: the card is a fixed canvas and its own margins are part of
-    // the design, so an inset applied within would move the headline on one
-    // phone and not another.
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-        contentAlignment = Alignment.Center,
-    ) {
-        StoryFrame {
-            Stage(
-                pages = pages,
-                pagerState = pagerState,
-                summary = summary,
-                current = current,
-                progress = progress,
-                onHold = { held = it },
-                onStep = ::step,
-                onClose = onClose,
-                onShare = onShare,
-                palette = palette,
-                page = page,
-            )
+    // The backdrop is the whole window, drawn behind the system bars: the
+    // mesh and its scrim run to the screen's edges, so there is no black
+    // band above or below the card (batch 13). The card itself is still a
+    // fixed 9:16 canvas — the system bars are kept outside the frame rather
+    // than padded for inside it, so an inset applied within would move the
+    // headline on one phone and not another; the insets only place the
+    // frame inside the safe area.
+    Box(Modifier.fillMaxSize().background(Color(0xFF17171A))) {
+        // The soft colour behind everything, drawn from whatever the card is
+        // about and rotated per card. Keyed on the page as well as the
+        // artwork, or a card sharing a cover with the one before it would
+        // not crossfade at all.
+        MeshGradientBackground(palette = palette, trackKey = page.name, animated = false)
+        // Enough ink for white type, weighted to the top where the headline
+        // sits and to the foot where the controls do. Lighter than it looks
+        // like it should be, because the mesh carries a vertical scrim of
+        // its own and the two stack.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color.Black.copy(alpha = 0.45f),
+                        0.35f to Color.Black.copy(alpha = 0.10f),
+                        1.0f to Color.Black.copy(alpha = 0.34f),
+                    ),
+                ),
+        )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.Center,
+        ) {
+            StoryFrame {
+                Stage(
+                    pages = pages,
+                    pagerState = pagerState,
+                    summary = summary,
+                    current = current,
+                    progress = progress,
+                    onHold = { held = it },
+                    onStep = ::step,
+                    onClose = onClose,
+                    onShare = onShare,
+                )
+            }
         }
     }
 }
@@ -325,7 +347,7 @@ private fun StoryFrame(content: @Composable () -> Unit) {
     }
 }
 
-/** The story card itself, inside whatever box [StoryFrame] gave it. */
+/** The story card itself, inside whatever box [StoryFrame] gave it. Its backdrop is the window behind it (see [ReplayStories]), so this stays transparent. */
 @Composable
 private fun Stage(
     pages: List<ReplayStoryPage>,
@@ -337,13 +359,10 @@ private fun Stage(
     onStep: (Boolean) -> Unit,
     onClose: () -> Unit,
     onShare: (ReplayStoryPage) -> Unit,
-    palette: MeshPalette,
-    page: ReplayStoryPage,
 ) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color(0xFF17171A))
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
@@ -363,27 +382,10 @@ private fun Stage(
                 )
             },
     ) {
-        // The soft colour behind everything, drawn from whatever the card is
-        // about and rotated per card. Keyed on the page as well as the
-        // artwork, or a card sharing a cover with the one before it would
-        // not crossfade at all.
-        MeshGradientBackground(palette = palette, trackKey = page.name, animated = false)
-        // Enough ink for white type, weighted to the top where the headline
-        // sits and to the foot where the controls do. Lighter than it looks
-        // like it should be, because the mesh carries a vertical scrim of
-        // its own and the two stack.
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.45f),
-                        0.35f to Color.Black.copy(alpha = 0.10f),
-                        1.0f to Color.Black.copy(alpha = 0.34f),
-                    ),
-                ),
-        )
-
+        // The backdrop is the window behind this card (see [ReplayStories]):
+        // the mesh and its scrim already run to the screen's edges there,
+        // so drawing them again here would put a second, differently-sized
+        // mesh over the first and show a seam at the frame's edge.
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
             StoryPage(page = pages[index], summary = summary, onShare = onShare)
         }
