@@ -167,6 +167,7 @@ import com.music.bitchord.ui.mochy.screens.listen.ListenTogetherScreen
 import com.music.bitchord.ui.mochy.screens.profile.ProfileScreen
 import com.music.bitchord.ui.mochy.screens.radio.RadioScreen
 import com.music.bitchord.ui.mochy.screens.replay.ReplayScreen
+import com.music.bitchord.ui.mochy.screens.stats.StatsScreen
 import com.music.bitchord.ui.mochy.screens.replay.ReplayStoriesHost
 import com.music.bitchord.ui.mochy.screens.search.NewReleaseScreen
 import com.music.bitchord.ui.mochy.screens.settings.CustomisationScreen
@@ -941,6 +942,9 @@ private fun DetailContent(
         // stays as the safety net for a stacked "radio" route.
         route == "radio" -> RadioScreen(navigator = navigator)
         route == "replay" -> ReplayScreen(navigator = navigator)
+        // Mochy's Stats page (batch 39): monthly/yearly listening stats.
+        // Reached from Profile's "View Stats"; Replay lives in the Library.
+        route == "stats" -> StatsScreen(navigator = navigator)
         route == "karaoke_remote" -> KaraokeRemoteScreen(navigator = navigator)
         route == "audio_lab" -> AudioLabScreen(navigator = navigator)
         route == "audio_fx" -> AudioFxScreen(navigator = navigator)

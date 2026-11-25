@@ -1,6 +1,6 @@
 // ProfileScreen.kt
 //
-// The profile page: greeting, ID card, listening time (into Replay),
+// The profile page: greeting, ID card, listening time (into Stats),
 // version & about, contributors, and the way into Settings.
 //
 // Ported from Mochy Music (GPL-3.0): ui/screens/settings/ProfileScreen.kt —
@@ -9,7 +9,8 @@
 // column. The card opens the edit sheet on tap instead of morphing.
 // ListeningTimeCard's odometer figures are plain text (OdometerNumber was
 // never ported to CW). The Discord card is NOT ported — that server is
-// Mochy's own. "View Stats" goes to ChordWave's Replay, not a Stats page.
+// Mochy's own. "View Stats" goes to the Stats page (batch 39); Replay has
+// its own tab in the Library.
 
 package com.music.bitchord.ui.mochy.screens.profile
 
@@ -234,7 +235,7 @@ fun ProfileScreen(
             )
         }
         Spacer(Modifier.height(24.dp))
-        ListeningTimeCard(totalListeningMs, onViewStats = { navigator.navigate("replay") })
+        ListeningTimeCard(totalListeningMs, onViewStats = { navigator.navigate("stats") })
         Spacer(Modifier.height(16.dp))
         val hasUpdate = updateState is UpdateState.Available
         VersionCard(

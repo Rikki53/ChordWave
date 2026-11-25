@@ -415,6 +415,178 @@ object ListeningStats {
         ReplayYearData(year, summary, dayMs, monthTops, busiestDaySong)
     }
 
+    /** First day anything was played, for the Stats timeline. */
+    suspend fun firstPlayDate(): LocalDate? = withContext(Dispatchers.IO) {
+        flushAndAwait()
+        val first = allMonths().firstOrNull() ?: return@withContext null
+        val day = bucketsOf(first)
+            .flatMap { it.days.entries }
+            .filter { it.value > 0 }
+            .minOfOrNull { it.key }
+        // A month recorded before days were kept has no day entries; its
+        // first day is still the honest floor for the timeline.
+        day?.let { first.atDay(it.coerceIn(1, first.lengthOfMonth())) } ?: first.atDay(1)
+    }
+
+    /**
+     * One calendar month or year in full, for the Stats page.
+     *
+     * Apart from [summary] because the Stats ruler names any month or year
+     * since the first play, not just the current one. The merge is the
+     * Replay's own ([MergedBucket]), so a month's Stats and its Replay
+     * agree; only the rankings differ, because the Stats page orders songs
+     * by plays first, the way Mochy's page does. Not cached: the page asks
+     * once per period picked, a dozen month files at most.
+     *
+     * Peers are merged in exactly as [summary] does.
+     */
+    suspend fun stats(range: StatsRange): StatsSummary = withContext(Dispatchers.IO) {
+        flushAndAwait()
+        val today = LocalDate.now()
+        val months = when (range.kind) {
+            StatsRange.Kind.Month -> listOf(YearMonth.of(range.year, range.month))
+            StatsRange.Kind.Year -> (1..12).map { YearMonth.of(range.year, it) }
+        }
+        val merged = MergedBucket()
+        months.forEach { month -> bucketsOf(month).forEach(merged::add) }
+
+        // Mochy's order: most played first, then most listened.
+        val songOrder = compareByDescending<StatsSong> { it.plays }.thenByDescending { it.playTimeMs }
+        val allSongs = merged.tracks.values.map { entry ->
+            StatsSong(
+                id = entry.id,
+                title = entry.title,
+                artistName = entry.artist,
+                artistThumbnailUrl = primaryArtist(entry.artist)?.let { ArtistFacts.imageFor(it) } ?: entry.art,
+                thumbnailUrl = entry.art,
+                playTimeMs = entry.ms,
+                plays = entry.plays,
+            )
+        }.sortedWith(songOrder)
+
+        // Each artist's own best song in the period, grouped by the lead
+        // credit the buckets file artists under.
+        val songsByArtist = allSongs.groupBy { primaryArtist(it.artistName)?.lowercase(Locale.ROOT) }
+        val topArtists = merged.artists.values
+            .sortedWith(compareByDescending<NameEntry> { it.ms }.thenByDescending { it.plays })
+            .take(StatsSummary.MaxArtists)
+            .map { entry ->
+                StatsArtist(
+                    id = entry.id ?: entry.name,
+                    name = entry.name,
+                    thumbnailUrl = ArtistFacts.imageFor(entry.name) ?: entry.art,
+                    playTimeMs = entry.ms,
+                    plays = entry.plays,
+                    topSong = songsByArtist[entry.name.lowercase(Locale.ROOT)]?.firstOrNull(),
+                )
+            }
+
+        val dayMs = HashMap<LocalDate, Long>()
+        merged.days.forEach { (dateStr, ms) ->
+            val date = runCatching { LocalDate.parse(dateStr) }.getOrNull() ?: return@forEach
+            dayMs[date] = (dayMs[date] ?: 0L) + ms
+        }
+        val weekday = LongArray(7)
+        val buckets = LongArray(range.bucketCount)
+        dayMs.forEach { (date, ms) ->
+            weekday[date.dayOfWeek.value - 1] += ms
+            val bucket = if (range.kind == StatsRange.Kind.Month) date.dayOfMonth - 1 else date.monthValue - 1
+            if (bucket in buckets.indices) buckets[bucket] += ms
+        }
+
+        val activeDays = dayMs.filterValues { it > 0 }.keys.sorted()
+        val habits = if (activeDays.isEmpty()) {
+            null
+        } else {
+            var streak = 0
+            var best = 0
+            var previous: LocalDate? = null
+            for (day in activeDays) {
+                streak = if (previous != null && day == previous.plusDays(1)) streak + 1 else 1
+                best = maxOf(best, streak)
+                previous = day
+            }
+            val lastDay = minOf(range.endExclusive.minusDays(1), maxOf(today, range.start))
+            val biggest = dayMs.maxByOrNull { it.value }
+            StatsHabits(
+                activeDays = activeDays.size,
+                elapsedDays = (lastDay.toEpochDay() - range.start.toEpochDay() + 1).toInt().coerceAtLeast(1),
+                longestStreak = best,
+                biggestDay = biggest?.key,
+                biggestDayMs = biggest?.value ?: 0L,
+            )
+        }
+
+        // A song counts as new when no earlier month holds it. Buckets are
+        // monthly, so "before" is month-granular here where Mochy's event
+        // table is exact — the same answer except for a song first played
+        // earlier in this very period's first month, which counts as new
+        // either way.
+        val earlierIds = allMonths()
+            .filter { it < months.first() }
+            .flatMap { bucketsOf(it) }
+            .flatMap { it.tracks }
+            .mapTo(HashSet()) { it.id }
+        val newSongs = allSongs.filter { it.id !in earlierIds }
+
+        // The song on repeat: the most plays of one song on one day, from
+        // the per-day counts tracks keep. Months recorded before tracks
+        // kept them have none, and the card simply doesn't appear.
+        var repeat: StatsRepeatDay? = null
+        for (entry in merged.tracks.values) {
+            for ((dateStr, dayStats) in entry.days) {
+                if (dayStats.plays < 3 || dayStats.plays <= (repeat?.plays ?: 0)) continue
+                val date = runCatching { LocalDate.parse(dateStr) }.getOrNull() ?: continue
+                val song = allSongs.firstOrNull { it.id == entry.id } ?: continue
+                repeat = StatsRepeatDay(song, date, dayStats.plays)
+            }
+        }
+
+        // The period before, held to the same stretch when this one is
+        // still running, or every month would look like a slump.
+        val previous = range.previous()
+        val previousMonths = when (previous.kind) {
+            StatsRange.Kind.Month -> listOf(YearMonth.of(previous.year, previous.month))
+            StatsRange.Kind.Year -> (1..12).map { YearMonth.of(previous.year, it) }
+        }
+        val previousMerged = MergedBucket()
+        previousMonths.forEach { month -> bucketsOf(month).forEach(previousMerged::add) }
+        val running = !today.isBefore(range.start) && today.isBefore(range.endExclusive)
+        val previousEnd = if (running) {
+            minOf(
+                previous.start.plusDays(java.time.temporal.ChronoUnit.DAYS.between(range.start, today) + 1),
+                range.start,
+            )
+        } else {
+            range.start
+        }
+        val previousTotal = previousMerged.days.entries.sumOf { (dateStr, ms) ->
+            val date = runCatching { LocalDate.parse(dateStr) }.getOrNull() ?: return@sumOf 0L
+            if (date < previousEnd) ms else 0L
+        }.takeIf { it > 0 }
+
+        StatsSummary(
+            range = range,
+            totalMs = allSongs.sumOf { it.playTimeMs },
+            plays = allSongs.sumOf { it.plays },
+            songCount = allSongs.size,
+            artistCount = merged.artists.size,
+            albumCount = foldAlbumsByTitle(merged.albums.values).size,
+            topSongs = allSongs.take(StatsSummary.MaxSongs),
+            topArtists = topArtists,
+            weekdayMs = weekday.toList(),
+            hourMs = merged.hours.toList(),
+            bucketMs = buckets.toList(),
+            habits = habits,
+            newSongs = newSongs.take(10),
+            newSongCount = newSongs.size,
+            newMs = newSongs.sumOf { it.playTimeMs },
+            repeat = repeat,
+            previousTotalMs = previousTotal,
+            previousIsPartial = running,
+        )
+    }
+
     /** This device's copy of [month], then every other device's. See [summary]. */
     private fun bucketsOf(month: YearMonth): List<StoredBucket> =
         listOfNotNull(read(month.toString())) + PeerListening.buckets(month.toString())

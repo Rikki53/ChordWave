@@ -127,6 +127,10 @@ fun LibraryHomeScreen(
     }
     LaunchedEffect(historyViewModel) { historyViewModel?.load() }
 
+    // the Replay tab's state, only while it's open (batch 39): the same state
+    // the `replay` route draws, so the tab and the page never disagree
+    val replayPageState = if (tab == LibraryTab.Replay) rememberLibraryReplayState(navigator) else null
+
     // read inside the Cached and History tabs' rows only, so playback changes don't recompose this screen
     val nowPlaying = playerConnection?.mediaMetadata?.collectAsState()
     val isPlaying = playerConnection?.isEffectivelyPlaying?.collectAsState()
@@ -279,6 +283,7 @@ fun LibraryHomeScreen(
                         onRetry = viewModel::load,
                         onSignIn = { navigator.navigate("youtube_login") },
                         onPlayRelease = onPlayRelease,
+                        onOpenReplayTab = { viewModel.selectTab(LibraryTab.Replay) },
                         navigator = navigator,
                     )
                 }
@@ -327,6 +332,8 @@ fun LibraryHomeScreen(
                 }
 
                 LibraryTab.History -> libraryHistoryTab(historyEvents, historyLoaded, nowPlaying, isPlaying, playerConnection, navigator)
+
+                LibraryTab.Replay -> libraryReplayTab(replayPageState, revealSeen)
 
                 LibraryTab.Genres -> libraryGenresTab(genres, navigator)
 
@@ -411,6 +418,7 @@ private fun LazyListScope.libraryAllTab(
     onRetry: () -> Unit,
     onSignIn: () -> Unit,
     onPlayRelease: (SavedCollection) -> Unit,
+    onOpenReplayTab: () -> Unit,
     navigator: MochyNavigator,
 ) {
     // Even in a library with nothing in it - that is when it matters most. Opens the import sheet,
@@ -577,8 +585,9 @@ private fun LazyListScope.libraryAllTab(
     }
 
     // ChordWave-only pages with no shelf of their own: your year in
-    // music, and live radio. A Home tile for Radio is the nicer home
-    // (Phase 6 polish); the rows here keep both reachable meanwhile.
+    // music, and live radio. Replay has its own tab now (batch 39), so its
+    // row switches to it; a Home tile for Radio is the nicer home
+    // (Phase 6 polish); the row here keeps it reachable meanwhile.
     item(key = "more_pages") {
         Spacer(modifier = Modifier.height(16.dp))
         LibraryRule()
@@ -587,7 +596,7 @@ private fun LazyListScope.libraryAllTab(
             title = stringResource(R.string.replay),
             subtitle = stringResource(R.string.replay_subtitle),
             thumbnailUrl = null,
-            onClick = { navigator.navigate("replay") },
+            onClick = onOpenReplayTab,
             onLongClick = {},
         )
         LibraryListRow(

@@ -30,6 +30,7 @@
     <string name="library_tab_genres">Genres</string>
     <string name="library_tab_imported">Imported</string>
     <string name="library_tab_local">Local</string>
+    <string name="library_tab_replay">Replay</string>
     <string name="lib_import_still_running">An import is still running. Try again once it\'s done.</string>
     <string name="lib_local_no_access">ChordWave can\'t see your music without access</string>
     <string name="lib_local_no_new_songs">No new songs in your music folders</string>

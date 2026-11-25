@@ -1,4 +1,4 @@
-// Modern (Mochy-style) restyle of ChordWave's Replay page.
+// Modern (Mochy-style) Replay page.
 //
 // The engine is untouched and reused as-is: ReplayState / rememberReplayState,
 // ReplaySummary and every helper in ui/replay/ReplayModel.kt. This file only
@@ -8,11 +8,20 @@
 // MochyNavigator. Classic ui/replay/ReplayScreen.kt is kept and still hosts
 // the Classic mode; nothing here edits it.
 //
-// Route: `replay` (host wiring in NEEDS.md §1).
+// Route: `replay` (host wiring in NEEDS.md §1). The same content also fills
+// the Library's Replay tab (batch 39): [rememberReplayPageState] owns the
+// state and [replayItems] emits the page into whichever LazyColumn hosts
+// it — the route's own, or the Library scaffold's. Batch 39 also unified
+// the look with the rest of Modern: flat Mochy cards on black (the artwork
+// mesh wash is gone), Inter typography throughout, cascade reveals, and a
+// collapsing glass header on the route like Home's and Stats'.
 package com.music.bitchord.ui.mochy.screens.replay
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,7 +43,6 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,12 +57,12 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,12 +75,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,14 +102,20 @@ import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.data.stats.ReplaySummary
 import com.music.bitchord.ui.MainViewModel
-import com.music.bitchord.ui.player.MeshGradientBackground
-import com.music.bitchord.ui.player.rememberArtworkColors
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
+import com.music.bitchord.ui.mochy.component.BlurDirection
+import com.music.bitchord.ui.mochy.component.BlurEffectCache
 import com.music.bitchord.ui.mochy.component.BoneColor
 import com.music.bitchord.ui.mochy.component.ChipsRow
+import com.music.bitchord.ui.mochy.component.FlatBarScrimAlpha
+import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.ItemThumbnail
 import com.music.bitchord.ui.mochy.component.LocalMenuState
+import com.music.bitchord.ui.mochy.component.ProgressiveGlassBackground
+import com.music.bitchord.ui.mochy.component.RevealSeenState
 import com.music.bitchord.ui.mochy.component.TopToaster
+import com.music.bitchord.ui.mochy.component.glassRoot
+import com.music.bitchord.ui.mochy.component.rememberProgressiveBlur
 import com.music.bitchord.ui.mochy.component.rememberRevealSeenState
 import com.music.bitchord.ui.mochy.component.revealOnAppear
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
@@ -105,10 +124,13 @@ import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
 import com.music.bitchord.ui.mochy.player.menu.SongMenu
+import com.music.bitchord.ui.mochy.theme.InterFontFamily
+import com.music.bitchord.ui.mochy.utils.stableSystemBars
 import com.music.bitchord.ui.replay.InitialTile
 import com.music.bitchord.ui.replay.RankBadge
 import com.music.bitchord.ui.replay.ReplayHeroCard
 import com.music.bitchord.ui.replay.ReplayRow
+import com.music.bitchord.ui.replay.ReplayState
 import com.music.bitchord.ui.replay.ReplayStoryPage
 import com.music.bitchord.ui.replay.albumRows
 import com.music.bitchord.ui.replay.artistRows
@@ -121,64 +143,72 @@ import com.music.bitchord.ui.replay.localizedLabel
 import com.music.bitchord.ui.replay.localizedTab
 import com.music.bitchord.ui.replay.rememberReplayState
 import com.music.bitchord.ui.replay.songRows
+import com.music.bitchord.ui.theme.AccentMint
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+// The Modern page colours, the same values the Stats page and Home draw with.
+private val ReplayCard = Color(0xFF0F0F0F)
+private val ReplayChipBg = Color(0xFF2A2A2A)
+private val ReplayTile = Color(0xFF1A1A1A)
+private val ReplayInkMuted = Color(0xFF7A7A7A)
+private val ReplayPagePadding = 20.dp
+
+private fun replayText(
+    size: Float,
+    weight: FontWeight = FontWeight.Bold,
+    color: Color = Color.White,
+    tracking: Float = -0.02f * size,
+) = TextStyle(fontFamily = InterFontFamily, fontWeight = weight, fontSize = size.sp, letterSpacing = tracking.sp, color = color)
+
 /**
- * The Replay page, Modern style: four headline cards, four charts, stories
- * and a shareable poster — the same numbers as Classic, drawn the Mochy way.
+ * Everything the Replay page needs, hoisted out of the screen so the route
+ * and the Library tab draw one page from one state. Playback reads stay
+ * lambdas, so a track change only recomposes the row that reads them.
+ */
+internal class ReplayPageState(
+    val replayState: ReplayState,
+    val setPeriod: (ReplayPeriod) -> Unit,
+    val holder: String,
+    val nowPlayingId: () -> String?,
+    val isPlayingNow: () -> Boolean,
+    val onCardClick: (ReplayStoryPage) -> Unit,
+    val onPlayReplay: () -> Unit,
+    val onShare: (ReplayStoryPage?) -> Unit,
+    val playSong: (CwSong) -> Unit,
+    val openSongMenu: (CwSong) -> Unit,
+    val openArtist: (String?, String) -> Unit,
+    val openAlbum: (String?, String, String?) -> Unit,
+) {
+    val summary: ReplaySummary? get() = replayState.summary
+}
+
+/**
+ * The Replay's state, owned by whichever host shows it (the `replay` route
+ * or the Library tab). Null while the player service isn't bound yet.
  *
- * The state is hoisted nowhere: [rememberReplayState] is called here with
- * `active = true`, because this screen is only composed while Replay is open
- * (Classic hoists it to MainActivity because the Library cards read the same
- * numbers; the Modern Library has no Replay cards yet — see NEEDS.md §4).
- * The period still survives rotation/back-stack trips via the rememberSaveable
- * inside [rememberReplayState].
- *
- * Stories are a full-screen overlay owned by this screen (not a route), the
- * way Classic hosts them as activity state: back closes the story first,
- * then the page.
+ * Stories are a full-screen overlay owned here (not a route), the way
+ * Classic hosts them as activity state: back closes the story first, then
+ * the page.
  */
 @Composable
-fun ReplayScreen(
+internal fun rememberReplayPageState(
     navigator: MochyNavigator,
-    landingPage: ReplayStoryPage = ReplayStoryPage.INTRO,
     mainViewModel: MainViewModel = viewModel(),
-) {
+): ReplayPageState? {
     val context = LocalContext.current
     val (replayState, setPeriod) = rememberReplayState(active = true, pageOpen = true)
     val account by mainViewModel.account.collectAsState()
     val holder = account?.name.orEmpty()
-    val playerConnection = LocalPlayerConnection.current ?: return
+    val playerConnection = LocalPlayerConnection.current ?: return null
     val menuState = LocalMenuState.current
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val isPlaying by playerConnection.isEffectivelyPlaying.collectAsState()
-    val listState = rememberLazyListState()
-    val revealSeen = rememberRevealSeenState()
 
     var storyPage by remember { mutableStateOf<ReplayStoryPage?>(null) }
-
     val summary = replayState.summary
-    val leadArtwork = summary?.songs?.firstOrNull()?.song?.thumbnailUrl
-    val palette = rememberArtworkColors(leadArtwork)
-
-    // Library cards open this page at the chart they summarise. Once only
-    // per opening — back from an artist/album opened off this page must not
-    // throw away the scroll position. Same math as Classic (item order is
-    // identical: heading, cards, play row, then the charts).
-    var landed by rememberSaveable(landingPage, replayState.period) { mutableStateOf(false) }
-    LaunchedEffect(landingPage, replayState.period, summary == null) {
-        if (landed) return@LaunchedEffect
-        val target = when {
-            landingPage == ReplayStoryPage.INTRO || landingPage == ReplayStoryPage.MINUTES -> 0
-            summary == null || summary.isEmpty -> 0
-            else -> replayChartIndex(summary, landingPage)
-        }
-        listState.scrollToItem(target)
-        if (summary != null) landed = true
-    }
 
     /** Opens the share sheet for one story card, or the whole Replay when null. */
     fun openShare(page: ReplayStoryPage?) {
@@ -197,10 +227,10 @@ fun ReplayScreen(
     /**
      * Plays a chart song the way Classic does: the song itself, then a
      * station off it ([YtMusicRepository.radio]) — through the Modern player
-     * path ([MochyPlayerConnection.playQueue] with a [ListQueue] of
-     * [toMediaItem] items). A radio that comes back empty still plays the
-     * song on its own rather than failing the tap; that fallback is logged,
-     * not silent.
+     * path ([com.music.bitchord.ui.mochy.playback.MochyPlayerConnection.playQueue]
+     * with a [ListQueue] of [toMediaItem] items). A radio that comes back
+     * empty still plays the song on its own rather than failing the tap;
+     * that fallback is logged, not silent.
      */
     fun playSong(song: CwSong) {
         if (playerConnection.player == null) {
@@ -264,7 +294,7 @@ fun ReplayScreen(
     BackHandler(enabled = story != null) { storyPage = null }
 
     // Stories are drawn by the host above the app chrome (see
-    // ReplayStoriesHost): this screen only decides when they open, and
+    // ReplayStoriesHost): this state only decides when they open, and
     // the host draws them. The clock pauses while the share sheet is up,
     // or the card being sent would have moved on by the time an app was
     // picked — the host reads that off the menu state itself.
@@ -278,193 +308,139 @@ fun ReplayScreen(
     }
     DisposableEffect(Unit) { onDispose { ReplayStoriesOverlay.close() } }
 
-    Box(Modifier.fillMaxSize()) {
-        MeshGradientBackground(palette = palette, trackKey = leadArtwork, animated = false)
-        // Most of the mesh goes back under ink: a page of ranked lists
-        // needs far more separation than the player it was built for.
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = 0.30f),
-                            Color.Black.copy(alpha = 0.72f),
-                            Color.Black.copy(alpha = 0.88f),
-                        ),
-                    ),
-                ),
-        )
-
-        val topSongs = stringResource(R.string.top_songs)
-        val topArtists = stringResource(R.string.top_artists)
-        val topAlbums = stringResource(R.string.top_albums)
-        val topGenres = stringResource(R.string.top_genres)
-
-        // One chart: title, ranked rows, trailing gap. Local so it captures
-        // the player state and the reveal state without a dozen parameters.
-        fun LazyListScope.chart(
-            key: String,
-            title: String,
-            rows: List<ReplayRow>,
-            circular: Boolean = false,
-            onClick: (Int) -> Unit,
-            onLongClick: (Int) -> Unit = {},
-        ) {
-            if (rows.isEmpty()) return
-            item("$key-title") { SectionTitle(title) }
-            items(rows, key = { "$key-${it.key}" }) { row ->
-                val active = key == "songs" && row.key == mediaMetadata?.id
-                ReplayChartRow(
-                    row = row,
-                    circular = circular,
-                    isActive = active,
-                    isPlaying = active && isPlaying,
-                    modifier = Modifier.revealOnAppear(
-                        key = "replay-$key-${row.key}",
-                        seenState = revealSeen,
-                    ),
-                    onClick = { onClick(row.rank - 1) },
-                    onLongClick = { onLongClick(row.rank - 1) },
-                )
-            }
-            item("$key-gap") { Spacer(Modifier.height(20.dp)) }
-        }
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = LocalPlayerAwareWindowInsets.current
-                .only(WindowInsetsSides.Bottom)
-                .union(WindowInsets.ime)
-                .asPaddingValues(),
-        ) {
-            item("heading") {
-                Heading(
-                    statePeriod = replayState.period,
-                    label = summary?.localizedLabel(context)
-                        ?: replayState.period.localizedTab(context),
-                    onPeriodChange = setPeriod,
-                    showShare = summary != null && !summary.isEmpty,
-                    onBack = { navigator.popBackStack() },
-                    onShare = { openShare(null) },
-                )
-            }
-
-            when {
-                replayState.loading && summary == null -> item("loading") {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(64.dp),
-                        Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(color = Color.White.copy(alpha = 0.6f))
-                    }
-                }
-                summary == null || summary.isEmpty -> item("empty") {
-                    EmptyReplay(replayState.period)
-                }
-                else -> {
-                    item("cards") {
-                        MochyReplayCardRow(
-                            cards = summary.cards(context),
-                            holder = holder,
-                            memberSince = replayState.memberSince,
-                            onCardClick = { storyPage = it },
-                        )
-                    }
-                    item("open") {
-                        ReplayActionRow(
-                            label = stringResource(R.string.play_your_replay),
-                            onClick = { storyPage = ReplayStoryPage.INTRO },
-                        )
-                    }
-
-                    chart(
-                        key = "songs",
-                        title = topSongs,
-                        rows = summary.songRows(CHART_LENGTH),
-                        onClick = { index ->
-                            summary.songs.getOrNull(index)?.let { playSong(it.song) }
-                        },
-                        onLongClick = { index ->
-                            summary.songs.getOrNull(index)?.let { openSongMenu(it.song) }
-                        },
-                    )
-                    chart(
-                        key = "artists",
-                        title = topArtists,
-                        rows = summary.artistRows(CHART_LENGTH),
-                        circular = true,
-                        onClick = { index ->
-                            val artist = summary.artists.getOrNull(index) ?: return@chart
-                            openArtist(artist.browseId, artist.title)
-                        },
-                    )
-                    chart(
-                        key = "albums",
-                        title = topAlbums,
-                        rows = summary.albumRows(CHART_LENGTH),
-                        onClick = { index ->
-                            val album = summary.albums.getOrNull(index) ?: return@chart
-                            openAlbum(album.browseId, album.title, album.subtitle)
-                        },
-                    )
-                    if (summary.genres.isNotEmpty()) {
-                        chart(
-                            key = "genres",
-                            title = topGenres,
-                            rows = summary.genreRows(CHART_LENGTH),
-                            onClick = {},
-                        )
-                    } else if (ArtistFacts.genresAvailable) {
-                        item("genres-pending") {
-                            Text(
-                                text = stringResource(R.string.genres_pending),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                            )
-                        }
-                    }
-
-                    item("habits") { Habits(summary) }
-
-                    item("bottom_spacer") { Spacer(Modifier.height(50.dp)) }
-                }
-            }
-        }
-
-    }
+    return ReplayPageState(
+        replayState = replayState,
+        setPeriod = setPeriod,
+        holder = holder,
+        nowPlayingId = { mediaMetadata?.id },
+        isPlayingNow = { isPlaying },
+        onCardClick = { storyPage = it },
+        onPlayReplay = { storyPage = ReplayStoryPage.INTRO },
+        onShare = ::openShare,
+        playSong = ::playSong,
+        openSongMenu = ::openSongMenu,
+        openArtist = ::openArtist,
+        openAlbum = ::openAlbum,
+    )
 }
 
-// ── Heading ─────────────────────────────────────────────────────────────────
-
+/**
+ * The Replay page, Modern style: four headline cards, four charts, stories
+ * and a shareable poster — the same numbers as Classic, drawn the Mochy way.
+ *
+ * The state is hoisted nowhere: [rememberReplayState] is called here with
+ * `active = true`, because this screen is only composed while Replay is open
+ * (Classic hoists it to MainActivity because the Library cards read the same
+ * numbers; the Modern Library has no Replay cards yet — see NEEDS.md §4).
+ * The period still survives rotation/back-stack trips via the rememberSaveable
+ * inside [rememberReplayState].
+ */
 @Composable
-private fun Heading(
-    statePeriod: ReplayPeriod,
-    label: String,
-    onPeriodChange: (ReplayPeriod) -> Unit,
-    showShare: Boolean,
-    onBack: () -> Unit,
-    onShare: () -> Unit,
+fun ReplayScreen(
+    navigator: MochyNavigator,
+    landingPage: ReplayStoryPage = ReplayStoryPage.INTRO,
+    mainViewModel: MainViewModel = viewModel(),
 ) {
-    val context = LocalContext.current
-    Column(
-        Modifier
-            .statusBarsPadding()
-            .padding(horizontal = 20.dp),
-    ) {
+    val state = rememberReplayPageState(navigator, mainViewModel) ?: return
+    val listState = rememberLazyListState()
+    val revealSeen = rememberRevealSeenState()
+    val density = LocalDensity.current
+    val glassState = remember { GlassState() }
+    val topInset = WindowInsets.stableSystemBars.asPaddingValues().calculateTopPadding()
+    val collapse by remember {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (listState.firstVisibleItemScrollOffset / with(density) { 90.dp.toPx() }).coerceIn(0f, 1f)
+            }
+        }
+    }
+
+    val summary = state.summary
+    // Library cards open this page at the chart they summarise. Once only
+    // per opening — back from an artist/album opened off this page must not
+    // throw away the scroll position. Same math as Classic (item order is
+    // identical: heading, cards, play row, then the charts).
+    var landed by rememberSaveable(landingPage, state.replayState.period) { mutableStateOf(false) }
+    LaunchedEffect(landingPage, state.replayState.period, summary == null) {
+        if (landed) return@LaunchedEffect
+        val target = when {
+            landingPage == ReplayStoryPage.INTRO || landingPage == ReplayStoryPage.MINUTES -> 0
+            summary == null || summary.isEmpty -> 0
+            else -> replayChartIndex(summary, landingPage)
+        }
+        listState.scrollToItem(target)
+        if (summary != null) landed = true
+    }
+
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        Box(Modifier.fillMaxSize().glassRoot(glassState, isActive = { collapse > 0f })) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = topInset + 82.dp,
+                    bottom = LocalPlayerAwareWindowInsets.current
+                        .only(WindowInsetsSides.Bottom)
+                        .union(WindowInsets.ime)
+                        .asPaddingValues()
+                        .calculateBottomPadding(),
+                ),
+            ) {
+                replayItems(state, revealSeen, embedded = false, collapse = { collapse })
+            }
+        }
+
+        // glass bar: a sibling of the glassRoot box, never inside it
+        val showGlass by remember { derivedStateOf { collapse > 0.01f } }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(topInset + 84.dp)
+                .graphicsLayer { alpha = collapse },
+        ) {
+            if (showGlass) {
+                ProgressiveGlassBackground(
+                    state = glassState,
+                    maxBlurRadius = { 50f * collapse },
+                    foundationColor = Color.Black.copy(alpha = 0.5f),
+                    direction = BlurDirection.BottomToTop,
+                    steps = 3,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            val progressiveBar = rememberProgressiveBlur()
+            Box(
+                Modifier.fillMaxSize().background(
+                    if (progressiveBar) {
+                        Brush.verticalGradient(listOf(Color.Black, Color.Black.copy(alpha = 0.7f), Color.Transparent))
+                    } else {
+                        SolidColor(Color.Black.copy(alpha = FlatBarScrimAlpha))
+                    },
+                ),
+            )
+        }
+
+        // top row: back, the logo turning into "Replay" once the title
+        // scrolls away (one element morphing, like Home's and Stats'), share
+        val titleGone by remember { derivedStateOf { collapse > 0.5f } }
+        val morph by animateFloatAsState(
+            targetValue = if (titleGone) 1f else 0f,
+            animationSpec = tween(600, easing = FastOutSlowInEasing),
+            label = "replayTopBar",
+        )
         Row(
-            Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = ReplayPagePadding, end = ReplayPagePadding, top = topInset + 32.dp),
         ) {
             Box(
                 Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .clickable(onClick = onBack),
+                    .clickable { navigator.popBackStack() },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -474,14 +450,40 @@ private fun Heading(
                     modifier = Modifier.size(20.dp),
                 )
             }
+            Spacer(Modifier.width(8.dp))
+            Box(contentAlignment = Alignment.CenterStart) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chordwave_mark),
+                    contentDescription = "ChordWave",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(width = 31.dp, height = 34.dp)
+                        .graphicsLayer {
+                            alpha = 1f - morph
+                            val k = 1f - morph * 0.25f
+                            scaleX = k
+                            scaleY = k
+                            transformOrigin = TransformOrigin(0f, 0.5f)
+                            renderEffect = BlurEffectCache.element(morph * 15f)
+                        },
+                )
+                Text(
+                    text = stringResource(R.string.replay),
+                    style = replayText(28f, tracking = -1f),
+                    modifier = Modifier.graphicsLayer {
+                        alpha = morph
+                        renderEffect = BlurEffectCache.element((1f - morph) * 15f)
+                    },
+                )
+            }
             Spacer(Modifier.weight(1f))
-            if (showShare) {
+            if (summary != null && !summary.isEmpty) {
                 Box(
                     Modifier
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.12f))
-                        .clickable(onClick = onShare),
+                        .clickable { state.onShare(null) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -493,17 +495,220 @@ private fun Heading(
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.replay),
-            style = MaterialTheme.typography.displayLarge,
-            fontWeight = FontWeight.W800,
-            color = Color.White,
+    }
+}
+
+/**
+ * The Replay page as list items, for whichever LazyColumn hosts it: the
+ * route's own (with the collapsing header above it) or the Library
+ * scaffold's (under its own collapsing title). [embedded] swaps the big
+ * page title for the tab's smaller one with the share button beside it;
+ * [collapse] fades the route's big title out as it scrolls under the bar.
+ */
+internal fun LazyListScope.replayItems(
+    state: ReplayPageState,
+    revealSeen: RevealSeenState,
+    embedded: Boolean,
+    collapse: () -> Float = { 0f },
+) {
+    val summary = state.summary
+    val context = LocalContext.current
+
+    item("replay-heading") {
+        Heading(
+            state = state,
+            embedded = embedded,
+            collapse = collapse,
+            modifier = Modifier.revealOnAppear("replay-heading", revealSeen, cascade = true),
         )
+    }
+
+    when {
+        state.replayState.loading && summary == null -> item("replay-loading") {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(64.dp),
+                Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = Color.White.copy(alpha = 0.6f))
+            }
+        }
+        summary == null || summary.isEmpty -> item("replay-empty") {
+            EmptyReplay(state.replayState.period)
+        }
+        else -> {
+            item("replay-cards") {
+                MochyReplayCardRow(
+                    cards = summary.cards(context),
+                    holder = state.holder,
+                    memberSince = state.replayState.memberSince,
+                    onCardClick = state.onCardClick,
+                    modifier = Modifier.revealOnAppear("replay-cards", revealSeen, cascade = true),
+                )
+            }
+            item("replay-open") {
+                ReplayActionRow(
+                    label = stringResource(R.string.play_your_replay),
+                    onClick = state.onPlayReplay,
+                    modifier = Modifier.revealOnAppear("replay-open", revealSeen, cascade = true),
+                )
+            }
+
+            chart(
+                key = "songs",
+                title = stringResource(R.string.top_songs),
+                rows = summary.songRows(CHART_LENGTH),
+                state = state,
+                revealSeen = revealSeen,
+                onClick = { index ->
+                    summary.songs.getOrNull(index)?.let { state.playSong(it.song) }
+                },
+                onLongClick = { index ->
+                    summary.songs.getOrNull(index)?.let { state.openSongMenu(it.song) }
+                },
+            )
+            chart(
+                key = "artists",
+                title = stringResource(R.string.top_artists),
+                rows = summary.artistRows(CHART_LENGTH),
+                state = state,
+                revealSeen = revealSeen,
+                circular = true,
+                onClick = { index ->
+                    val artist = summary.artists.getOrNull(index) ?: return@chart
+                    state.openArtist(artist.browseId, artist.title)
+                },
+            )
+            chart(
+                key = "albums",
+                title = stringResource(R.string.top_albums),
+                rows = summary.albumRows(CHART_LENGTH),
+                state = state,
+                revealSeen = revealSeen,
+                onClick = { index ->
+                    val album = summary.albums.getOrNull(index) ?: return@chart
+                    state.openAlbum(album.browseId, album.title, album.subtitle)
+                },
+            )
+            if (summary.genres.isNotEmpty()) {
+                chart(
+                    key = "genres",
+                    title = stringResource(R.string.top_genres),
+                    rows = summary.genreRows(CHART_LENGTH),
+                    state = state,
+                    revealSeen = revealSeen,
+                    onClick = {},
+                )
+            } else if (ArtistFacts.genresAvailable) {
+                item("replay-genres-pending") {
+                    Text(
+                        text = stringResource(R.string.genres_pending),
+                        style = replayText(14f, FontWeight.Medium, Color.White.copy(alpha = 0.6f), 0f),
+                        modifier = Modifier.padding(horizontal = ReplayPagePadding),
+                    )
+                }
+            }
+
+            item("replay-habits") {
+                Habits(
+                    summary,
+                    modifier = Modifier.revealOnAppear("replay-habits", revealSeen, cascade = true),
+                )
+            }
+
+            item("replay-bottom_spacer") { Spacer(Modifier.height(50.dp)) }
+        }
+    }
+}
+
+/** One chart: title, ranked rows, trailing gap. */
+private fun LazyListScope.chart(
+    key: String,
+    title: String,
+    rows: List<ReplayRow>,
+    state: ReplayPageState,
+    revealSeen: RevealSeenState,
+    circular: Boolean = false,
+    onClick: (Int) -> Unit,
+    onLongClick: (Int) -> Unit = {},
+) {
+    if (rows.isEmpty()) return
+    item("replay-$key-title") {
+        SectionTitle(
+            title,
+            modifier = Modifier.revealOnAppear("replay-$key-title", revealSeen, cascade = true),
+        )
+    }
+    items(rows, key = { "replay-$key-${it.key}" }) { row ->
+        val active = key == "songs" && row.key == state.nowPlayingId()
+        ReplayChartRow(
+            row = row,
+            circular = circular,
+            isActive = active,
+            isPlaying = active && state.isPlayingNow(),
+            modifier = Modifier.revealOnAppear(
+                key = "replay-$key-${row.key}",
+                seenState = revealSeen,
+                cascade = true,
+            ),
+            onClick = { onClick(row.rank - 1) },
+            onLongClick = { onLongClick(row.rank - 1) },
+        )
+    }
+    item("replay-$key-gap") { Spacer(Modifier.height(20.dp)) }
+}
+
+// ── Heading ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun Heading(
+    state: ReplayPageState,
+    embedded: Boolean,
+    collapse: () -> Float,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val summary = state.summary
+    val label = summary?.localizedLabel(context) ?: state.replayState.period.localizedTab(context)
+    Column(
+        modifier.padding(horizontal = ReplayPagePadding),
+    ) {
+        if (embedded) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.replay),
+                    style = replayText(28f, tracking = -1f),
+                    modifier = Modifier.weight(1f),
+                )
+                if (summary != null && !summary.isEmpty) {
+                    Box(
+                        Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.12f))
+                            .clickable { state.onShare(null) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.share),
+                            contentDescription = stringResource(R.string.share_my_replay),
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
+        } else {
+            Text(
+                text = stringResource(R.string.replay),
+                style = replayText(44f, tracking = -1.6f),
+                modifier = Modifier.graphicsLayer { alpha = 1f - collapse() },
+            )
+        }
         Text(
             text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White.copy(alpha = 0.6f),
+            style = replayText(15f, FontWeight.Medium, Color.White.copy(alpha = 0.6f), 0f),
         )
         Spacer(Modifier.height(14.dp))
         // Mochy's own chip row, four equal stretches — weeks and months,
@@ -511,8 +716,8 @@ private fun Heading(
         // is actually kept at (see ListeningStats).
         ChipsRow(
             chips = ReplayPeriod.entries.map { it to it.localizedTab(context) },
-            currentValue = statePeriod,
-            onValueUpdate = onPeriodChange,
+            currentValue = state.replayState.period,
+            onValueUpdate = state.setPeriod,
         )
         Spacer(Modifier.height(18.dp))
     }
@@ -522,8 +727,8 @@ private fun Heading(
 
 /**
  * The wallet of headline cards, Modern style: the same four facts as
- * Classic's credit cards, drawn as Mochy glass cards washed in each card's
- * own artwork mesh — no embossed mono type, no card anatomy. Tapping one
+ * Classic's credit cards, drawn as flat Mochy cards (the Stats page's card
+ * colour and radius) with the record's own cover on them. Tapping one
  * opens the story at the chart it summarises.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -539,7 +744,7 @@ private fun MochyReplayCardRow(
     LazyRow(
         modifier = modifier,
         state = rowState,
-        contentPadding = PaddingValues(horizontal = 20.dp),
+        contentPadding = PaddingValues(horizontal = ReplayPagePadding),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState),
     ) {
@@ -563,30 +768,13 @@ private fun MochyReplayHeroCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val palette = rememberArtworkColors(card.artworkUrl)
     Box(
         modifier = modifier
             .height(196.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(22.dp))
+            .background(ReplayCard)
             .clickable(onClick = onClick),
     ) {
-        MeshGradientBackground(
-            palette = palette,
-            trackKey = card.artworkUrl ?: card.label,
-            blurRadius = 34.dp,
-            animated = false,
-        )
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.18f),
-                        0.55f to Color.Black.copy(alpha = 0.30f),
-                        1.0f to Color.Black.copy(alpha = 0.55f),
-                    ),
-                ),
-        )
         // The cover itself, small and to the right, so the card is about a
         // record you can recognise rather than only a colour it lent.
         if (card.artworkUrl != null) {
@@ -598,7 +786,8 @@ private fun MochyReplayHeroCard(
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
                     .size(64.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(ReplayChipBg),
             )
         }
 
@@ -609,27 +798,19 @@ private fun MochyReplayHeroCard(
         ) {
             Text(
                 text = card.label.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.W700,
-                letterSpacing = 1.8.sp,
-                color = Color.White.copy(alpha = 0.72f),
+                style = replayText(11f, FontWeight.Bold, Color.White.copy(alpha = 0.72f), 1.8f),
             )
             Spacer(Modifier.weight(1f))
             Text(
                 text = card.value,
-                style = MaterialTheme.typography.headlineMedium,
-                fontSize = 27.sp,
-                lineHeight = 30.sp,
-                fontWeight = FontWeight.W800,
-                color = Color.White,
+                style = replayText(27f, tracking = -0.8f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (card.detail != null) {
                 Text(
                     text = card.detail,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.65f),
+                    style = replayText(14f, FontWeight.Medium, Color.White.copy(alpha = 0.65f), 0f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -638,8 +819,7 @@ private fun MochyReplayHeroCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = holder.ifBlank { stringResource(R.string.default_replay_holder) },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.55f),
+                    style = replayText(11f, FontWeight.Medium, Color.White.copy(alpha = 0.55f), 0f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -648,8 +828,7 @@ private fun MochyReplayHeroCard(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.member_since_value, memberSince),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.55f),
+                        style = replayText(11f, FontWeight.Medium, Color.White.copy(alpha = 0.55f), 0f),
                     )
                 }
             }
@@ -676,13 +855,13 @@ private fun replayChartIndex(summary: ReplaySummary, page: ReplayStoryPage): Int
 
 /** The "Play your Replay" row: opens the stories at the beginning. */
 @Composable
-private fun ReplayActionRow(label: String, onClick: () -> Unit) {
+private fun ReplayActionRow(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        Modifier
-            .padding(horizontal = 20.dp, vertical = 18.dp)
+        modifier
+            .padding(horizontal = ReplayPagePadding, vertical = 18.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.12f))
+            .background(ReplayChipBg)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -696,8 +875,7 @@ private fun ReplayActionRow(label: String, onClick: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            style = replayText(16f, FontWeight.SemiBold, tracking = -0.3f),
             modifier = Modifier.weight(1f),
         )
         Icon(
@@ -712,15 +890,13 @@ private fun ReplayActionRow(label: String, onClick: () -> Unit) {
 // ── Charts ──────────────────────────────────────────────────────────────────
 
 @Composable
-private fun SectionTitle(text: String) {
+private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.W800,
-        color = Color.White,
-        modifier = Modifier.padding(
-            start = 20.dp,
-            end = 20.dp,
+        style = replayText(20f, tracking = -0.6f),
+        modifier = modifier.padding(
+            start = ReplayPagePadding,
+            end = ReplayPagePadding,
             top = 8.dp,
             bottom = 10.dp,
         ),
@@ -754,10 +930,10 @@ private fun ReplayChartRow(
         modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 20.dp, vertical = 7.dp),
+            .padding(horizontal = ReplayPagePadding, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RankBadge(row.rank, MaterialTheme.colorScheme.primary)
+        RankBadge(row.rank, AccentMint)
         if (row.artworkUrl != null) {
             Box(
                 Modifier
@@ -780,17 +956,14 @@ private fun ReplayChartRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = row.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.W600,
-                color = Color.White.copy(alpha = if (isActive) 1f else 0.94f),
+                style = replayText(16f, FontWeight.SemiBold, Color.White.copy(alpha = if (isActive) 1f else 0.94f), -0.3f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = listOfNotNull(row.subtitle, formatListening(context, row.ms))
                     .joinToString(" · "),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.55f),
+                style = replayText(14f, FontWeight.Medium, Color.White.copy(alpha = 0.55f), 0f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -798,8 +971,7 @@ private fun ReplayChartRow(
         if (row.plays > 0) {
             Text(
                 text = row.plays.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.45f),
+                style = replayText(12f, FontWeight.Medium, Color.White.copy(alpha = 0.45f), 0f),
             )
         }
     }
@@ -808,14 +980,12 @@ private fun ReplayChartRow(
 // ── Tail ────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun Habits(summary: ReplaySummary) {
+private fun Habits(summary: ReplaySummary, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    Column(Modifier.padding(horizontal = 20.dp)) {
+    Column(modifier.padding(horizontal = ReplayPagePadding)) {
         Text(
             text = stringResource(R.string.listening_shape),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.W800,
-            color = Color.White,
+            style = replayText(20f, tracking = -0.6f),
             modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
         )
         Spacer(Modifier.height(4.dp))
@@ -828,8 +998,7 @@ private fun Habits(summary: ReplaySummary) {
             Spacer(Modifier.height(10.dp))
             Text(
                 text = stringResource(R.string.listen_most_around, formatHour(context, it)),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.6f),
+                style = replayText(14f, FontWeight.Medium, Color.White.copy(alpha = 0.6f), 0f),
             )
         }
         summary.busiestDay?.let {
@@ -840,8 +1009,7 @@ private fun Habits(summary: ReplaySummary) {
                     formatDay(context, it),
                     formatListening(context, summary.busiestDayMs),
                 ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.6f),
+                style = replayText(14f, FontWeight.Medium, Color.White.copy(alpha = 0.6f), 0f),
             )
         }
     }
@@ -852,21 +1020,17 @@ private fun StatTile(label: String, value: String, modifier: Modifier = Modifier
     Column(
         modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.09f))
+            .background(ReplayTile)
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.W800,
-            color = Color.White,
+            style = replayText(22f, tracking = -0.8f),
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.55f),
-            letterSpacing = 1.sp,
+            style = replayText(11f, FontWeight.Medium, ReplayInkMuted, 0.5f),
         )
     }
 }
@@ -888,8 +1052,7 @@ private fun EmptyReplay(period: ReplayPeriod) {
         Spacer(Modifier.height(16.dp))
         Text(
             text = stringResource(R.string.not_enough_listening),
-            style = MaterialTheme.typography.titleLarge,
-            color = Color.White,
+            style = replayText(20f, tracking = -0.5f),
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(8.dp))
@@ -899,8 +1062,7 @@ private fun EmptyReplay(period: ReplayPeriod) {
                 ReplayPeriod.THIS_MONTH -> stringResource(R.string.not_enough_this_month)
                 else -> stringResource(R.string.replay_empty_description)
             },
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.6f),
+            style = replayText(14f, FontWeight.Medium, Color.White.copy(alpha = 0.6f), 0f),
             textAlign = TextAlign.Center,
         )
     }
