@@ -52,8 +52,10 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.ui.mochy.LocalGridItemSize
 import com.music.bitchord.ui.mochy.constants.GridItemSize
 
-// spacing and type straight from the Figma home frames (13:11 / 14:212)
-val HomeContentInset = 36.dp
+// Edge inset for Home titles + content rows: 16.dp is the standard Android/Material
+// screen edge margin (feedback batch 3: 36.dp read as too much black space on the left;
+// 0.dp in batch 1 read as too tight). Titles and rows share this value so they stay aligned.
+val HomeContentInset = 16.dp
 val HomeCardSpacing = 15.dp
 
 private val HomeTracking = (-0.06).em

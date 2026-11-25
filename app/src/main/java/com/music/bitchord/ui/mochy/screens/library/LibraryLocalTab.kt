@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.screens.search.SearchColors
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 
 internal fun LazyListScope.libraryLocalTab(
@@ -47,7 +46,7 @@ internal fun LazyListScope.libraryLocalTab(
         LocalImportCard(
             count = data.files.size,
             onClick = onImport,
-            modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+            modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
         )
     }
 
@@ -59,9 +58,9 @@ internal fun LazyListScope.libraryLocalTab(
                 color = SearchColors.Primary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = SearchHorizontalPadding + 2.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = LibraryHorizontalPadding + 2.dp, vertical = 10.dp),
             )
-            LocalCard(onClick = onScan, modifier = Modifier.padding(horizontal = SearchHorizontalPadding)) {
+            LocalCard(onClick = onScan, modifier = Modifier.padding(horizontal = LibraryHorizontalPadding)) {
                 LocalCardTitle("Let ChordWave read your storage to find all your songs")
             }
         }

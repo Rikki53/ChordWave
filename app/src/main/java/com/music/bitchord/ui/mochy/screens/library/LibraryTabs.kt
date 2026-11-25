@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.screens.search.SearchColors
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.viewmodels.LibraryShelfKind
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 
@@ -130,7 +129,7 @@ fun LibraryCapsLabel(text: String, modifier: Modifier = Modifier) {
         fontSize = 13.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.4.sp,
-        modifier = modifier.padding(horizontal = SearchHorizontalPadding),
+        modifier = modifier.padding(horizontal = LibraryHorizontalPadding),
     )
 }
 
@@ -172,7 +171,7 @@ class LibraryCardEntry(
 @Composable
 fun LibraryCardGrid(entries: List<LibraryCardEntry>, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = SearchHorizontalPadding),
+        modifier = modifier.fillMaxWidth().padding(horizontal = LibraryHorizontalPadding),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         entries.chunked(2).forEach { pair ->

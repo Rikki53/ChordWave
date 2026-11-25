@@ -58,7 +58,6 @@ import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.em
 import com.music.bitchord.ui.mochy.screens.search.SearchColors
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.screens.search.SearchTitleBlockHeight
 import com.music.bitchord.ui.mochy.utils.resize
 import com.music.bitchord.ui.mochy.component.RemoteFocus
@@ -67,6 +66,11 @@ import com.music.bitchord.ui.mochy.component.detail.PlayPill
 
 /** Title + subtitle block height, for the collapsing header on Library screens. */
 val LibraryTitleBlockHeight: Dp = SearchTitleBlockHeight + 16.dp
+
+/** Edge inset for Library titles + content rows: standard Android 16.dp screen margin
+ * (feedback batch 3; Library previously shared Search's 24.dp). Titles and rows share
+ * this value so they stay aligned. */
+val LibraryHorizontalPadding = 16.dp
 
 // ---------------------------------------------------------------------------------------------
 // Small shared pieces
@@ -77,7 +81,7 @@ fun LibraryRule(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = SearchHorizontalPadding)
+            .padding(horizontal = LibraryHorizontalPadding)
             .height(1.dp)
             .background(SearchColors.Divider),
     )
@@ -90,7 +94,7 @@ fun LibrarySectionTitle(text: String, modifier: Modifier = Modifier) {
         color = SearchColors.Primary,
         fontSize = 20.sp,
         fontWeight = FontWeight.Bold,
-        modifier = modifier.padding(horizontal = SearchHorizontalPadding),
+        modifier = modifier.padding(horizontal = LibraryHorizontalPadding),
     )
 }
 
@@ -283,7 +287,7 @@ private fun LibraryCount(count: Int) {
 @Composable
 fun LibraryEmptyState(modifier: Modifier = Modifier, text: String = "Nothing to show here") {
     Box(
-        modifier = modifier.fillMaxWidth().padding(vertical = 56.dp, horizontal = SearchHorizontalPadding),
+        modifier = modifier.fillMaxWidth().padding(vertical = 56.dp, horizontal = LibraryHorizontalPadding),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -319,7 +323,7 @@ fun LibraryLoadingState(modifier: Modifier = Modifier) {
 @Composable
 fun LibraryErrorState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = SearchHorizontalPadding),
+        modifier = modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = LibraryHorizontalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -343,7 +347,7 @@ fun LibraryErrorState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun LibrarySignedOutState(onSignIn: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = SearchHorizontalPadding),
+        modifier = modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = LibraryHorizontalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -507,7 +511,7 @@ fun LibraryListRow(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = SearchHorizontalPadding, vertical = 3.dp),
+            .padding(horizontal = LibraryHorizontalPadding, vertical = 3.dp),
     )
 }
 
@@ -528,7 +532,7 @@ fun LibraryLetterHeader(label: String, modifier: Modifier = Modifier) {
             fontSize = 22.sp,
             letterSpacing = (-0.03).em,
         ),
-        modifier = modifier.padding(horizontal = SearchHorizontalPadding, vertical = 10.dp),
+        modifier = modifier.padding(horizontal = LibraryHorizontalPadding, vertical = 10.dp),
     )
 }
 
@@ -540,7 +544,7 @@ fun LibraryPlayBar(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = SearchHorizontalPadding),
+        modifier = modifier.fillMaxWidth().padding(horizontal = LibraryHorizontalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         PlayPill(isPlaying = false, onClick = onPlay)

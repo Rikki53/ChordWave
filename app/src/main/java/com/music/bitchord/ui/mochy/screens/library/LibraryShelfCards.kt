@@ -26,7 +26,6 @@ import com.music.bitchord.ui.mochy.models.Artist
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.component.LikedCover
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.viewmodels.LibraryHomeViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LibraryShelfKind
 import com.music.bitchord.ui.mochy.viewmodels.ShelfAlbum
@@ -106,7 +105,7 @@ internal fun LazyListScope.libraryShelfCards(
             count = data.songs.size,
             covers = data.songs.take(4).map { it.song.thumbnailUrl },
             onClick = { navigator.navigate("library/$key/added") },
-            modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+            modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
         )
         Spacer(modifier = Modifier.height(10.dp))
     }
@@ -121,7 +120,7 @@ internal fun LazyListScope.libraryShelfCards(
                 onClick = { navigator.navigate("auto_playlist/${key}_liked") },
                 sharedElementKey = "playlist-${key}_liked",
                 art = { LikedCover(it) },
-                modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+                modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
             )
             Spacer(modifier = Modifier.height(10.dp))
         }

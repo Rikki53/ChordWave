@@ -31,7 +31,6 @@ import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.screens.search.SearchLoadingDots
 import com.music.bitchord.ui.mochy.viewmodels.DateAgo
 import com.music.bitchord.ui.mochy.viewmodels.EventWithSong
@@ -71,7 +70,7 @@ fun LazyListScope.libraryHistoryTab(
             count = events.values.sumOf { it.size },
             covers = shown.take(4).map { it.song.thumbnailUrl },
             onClick = { navigator.navigate("history") },
-            modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+            modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
         )
         Spacer(Modifier.height(8.dp))
     }

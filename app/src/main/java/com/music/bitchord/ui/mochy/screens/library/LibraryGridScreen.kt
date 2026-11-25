@@ -54,7 +54,6 @@ import com.music.bitchord.ui.mochy.component.detail.TrackTitleStyle
 import com.music.bitchord.ui.mochy.utils.resize
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.screens.search.SearchColors
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.screens.search.rememberCollapseProgress
 
 /** One tile in the grid. */
@@ -139,7 +138,7 @@ fun LibraryGridScreen(
             androidx.compose.foundation.layout.Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = SearchHorizontalPadding),
+                    .padding(horizontal = LibraryHorizontalPadding),
                 horizontalArrangement = Arrangement.spacedBy(HomeCardSpacing),
             ) {
                 row.forEach { entry ->

@@ -37,7 +37,6 @@ import com.music.bitchord.ui.mochy.component.glassRoot
 import com.music.bitchord.ui.mochy.screens.search.SearchColors
 import com.music.bitchord.ui.mochy.screens.search.SearchField
 import com.music.bitchord.ui.mochy.screens.search.SearchGlassTopBar
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.screens.search.searchTopBarHeight
 import com.music.bitchord.ui.mochy.viewmodels.ShelfAlbum
 import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
@@ -135,7 +134,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.librarySearchResults
                 text = "Nothing in your library matches \"$query\"",
                 color = SearchColors.Secondary,
                 fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = SearchHorizontalPadding, vertical = 24.dp),
+                modifier = Modifier.padding(horizontal = LibraryHorizontalPadding, vertical = 24.dp),
             )
         }
         return

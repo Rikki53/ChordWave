@@ -53,7 +53,6 @@ import com.music.bitchord.ui.mochy.component.LikedCover
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.player.menu.SongMenu
 import com.music.bitchord.ui.mochy.screens.search.SearchAvatar
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.screens.search.rememberCollapseProgress
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.viewmodels.HistoryViewModel
@@ -198,7 +197,7 @@ fun LibraryHomeScreen(
                 LibraryTabChips(
                     selected = tab,
                     onSelect = { tab = it },
-                    modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+                    modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
                 )
                 Spacer(modifier = Modifier.height(14.dp))
             }
@@ -243,7 +242,7 @@ fun LibraryHomeScreen(
                                     onOpenSheet = openImportSheet,
                                     onOpenProgress = openImportProgress,
                                     onDismiss = { onHideImportBannerChange(true) },
-                                    modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+                                    modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
                                 )
                             }
                         } else {
@@ -333,7 +332,7 @@ private fun LazyListScope.libraryProgressCards(
     onOpen: (TransferKind) -> Unit,
 ) {
     item(key = "progress_cards") {
-        Column(modifier = Modifier.padding(horizontal = SearchHorizontalPadding)) {
+        Column(modifier = Modifier.padding(horizontal = LibraryHorizontalPadding)) {
             LibraryProgressCard(TransferKind.Downloads.title, downloads, onClick = { onOpen(TransferKind.Downloads) })
             LibraryProgressCard(TransferKind.LocalImport.title, localImports, onClick = { onOpen(TransferKind.LocalImport) })
         }
@@ -408,7 +407,7 @@ private fun LazyListScope.libraryAllTab(
             // Chunked rows rather than a nested lazy grid: a scrolling grid inside a scrolling
             // column has no bounded height, and nine items never needs its own scroller.
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = SearchHorizontalPadding),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = LibraryHorizontalPadding),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 pinnedItems.take(9).chunked(3).forEach { row ->
@@ -466,7 +465,7 @@ private fun LazyListScope.libraryAllTab(
                 count = songs.size,
                 covers = songs.take(4).map { it.song.thumbnailUrl },
                 onClick = { navigator.navigate("library/added") },
-                modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+                modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
             )
             Spacer(modifier = Modifier.height(10.dp))
         }
@@ -481,7 +480,7 @@ private fun LazyListScope.libraryAllTab(
                 onClick = { navigator.navigate("auto_playlist/liked") },
                 sharedElementKey = "playlist-liked",
                 art = { LikedCover(it) },
-                modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+                modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
             )
             Spacer(modifier = Modifier.height(10.dp))
         }
@@ -499,7 +498,7 @@ private fun LazyListScope.libraryAllTab(
                 covers = downloadedSongs.take(4).map { it.song.thumbnailUrl },
                 onClick = { navigator.navigate("auto_playlist/downloaded") },
                 sharedElementKey = "playlist-downloaded",
-                modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+                modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
             )
             Spacer(modifier = Modifier.height(10.dp))
         }

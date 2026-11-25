@@ -21,7 +21,6 @@ import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.importer.ImportProgress
 import com.music.bitchord.ui.mochy.importer.ImportSource
-import com.music.bitchord.ui.mochy.screens.search.SearchHorizontalPadding
 import com.music.bitchord.ui.mochy.viewmodels.ImportedAlbums
 import com.music.bitchord.ui.mochy.viewmodels.ImportedSourceCard
 
@@ -79,7 +78,7 @@ internal fun LazyListScope.libraryImportedTab(
             progress = importProgress,
             onOpenSheet = onOpenImportSheet,
             onOpenProgress = onOpenImportProgress,
-            modifier = Modifier.padding(horizontal = SearchHorizontalPadding),
+            modifier = Modifier.padding(horizontal = LibraryHorizontalPadding),
         )
         Spacer(modifier = Modifier.height(22.dp))
     }
