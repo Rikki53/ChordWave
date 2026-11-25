@@ -72,6 +72,22 @@ internal sealed interface Fetched<out T> {
     data class Found<T>(val value: T) : Fetched<T>
 }
 
+// why there is no animated cover to offer, when the lookup came back empty —
+// so the picker can say the real reason instead of blaming the song
+internal enum class AnimatedCoverMiss {
+    // the animated-cover switch is off in settings
+    Disabled,
+
+    // Wi-Fi only is on for animated covers and this network is metered
+    Metered,
+
+    // Data Saver is on
+    DataSaver,
+
+    // looked, and no provider has a clip for this song
+    NotFound,
+}
+
 internal val <T> Fetched<T>.found: T? get() = (this as? Fetched.Found<T>)?.value
 
 // the song's music video and where on it each moment of the song is
@@ -183,6 +199,13 @@ internal class SongShareSession(val song: MediaMetadata) {
 
     // which provider the animated cover now comes from
     var animatedCoverSource by mutableStateOf<CanvasSource?>(null)
+
+    // the per-provider clips have been looked up (found or not): the picker
+    // waits for this, because [animatedCover] is set before the clips arrive
+    var animatedCoverClipsLoaded by mutableStateOf(false)
+
+    // why no clip is on offer, when the lookup came back empty
+    var animatedCoverMiss by mutableStateOf<AnimatedCoverMiss?>(null)
     var art by mutableStateOf(ShareArt())
 
     // the song playing under the pages; null until the host has made it
@@ -270,6 +293,13 @@ internal class SongShareSession(val song: MediaMetadata) {
         animatedCover = Fetched.Found(url)
         val dim = (background as? SongBackground.Video)?.dim ?: lastVideo?.dim ?: 0.85f
         setVideo(SongBackground.Video(ShareVideoSource.AnimatedCover, dim))
+    }
+
+    // the style page's music-video choice: the song's own video as the background,
+    // with the same dim rule as [pickAnimatedCover] (batch 15)
+    fun useMusicVideo() {
+        val dim = (background as? SongBackground.Video)?.dim ?: lastVideo?.dim ?: 0.85f
+        setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, dim))
     }
 
     // the song position for this frame: the preview's, or a loop of the window while there's no sound yet

@@ -341,8 +341,17 @@ private fun TextAction(text: String, onClick: () -> Unit) {
 internal fun CanvasSourcePicker(session: SongShareSession) {
     val clips = session.animatedCoverClips
     val selected = session.animatedCoverSource
-    // still looking and nothing arrived yet: unusable, but shown
-    val looking = session.animatedCover is Fetched.Looking && clips.isEmpty()
+    // still looking: unusable, but shown. Keyed on the clips load finishing, not on
+    // [SongShareSession.animatedCover] — that is set before the per-provider clips arrive,
+    // and reading it here called songs clip-less while their clips were still loading.
+    val looking = !session.animatedCoverClipsLoaded
+    // why there is nothing to offer, when the reason is a setting rather than the song
+    val missHint = when (session.animatedCoverMiss) {
+        AnimatedCoverMiss.Disabled -> R.string.song_share_bg_canvas_off
+        AnimatedCoverMiss.Metered -> R.string.song_share_bg_canvas_metered
+        AnimatedCoverMiss.DataSaver -> R.string.song_share_bg_canvas_data_saver
+        else -> null
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         CanvasSourceRow(
             label = stringResource(R.string.lyrics_share_apple_canvas),
@@ -350,6 +359,7 @@ internal fun CanvasSourcePicker(session: SongShareSession) {
                 when {
                     looking -> R.string.song_share_bg_canvas_looking
                     CanvasSource.APPLE in clips -> R.string.song_share_bg_canvas_apple_hint
+                    missHint != null -> missHint
                     else -> R.string.song_share_bg_canvas_apple_missing
                 },
             ),
@@ -364,6 +374,7 @@ internal fun CanvasSourcePicker(session: SongShareSession) {
                     looking -> R.string.song_share_bg_canvas_looking
                     CanvasSource.SPOTIFY in clips -> R.string.song_share_bg_canvas_spotify_hint
                     AppSettings.disableSpotifyCanvas.value -> R.string.song_share_bg_canvas_spotify_off
+                    missHint != null -> missHint
                     else -> R.string.song_share_bg_canvas_spotify_missing
                 },
             ),
@@ -385,7 +396,7 @@ internal fun CanvasSourcePicker(session: SongShareSession) {
 
 // one provider's row: its name, what it offers or why it can't, and a filled dot when it is the one playing
 @Composable
-private fun CanvasSourceRow(label: String, hint: String, enabled: Boolean, selected: Boolean, onClick: () -> Unit) {
+internal fun CanvasSourceRow(label: String, hint: String, enabled: Boolean, selected: Boolean, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

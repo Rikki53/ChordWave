@@ -51,6 +51,12 @@
     <string name="song_share_bg_canvas_other">Other canvas</string>
     <string name="song_share_bg_canvas_other_hint">Canvas clip from another provider</string>
     <string name="song_share_bg_canvas_looking">Looking for animated covers…</string>
+    <string name="song_share_bg_canvas_off">Animated covers are off in Settings</string>
+    <string name="song_share_bg_canvas_metered">Wi-Fi only is on for animated covers</string>
+    <string name="song_share_bg_canvas_data_saver">Data Saver is on</string>
+    <string name="song_share_bg_music_video_looking">Looking for the music video…</string>
+    <string name="song_share_bg_music_video_missing">No music video for this song</string>
+    <string name="song_share_bg_own_video_row_hint">A video from your phone, behind the words</string>
     <string name="song_share_bg_music">Made from the music</string>
     <string name="song_share_bg_music_hint">Soft clouds of the cover\'s colours, drifting over the cover itself</string>
     <string name="song_share_bg_picture">Add your own image</string>

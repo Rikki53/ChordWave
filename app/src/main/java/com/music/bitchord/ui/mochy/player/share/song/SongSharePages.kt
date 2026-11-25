@@ -3,6 +3,10 @@
 
 package com.music.bitchord.ui.mochy.player.share.song
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -62,6 +66,7 @@ import com.music.bitchord.ui.mochy.player.share.song.export.copySongLink
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.resize
 import com.music.bitchord.ui.mochy.component.RemoteFocus
+import kotlinx.coroutines.launch
 
 // from a menu: the song on a card, its lyrics, or just the link
 internal fun PopupSheetState.showKindPage(session: SongShareSession): PopupSheetHandle {
@@ -154,12 +159,55 @@ internal fun PopupSheetState.showStylePage(session: SongShareSession) {
                 ) { TilePicture(session, SongShareKind.Lyrics, style) }
             }
         }
+        // a video from the phone, picked the same way the background sheet picks it
+        val ownVideoContext = LocalContext.current
+        val ownVideoScope = rememberCoroutineScope()
+        val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            ownVideoScope.launch {
+                val duration = videoDurationMs(ownVideoContext, uri)
+                if (duration <= 0L) return@launch
+                val own = ShareVideoSource.Own(uri, startMs = 0L, lengthMs = duration.coerceAtMost(OwnVideoLongestMs), durationMs = duration)
+                session.lastOwnVideo = own
+                val dim = (session.background as? SongBackground.Video)?.dim ?: session.lastVideo?.dim ?: 0.85f
+                session.setVideo(SongBackground.Video(own, dim))
+                // a video longer than the clip asks which part to use
+                if (duration > OwnVideoLongestMs) popup.showVideoPart(session)
+            }
+        }
+        val pickVideo = { videoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
         // the video choice, here on the share page itself: which provider's
         // animated cover plays behind the words — no detour through Edit
-        // background (batch 12; that path still works unchanged)
+        // background (batch 12; that path still works unchanged). The song's
+        // own music video and a video from the phone sit under the covers,
+        // so a song with no animated cover still has a way to a video share
+        // from this page (batch 15).
         SectionLabel(stringResource(R.string.song_share_type_video))
         Spacer(Modifier.height(10.dp))
         CanvasSourcePicker(session)
+        Spacer(Modifier.height(8.dp))
+        val musicVideoState = session.musicVideo
+        CanvasSourceRow(
+            label = stringResource(R.string.song_share_bg_music_video),
+            hint = stringResource(
+                when (musicVideoState) {
+                    is Fetched.Found -> R.string.song_share_bg_music_video_hint
+                    Fetched.Looking -> R.string.song_share_bg_music_video_looking
+                    Fetched.Missing -> R.string.song_share_bg_music_video_missing
+                },
+            ),
+            enabled = musicVideoState is Fetched.Found,
+            selected = (session.background as? SongBackground.Video)?.source == ShareVideoSource.MusicVideo,
+            onClick = { session.useMusicVideo() },
+        )
+        Spacer(Modifier.height(8.dp))
+        CanvasSourceRow(
+            label = stringResource(R.string.song_share_bg_own_video),
+            hint = stringResource(R.string.song_share_bg_own_video_row_hint),
+            enabled = true,
+            selected = (session.background as? SongBackground.Video)?.source is ShareVideoSource.Own,
+            onClick = { pickVideo() },
+        )
         Spacer(Modifier.height(20.dp))
         ReadingSwitches(session)
     }

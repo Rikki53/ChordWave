@@ -135,15 +135,21 @@ internal suspend fun loadAnimatedCover(context: Context, session: SongShareSessi
     val artist = song.artists.joinToString { it.name }
     if (!canvasEnabled || song.id.isBlank() || song.title.isBlank() || artist.isBlank()) {
         session.animatedCover = Fetched.Missing
+        session.animatedCoverMiss = if (!canvasEnabled) AnimatedCoverMiss.Disabled else AnimatedCoverMiss.NotFound
+        session.animatedCoverClipsLoaded = true
         return
     }
     val connectivityManager = context.getSystemService<ConnectivityManager>()
     if (canvasWifiOnly && connectivityManager?.isActiveNetworkMetered == true) {
         session.animatedCover = Fetched.Missing
+        session.animatedCoverMiss = AnimatedCoverMiss.Metered
+        session.animatedCoverClipsLoaded = true
         return
     }
     if (DataSaver.isActive(context)) {
         session.animatedCover = Fetched.Missing
+        session.animatedCoverMiss = AnimatedCoverMiss.DataSaver
+        session.animatedCoverClipsLoaded = true
         return
     }
     // Same guard as the player: no Spotify clip when Spotify Canvas is off.
@@ -166,6 +172,8 @@ internal suspend fun loadAnimatedCover(context: Context, session: SongShareSessi
     val clips = runCatching { CanvasRepository.shareClipsFor(cwSong) }.getOrDefault(emptyMap()).toMutableMap()
     artwork?.let { clips.putIfAbsent(it.source, it) }
     session.animatedCoverClips = clips
+    session.animatedCoverMiss = if (artwork == null && clips.isEmpty()) AnimatedCoverMiss.NotFound else null
+    session.animatedCoverClipsLoaded = true
 }
 
 // the song's music video, its own picture when the song is a video; lined up as-is until matchMusicVideo has listened to both
