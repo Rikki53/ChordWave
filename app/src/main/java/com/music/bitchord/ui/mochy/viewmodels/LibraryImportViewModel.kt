@@ -21,6 +21,7 @@
 package com.music.bitchord.ui.mochy.viewmodels
 
 import android.content.Context
+import android.content.ContentResolver
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -43,6 +44,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import timber.log.Timber
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -132,9 +135,23 @@ class LibraryImportViewModel @Inject constructor(
      * the library yet are imported now. Returns false when there was nothing to start.
      */
     suspend fun addFolder(tree: Uri): Boolean {
-        val files = withContext(Dispatchers.IO) {
-            runCatching { LocalFolders.add(context, tree) }.getOrNull() ?: return@withContext null
-            LocalFolders.newAudioFiles(context, tree, knownLocalUris())
+        // A tree uri is the only thing the folder walk understands; anything
+        // else (or a provider that won't grant lasting access) ends here with
+        // a toast, never with a crash in the picker's callback (batch 3 item 4).
+        if (tree.scheme != ContentResolver.SCHEME_CONTENT) {
+            TopToaster.show("Couldn't keep access to that folder. Try picking it again.", iconRes = R.drawable.library_music)
+            return false
+        }
+        val files = try {
+            withContext(Dispatchers.IO) {
+                runCatching { LocalFolders.add(context, tree) }.getOrNull() ?: return@withContext null
+                LocalFolders.newAudioFiles(context, tree, knownLocalUris())
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "Library: couldn't read picked folder $tree")
+            null
         }
         if (files == null) {
             TopToaster.show("Couldn't keep access to that folder. Try picking it again.", iconRes = R.drawable.library_music)

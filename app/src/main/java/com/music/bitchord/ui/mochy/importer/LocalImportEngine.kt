@@ -159,7 +159,12 @@ object LocalImportEngine {
                         updateItem(index) { it.copy(state = TransferState.Failed) }
                     }
                 }
-                if (records.isNotEmpty()) LocalImportStore.add(appContext, records)
+                // the store write runs on the engine's own scope: an uncaught
+                // throw here would take the app down with the import
+                if (records.isNotEmpty()) {
+                    runCatching { LocalImportStore.add(appContext, records) }
+                        .onFailure { Timber.w(it, "LocalImport: couldn't save imported files") }
+                }
             } finally {
                 running = false
             }

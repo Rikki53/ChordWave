@@ -63,16 +63,20 @@ object LocalFolders {
         depth: Int,
     ) {
         if (depth > 16) return
-        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-            tree,
-            DocumentsContract.getDocumentId(dir),
-        )
-        val projection = arrayOf(
-            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-            DocumentsContract.Document.COLUMN_MIME_TYPE,
-            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-        )
+        // The tree uri comes from the system picker, but a provider that
+        // hands back an odd id used to throw out of the walk (and out of the
+        // picker's callback, force-closing the app). Everything about one
+        // directory - building its uri included - is best effort now.
         runCatching {
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                tree,
+                DocumentsContract.getDocumentId(dir),
+            )
+            val projection = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            )
             context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
                 val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)

@@ -9,6 +9,8 @@
 package com.music.bitchord.ui.mochy.screens.library
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +20,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
@@ -35,6 +41,8 @@ import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
 import com.music.bitchord.ui.mochy.component.GlassState
 import com.music.bitchord.ui.mochy.component.glassRoot
 import com.music.bitchord.ui.mochy.screens.search.SearchColors
+import com.music.bitchord.ui.mochy.screens.search.SearchCollapseDurationMs
+import com.music.bitchord.ui.mochy.screens.search.SearchCollapseEasing
 import com.music.bitchord.ui.mochy.screens.search.SearchField
 import com.music.bitchord.ui.mochy.screens.search.SearchGlassTopBar
 import com.music.bitchord.ui.mochy.screens.search.searchTopBarHeight
@@ -71,6 +79,21 @@ fun LibraryScaffold(
     trailing: (@Composable () -> Unit)? = null,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
 ) {
+    // Search's bar collapses two ways: scrolling, and the field going active
+    // (tapping it lifts the box to the top with the same tween + easing).
+    // Library only had the scroll half, so on a short list the box never rose
+    // at all; the focus half makes both pages behave the same (batch 3 item 3).
+    var searchActive by remember { mutableStateOf(false) }
+    val activeProgress = animateFloatAsState(
+        targetValue = if (searchActive) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = SearchCollapseDurationMs,
+            easing = SearchCollapseEasing,
+        ),
+        label = "librarySearchActive",
+    )
+    val progressProvider: () -> Float = { maxOf(collapseProvider(), activeProgress.value) }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -84,7 +107,7 @@ fun LibraryScaffold(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .glassRoot(glassState, isActive = { collapseProvider() > 0.01f }),
+                .glassRoot(glassState, isActive = { progressProvider() > 0.01f }),
         ) {
             LazyColumn(
                 state = listState,
@@ -102,7 +125,7 @@ fun LibraryScaffold(
 
         SearchGlassTopBar(
             glassState = glassState,
-            progressProvider = collapseProvider,
+            progressProvider = progressProvider,
             pureBlack = pureBlack,
             title = title,
             subtitle = subtitle,
@@ -114,6 +137,8 @@ fun LibraryScaffold(
                 onValueChange = onQueryChange,
                 onSearch = {},
                 placeholder = searchPlaceholder,
+                focused = searchActive,
+                onFocusChanged = { focused -> searchActive = focused },
             )
         }
     }

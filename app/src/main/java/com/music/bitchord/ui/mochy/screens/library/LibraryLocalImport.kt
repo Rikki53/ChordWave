@@ -32,6 +32,8 @@ import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.viewmodels.LibraryImportViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import timber.log.Timber
 
 /** Audio types the picker offers: every audio type, plus the common ones named outright. */
 private val LocalAudioMimeTypes = arrayOf(
@@ -75,7 +77,10 @@ class LocalImportActions internal constructor(hasStorageAccess: Boolean) {
 }
 
 @Composable
-fun rememberLocalImportActions(viewModel: LibraryImportViewModel): LocalImportActions {
+fun rememberLocalImportActions(
+    viewModel: LibraryImportViewModel,
+    onPermissionGranted: () -> Unit = {},
+): LocalImportActions {
     val context = LocalContext.current
     val menuState = LocalMenuState.current
     val scope = rememberCoroutineScope()
@@ -103,6 +108,9 @@ fun rememberLocalImportActions(viewModel: LibraryImportViewModel): LocalImportAc
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         actions.hasStorageAccess = granted
         if (granted) {
+            // the library re-reads itself (downloads included) so the granted
+            // access shows up on the shelves, not just in the scan sheet
+            onPermissionGranted()
             openAddMusic()
         } else {
             // a second "no" stops Android asking at all, so point to where it can still be turned on
@@ -123,7 +131,17 @@ fun rememberLocalImportActions(viewModel: LibraryImportViewModel): LocalImportAc
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
         if (tree == null) return@rememberLauncherForActivityResult
         scope.launch {
-            if (viewModel.addFolder(tree)) showProgress()
+            // the picker's callback runs on the UI scope: anything escaping
+            // here force-closes the app, so a bad tree never gets that far
+            val started = try {
+                viewModel.addFolder(tree)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "Library: folder pick failed for $tree")
+                false
+            }
+            if (started) showProgress()
         }
     }
 

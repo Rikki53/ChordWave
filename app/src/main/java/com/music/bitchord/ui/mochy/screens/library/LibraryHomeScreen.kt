@@ -13,6 +13,10 @@ package com.music.bitchord.ui.mochy.screens.library
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,9 +36,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.download.SavedCollection
@@ -53,6 +61,7 @@ import com.music.bitchord.ui.mochy.component.LikedCover
 import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.player.menu.SongMenu
 import com.music.bitchord.ui.mochy.screens.search.SearchAvatar
+import com.music.bitchord.ui.mochy.screens.search.SearchColors
 import com.music.bitchord.ui.mochy.screens.search.rememberCollapseProgress
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.viewmodels.HistoryViewModel
@@ -100,7 +109,7 @@ fun LibraryHomeScreen(
     var tab by rememberSaveable { mutableStateOf(LibraryTab.All) }
     // only the open tab's shelf is collected; null while it is first read
     val shelfData = tab.shelf?.let { collectShelfTabData(viewModel, it) }
-    val localActions = rememberLocalImportActions(importViewModel)
+    val localActions = rememberLocalImportActions(importViewModel, onPermissionGranted = viewModel::load)
 
     // the History and Genres tabs only load once they're opened: one reads every play, the other every local song's genre
     val historyViewModel: HistoryViewModel? = if (tab == LibraryTab.History) hiltViewModel<HistoryViewModel>() else null
@@ -193,6 +202,16 @@ fun LibraryHomeScreen(
             },
             bottomInset = bottomInset,
         ) {
+            // No file access yet: say so at the top of the page, on every tab,
+            // instead of only under the Local tab's import card. Tapping asks
+            // for access; granting re-scans and reloads the library, so the
+            // downloaded songs show up in Local (batch 3 item 4).
+            if (!localActions.hasStorageAccess) {
+                item(key = "storage_permission") {
+                    LibraryStoragePermissionBanner(onRequest = localActions::scanPhone)
+                }
+            }
+
             item(key = "tabs") {
                 LibraryTabChips(
                     selected = tab,
@@ -579,4 +598,35 @@ private fun playShelf(
             startIndex = startIndex.coerceAtLeast(0),
         ),
     )
+}
+
+/**
+ * The file-access ask, at the top of the Library until access is granted.
+ * Same card language as the Local tab's own ask, so it reads as one page.
+ */
+@Composable
+private fun LibraryStoragePermissionBanner(onRequest: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = LibraryHorizontalPadding)
+            .clip(RoundedCornerShape(20.dp))
+            .background(SearchColors.Tile)
+            .clickable(role = Role.Button, onClick = onRequest)
+            .padding(horizontal = 18.dp, vertical = 18.dp),
+    ) {
+        Text(
+            text = "Let ChordWave read your storage to find all your songs",
+            color = SearchColors.Primary,
+            fontSize = 20.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Tap to allow access",
+            color = SearchColors.Secondary,
+            fontSize = 13.sp,
+        )
+    }
 }
