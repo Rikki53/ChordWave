@@ -92,7 +92,7 @@ fun WelcomeStep(isHiding: Boolean, onNext: () -> Unit) {
         WelcomeWords(clock.seconds, layout.wordsSize, layout.wordsTop)
 
         AnimatedRibbonMark(
-            seconds = clock.seconds,
+            seconds = clock.seconds.floatValue,
             modifier = Modifier
                 .offset(x = layout.markLeft, y = layout.markTop)
                 .size(layout.markSize)
