@@ -580,9 +580,13 @@ private fun ColumnScope.UpdateDetailContent(
     ) {
         Text(text = "Changelog", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(modifier = Modifier.height(4.dp))
+        // Mochy's dark theme sets onSurfaceVariant to plain white, so the
+        // changelog body is full white there — the 0.8f dim was CW-only.
+        // Kept hardcoded (not MaterialTheme): the sheet host doesn't apply
+        // the theme, which is why batch 1 hardcoded white here at all.
         ChangelogMarkdown(
             markdown = release.notes.orEmpty(),
-            color = Color.White.copy(alpha = 0.8f),
+            color = Color.White,
             strongColor = Color.White,
         )
     }
@@ -591,7 +595,7 @@ private fun ColumnScope.UpdateDetailContent(
 
     Text(
         text = "To Be Installed -",
-        color = Color.White.copy(alpha = 0.55f),
+        color = Color.White,
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
     )
@@ -618,7 +622,7 @@ private fun ColumnScope.UpdateDetailContent(
             )
             Text(
                 text = "${release.packageName} · v${release.version}",
-                color = Color.White.copy(alpha = 0.55f),
+                color = Color.White,
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -630,7 +634,7 @@ private fun ColumnScope.UpdateDetailContent(
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Installs as a separate app alongside this one.",
-            color = Color.White.copy(alpha = 0.55f),
+            color = Color.White,
             fontSize = 12.sp,
         )
     }
