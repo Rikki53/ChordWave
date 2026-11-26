@@ -24,11 +24,14 @@ private val FadeEasing = PathInterpolator(0.4f, 0f, 1f, 1f)
 fun SplashScreen.handOffToLaunchIntro(introPlays: () -> Boolean) {
     setOnExitAnimationListener { provider ->
         val root = provider.view
+        // the icon view is only there when the splash drew an icon; the
+        // hand-off must still run without it (batch 46)
         val icon = provider.iconView
-        val at = IntArray(2).also(icon::getLocationInWindow)
+        val at = IntArray(2)
+        icon?.getLocationInWindow(at)
         Timber.tag("LaunchIntro").d(
             "splash icon %dx%d at %d,%d in a %dx%d window",
-            icon.width, icon.height, at[0], at[1], root.width, root.height,
+            icon?.width ?: 0, icon?.height ?: 0, at[0], at[1], root.width, root.height,
         )
 
         ObjectAnimator.ofFloat(root, View.ALPHA, 1f, 0f).apply {

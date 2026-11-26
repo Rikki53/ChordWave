@@ -222,7 +222,12 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // Not on the critical path (batch 38): the LastFM session and the
         // public "apps open right now" count can land after the launch
         // intro, the way Mochy holds its heavy startup work behind the gate.
-        CoroutineScope(Dispatchers.IO).launch {
+        // Main, not IO (batch 46): AndroidPresence.install registers a
+        // ProcessLifecycleOwner observer, and Lifecycle.addObserver must run
+        // on the main thread -- on IO it throws IllegalStateException and
+        // the app force-closes right after the splash. awaitIntro only
+        // suspends, so waiting on Main blocks nothing.
+        CoroutineScope(Dispatchers.Main).launch {
             LaunchGate.awaitIntro()
             initLastfm()
             com.music.bitchord.data.presence.AndroidPresence.install(this@BitChordApplication)

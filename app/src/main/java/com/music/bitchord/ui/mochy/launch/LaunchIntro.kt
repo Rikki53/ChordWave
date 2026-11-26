@@ -14,10 +14,12 @@
 //     the skeleton rises in ([launchRise]).
 //  4. Only then does the heavy work get the main thread ([LaunchGate.awaitIntro]).
 //
-// Adapted from Mochy: the mark is ChordWave's ribbon bitmap instead of
-// Mochy's vector paths, and there is no anime-icon prelude (ChordWave has
-// no alternate launcher icons). Flight, easings, rise and timings are
-// Mochy's exactly (batch 38).
+// Adapted from Mochy: the flying art is ChordWave's ribbon bitmaps instead
+// of Mochy's vector paths, and there is no anime-icon prelude (ChordWave
+// has no alternate launcher icons). Flight, easings, rise and timings are
+// Mochy's exactly (batch 38). The splash art is the launcher icon's mint
+// ribbon, as the splash showed before batch 38; it crossfades into Home's
+// white mark on the way in (batch 46).
 
 package com.music.bitchord.ui.mochy.launch
 
@@ -106,9 +108,22 @@ private const val SplashViewport = 235f
 // the system splash draws its icon in a 288dp box, centred
 private val SplashIconSize = 288.dp
 
-// ic_chordwave_mark's own size: the mark's shape in its own units
+// the splash art: the launcher icon's mint ribbon (ic_launcher_foreground,
+// a square canvas) and the white in-app mark (ic_chordwave_mark), each
+// with the ribbon's own bounds inside its canvas (batch 46: batch 38 drew
+// the white mark for both, so the splash lost the mint ribbon the launcher
+// icon -- and the pre-batch-38 splash -- showed)
+private const val SplashCanvas = 432f
+private const val SplashArtLeft = 87f
+private const val SplashArtTop = 102f
+private const val SplashArtWidth = 255f
+private const val SplashArtHeight = 231f
 private const val MarkWidth = 710f
 private const val MarkHeight = 650f
+private const val MarkArtLeft = 26f
+private const val MarkArtTop = 26f
+private const val MarkArtWidth = 658f
+private const val MarkArtHeight = 598f
 
 @Stable
 class LaunchIntroState internal constructor(
@@ -203,6 +218,10 @@ fun LaunchIntroOverlay(state: LaunchIntroState, essentialsReady: Boolean) {
     if (state.done) return
     val ready by rememberUpdatedState(essentialsReady)
     val context = LocalContext.current
+    // the splash's mint ribbon and Home's white mark (batch 46)
+    val splashArt = remember {
+        BitmapFactory.decodeResource(context.resources, R.drawable.ic_launcher_foreground)?.asImageBitmap()
+    }
     val mark = remember {
         BitmapFactory.decodeResource(context.resources, R.drawable.ic_chordwave_mark)?.asImageBitmap()
     }
@@ -274,7 +293,6 @@ fun LaunchIntroOverlay(state: LaunchIntroState, essentialsReady: Boolean) {
                     renderEffect = BlurEffectCache.element(blur)
                 }
                 .drawBehind {
-                    val bitmap = mark ?: return@drawBehind
                     if (state.landed) return@drawBehind
                     val t = state.flight.value
                     val rect = placementAt(state, size)
@@ -283,12 +301,26 @@ fun LaunchIntroOverlay(state: LaunchIntroState, essentialsReady: Boolean) {
                     val whiteAlpha = smoothstep(0.12f, 0.6f, t) * fade
                     val dstOffset = IntOffset(rect.left.roundToInt(), rect.top.roundToInt())
                     val dstSize = IntSize(rect.width.roundToInt().coerceAtLeast(1), rect.height.roundToInt().coerceAtLeast(1))
-                    if (mintAlpha > 0.002f) {
-                        drawImage(bitmap, dstOffset = dstOffset, dstSize = dstSize, alpha = mintAlpha)
+                    // the mint ribbon the splash showed, cropped out of the
+                    // launcher foreground's canvas
+                    val splash = splashArt
+                    if (splash != null && mintAlpha > 0.002f) {
+                        drawImage(
+                            splash,
+                            srcOffset = IntOffset(SplashArtLeft.roundToInt(), SplashArtTop.roundToInt()),
+                            srcSize = IntSize(SplashArtWidth.roundToInt(), SplashArtHeight.roundToInt()),
+                            dstOffset = dstOffset,
+                            dstSize = dstSize,
+                            alpha = mintAlpha,
+                        )
                     }
-                    if (whiteAlpha > 0.002f) {
+                    // Home's white mark, cropped the same way, taking over
+                    val bitmap = mark
+                    if (bitmap != null && whiteAlpha > 0.002f) {
                         drawImage(
                             bitmap,
+                            srcOffset = IntOffset(MarkArtLeft.roundToInt(), MarkArtTop.roundToInt()),
+                            srcSize = IntSize(MarkArtWidth.roundToInt(), MarkArtHeight.roundToInt()),
                             dstOffset = dstOffset,
                             dstSize = dstSize,
                             alpha = whiteAlpha,
@@ -300,30 +332,45 @@ fun LaunchIntroOverlay(state: LaunchIntroState, essentialsReady: Boolean) {
     }
 }
 
-/** the mark's rect at the flight's current point, for an overlay of [size] */
+/** the ribbon's rect at the flight's current point, for an overlay of [size] */
 private fun Density.placementAt(state: LaunchIntroState, size: Size): Rect {
     val t = state.flight.value
     val splashBox = SplashIconSize.toPx()
-    val startScale = min(splashBox / MarkWidth, splashBox / MarkHeight)
-    val startCenter = Offset(size.width / 2f, size.height / 2f)
+    // the splash fits the launcher foreground's whole square canvas into
+    // its box; the ribbon sits inside that canvas at the SplashArt bounds
+    val splashScale = splashBox / SplashCanvas
+    val startWidth = SplashArtWidth * splashScale
+    val startHeight = SplashArtHeight * splashScale
+    val startCenter = Offset(
+        size.width / 2f + (SplashArtLeft + SplashArtWidth / 2f - SplashCanvas / 2f) * splashScale,
+        size.height / 2f + (SplashArtTop + SplashArtHeight / 2f - SplashCanvas / 2f) * splashScale,
+    )
 
     val target = state.markBounds
-    val endScale: Float
+    val endWidth: Float
+    val endHeight: Float
     val endCenter: Offset
     if (target != null) {
-        // the logo is an Icon: its art is fitted and centred in the logo's box
-        endScale = min(target.width / MarkWidth, target.height / MarkHeight)
-        endCenter = target.center
+        // the logo is an Icon: the mark's canvas is fitted and centred in
+        // the logo's box, and the ribbon sits inside that canvas
+        val logoScale = min(target.width / MarkWidth, target.height / MarkHeight)
+        endWidth = MarkArtWidth * logoScale
+        endHeight = MarkArtHeight * logoScale
+        endCenter = Offset(
+            target.center.x + (MarkArtLeft + MarkArtWidth / 2f - MarkWidth / 2f) * logoScale,
+            target.center.y + (MarkArtTop + MarkArtHeight / 2f - MarkHeight / 2f) * logoScale,
+        )
     } else {
         // nowhere to land (Home never laid out): settle smaller where it is and fade
-        endScale = startScale * 0.6f
+        endWidth = startWidth * 0.6f
+        endHeight = startHeight * 0.6f
         endCenter = startCenter
     }
 
-    val scale = startScale * (endScale / startScale).pow(ScaleEasing.transform(t))
+    val e = ScaleEasing.transform(t)
+    val width = startWidth * (endWidth / startWidth).pow(e)
+    val height = startHeight * (endHeight / startHeight).pow(e)
     val center = lerp(startCenter, endCenter, MoveEasing.transform(t))
-    val width = MarkWidth * scale
-    val height = MarkHeight * scale
     return Rect(center.x - width / 2f, center.y - height / 2f, center.x + width / 2f, center.y + height / 2f)
 }
 
