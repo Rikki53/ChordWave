@@ -1036,7 +1036,7 @@ private class MochySessionPlayer(
         val state = playbackState
         val playing = isPlaying
         val events = Player.Events(
-            androidx.media3.common.util.FlagSet.Builder()
+            androidx.media3.common.FlagSet.Builder()
                 .apply {
                     if (playWhenReady != reportedPlayWhenReady) add(Player.EVENT_PLAY_WHEN_READY_CHANGED)
                     if (state != reportedPlaybackState) add(Player.EVENT_PLAYBACK_STATE_CHANGED)
