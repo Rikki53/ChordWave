@@ -7,3 +7,8 @@ package com.music.bitchord.ui.mochy.constants
 
 const val ShowDiscordPresence = false
 const val ShowSupportMe = false
+
+// Batch 63 (27 Nov 2026): Module Store disembunyikan dari Pengaturan Modern
+// atas perintah Riki. Kode/rute store tetap ada; hanya pintu masuknya di
+// Pengaturan yang tidak ditampilkan. Untuk menampilkan lagi: ubah jadi true.
+const val ShowModuleStore = false

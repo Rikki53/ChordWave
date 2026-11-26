@@ -31,6 +31,7 @@ package com.music.bitchord.ui.mochy.screens.settings
 import androidx.activity.compose.BackHandler
 import com.music.bitchord.data.mochydata.modules.browser.ModuleFeed
 import com.music.bitchord.ui.mochy.constants.ShowDiscordPresence
+import com.music.bitchord.ui.mochy.constants.ShowModuleStore
 import com.music.bitchord.ui.mochy.screens.devices.showDeviceIntegration
 import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleBrowserRoute
 import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleSettingsPages
@@ -555,8 +556,9 @@ fun MochySettingsScreen(
                         }
                     }
 
-                    // a build without the module feed (most forks) has no store to open
-                    if (ModuleFeed.FeedUrl.isNotBlank()) {
+                    // a build without the module feed (most forks) has no store to open;
+                    // batch 63: hidden from Settings entirely while ShowModuleStore is off
+                    if (ShowModuleStore && ModuleFeed.FeedUrl.isNotBlank()) {
                         Spacer(modifier = Modifier.height(14.dp))
                         ModuleStoreCard(
                             onClick = { navigator.navigate(ModuleBrowserRoute) },

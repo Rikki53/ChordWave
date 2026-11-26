@@ -13,6 +13,7 @@ import androidx.annotation.StringRes
 import com.music.bitchord.R
 import com.music.bitchord.data.mochydata.scrobble.ScrobbleSite
 import com.music.bitchord.ui.mochy.constants.ShowDiscordPresence
+import com.music.bitchord.ui.mochy.constants.ShowModuleStore
 import com.music.bitchord.ui.mochy.screens.devices.DeviceIntegrationRoute
 import com.music.bitchord.ui.mochy.screens.settings.importsync.YouTubeSyncRoute
 import com.music.bitchord.ui.mochy.screens.settings.integrations.IntegrationsRoute
@@ -48,8 +49,12 @@ internal val SettingsCategoriesCatalog: List<SettingsCategoryDef> = listOf(
     SettingsCategoryDef("integrations", IntegrationsRoute, R.string.integrations, R.drawable.integration),
     SettingsCategoryDef("devices", DeviceIntegrationRoute, R.string.devices_title, R.drawable.cast_connected),
     SettingsCategoryDef("modules", "modules", R.string.settings_modules_category, R.drawable.library_add),
-    SettingsCategoryDef("module_store", ModuleBrowserRoute, R.string.settings_module_store, R.drawable.puzzle),
-)
+) + if (ShowModuleStore) {
+    // batch 63: the store's category is hidden with its Settings card
+    listOf(SettingsCategoryDef("module_store", ModuleBrowserRoute, R.string.settings_module_store, R.drawable.puzzle))
+} else {
+    emptyList()
+}
 
 internal fun findSettingsCategory(raw: String): SettingsCategoryDef? {
     val clean = raw.trim().lowercase().replace('-', '_')
