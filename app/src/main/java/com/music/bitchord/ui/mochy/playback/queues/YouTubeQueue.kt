@@ -24,6 +24,16 @@ class YouTubeQueue(
 ) : Queue {
     private var continuation: String? = null
 
+    /**
+     * A lone tapped song: [getInitialStatus] leads with the preload song
+     * itself and only fetches its radio behind it, so the connection can
+     * start the song at once and append the radio when it lands (batch 48)
+     * instead of holding the tap on a network round-trip. A playlist/mix
+     * endpoint is not this: its queue order is the point, and the tapped
+     * song sits wherever YouTube put it in that order.
+     */
+    val startsOnSeed: Boolean get() = endpoint.playlistId == null && preloadItem != null
+
     override suspend fun getInitialStatus(): Queue.Status {
         val videoId = endpoint.videoId ?: preloadItem?.id
         val playlistId = endpoint.playlistId

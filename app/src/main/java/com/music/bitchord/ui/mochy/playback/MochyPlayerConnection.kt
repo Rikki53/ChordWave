@@ -100,6 +100,7 @@ import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.toMochyMetadata
 import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.playback.queues.Queue
+import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
 import com.music.bitchord.ui.mochy.player.PlayerUiState
 import com.music.bitchord.ui.mochy.player.menu.sendLibraryFeedback
 import com.music.bitchord.ui.mochy.player.menu.toggleSongLike
@@ -963,6 +964,56 @@ class MochyPlayerConnection(context: Context) {
                 mediaMetadata.value = preload
                 playbackState.value = Player.STATE_BUFFERING
             }
+            // Classic's start sequence (PlayerConnection.playSongs): drop
+            // any bounded context the service is holding for an album or
+            // playlist started from the Classic UI, so it cannot trim or
+            // refill this queue behind the player's back. Best-effort — a
+            // command that fails must not lose the tap.
+            suspend fun clearBoundedContext() {
+                runCatching {
+                    p.sendCustomCommand(
+                        SessionCommand(ACTION_CLEAR_BOUNDED_CONTEXT, Bundle.EMPTY),
+                        Bundle.EMPTY,
+                    ).await()
+                }.onFailure { Timber.w(it, "MochyPlayerConnection.playQueue: clear bounded context failed") }
+            }
+            // A lone tapped song starts NOW (batch 48): its queue is the
+            // song plus a radio fetched behind it, and holding the tap on
+            // that fetch put a whole network round-trip in front of every
+            // play — the stream resolve could not even begin until the
+            // radio landed. Classic never waits: it sets the song and
+            // lets the tail follow. Same here: the seed plays at once
+            // (its resolve runs while the radio is still in flight) and
+            // the radio is appended when it arrives. If the fetch fails,
+            // the seed keeps playing and the service's autoplay appends
+            // its own tail, exactly the fallback YouTubeQueue documents.
+            val seed = (queue as? YouTubeQueue)?.takeIf { it.startsOnSeed }?.preloadItem
+            if (seed != null) {
+                clearBoundedContext()
+                p.setMediaItems(listOf(seed.toMediaItem()), 0, 0L)
+                p.prepare()
+                p.play()
+                val status = try {
+                    queue.getInitialStatus()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.w(e, "MochyPlayerConnection.playQueue: radio tail failed to load; seed keeps playing")
+                    return@launch
+                }
+                queueTitle.value = status.title
+                // The radio behind the seed, minus the seed itself. Only
+                // appended while the seed is still the track in hand: if
+                // the listener already moved on, this tail belongs to a
+                // tap that no longer stands. (A newer tap cancels this
+                // job outright; this guard covers moves within the tap,
+                // like autoplay having taken over at the seed's end.)
+                val tail = status.items.filterNot { it.mediaId == seed.id }
+                if (tail.isNotEmpty() && p.currentMediaItem?.mediaId == seed.id) {
+                    p.addMediaItems(tail)
+                }
+                return@launch
+            }
             val status = try {
                 queue.getInitialStatus()
             } catch (e: CancellationException) {
@@ -980,17 +1031,7 @@ class MochyPlayerConnection(context: Context) {
                 return@launch
             }
             queueTitle.value = status.title
-            // Classic's start sequence (PlayerConnection.playSongs): drop
-            // any bounded context the service is holding for an album or
-            // playlist started from the Classic UI, so it cannot trim or
-            // refill this queue behind the player's back. Best-effort — a
-            // command that fails must not lose the tap.
-            runCatching {
-                p.sendCustomCommand(
-                    SessionCommand(ACTION_CLEAR_BOUNDED_CONTEXT, Bundle.EMPTY),
-                    Bundle.EMPTY,
-                ).await()
-            }.onFailure { Timber.w(it, "MochyPlayerConnection.playQueue: clear bounded context failed") }
+            clearBoundedContext()
             p.setMediaItems(
                 status.items,
                 status.mediaItemIndex.coerceIn(0, status.items.lastIndex),
