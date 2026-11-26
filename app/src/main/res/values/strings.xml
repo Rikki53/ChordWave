@@ -1820,4 +1820,5 @@
     </plurals>
     <string name="spotify_canvas_row_on">On</string>
     <string name="spotify_canvas_row_off">Off</string>
+    <string name="discord_target_mochy">ChordWave on GitHub</string>
 </resources>

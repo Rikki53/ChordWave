@@ -10,6 +10,14 @@ package com.music.bitchord.ui.mochy.utils
 import java.net.InetSocketAddress
 
 object AppProxy {
+    // one pool and dispatcher for the integration clients (Discord, cloud
+    // backup), so they don't each spin up their own thread pools
+    internal val connectionPool = okhttp3.ConnectionPool()
+    internal val dispatcher = okhttp3.Dispatcher().apply {
+        maxRequests = 64
+        maxRequestsPerHost = 10
+    }
+
     /** reads "1.2.3.4:8080", "proxy.example.com:1080" or "[2001:db8::1]:3128", skipping a pasted scheme or login in front */
     fun parseAddress(text: String): InetSocketAddress? {
         val hostPort = text.trim().substringAfter("://").substringAfterLast('@').trimEnd('/')

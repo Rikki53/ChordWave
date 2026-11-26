@@ -33,6 +33,37 @@ val lastfmSecret: String = (
         ?: System.getenv("LASTFM_SECRET")
         ?: ""
     ).trim()
+// Batch 55a: the phone sources this module compiles reference these too
+// (Discord / Libre.fm / cloud backup in Integrations). Same stand-in
+// fallback as the phone build for Libre.fm.
+fun libreFmStandIn(name: String): String =
+    java.security.MessageDigest.getInstance("MD5")
+        .digest("com.riki.chordwave.librefm.$name".toByteArray()).joinToString("") { "%02x".format(it) }
+val libreFmApiKey: String = (
+    localProps.getProperty("LIBREFM_API_KEY")
+        ?: System.getenv("LIBREFM_API_KEY")?.takeIf { it.isNotEmpty() }
+        ?: libreFmStandIn("key")
+    ).trim()
+val libreFmSecret: String = (
+    localProps.getProperty("LIBREFM_SECRET")
+        ?: System.getenv("LIBREFM_SECRET")?.takeIf { it.isNotEmpty() }
+        ?: libreFmStandIn("secret")
+    ).trim()
+val discordClientId: String = (
+    localProps.getProperty("DISCORD_CLIENT_ID")
+        ?: System.getenv("DISCORD_CLIENT_ID")
+        ?: ""
+    ).trim()
+val dropboxAppKey: String = (
+    localProps.getProperty("DROPBOX_APP_KEY")
+        ?: System.getenv("DROPBOX_APP_KEY")
+        ?: ""
+    ).trim()
+val oneDriveClientId: String = (
+    localProps.getProperty("ONEDRIVE_CLIENT_ID")
+        ?: System.getenv("ONEDRIVE_CLIENT_ID")
+        ?: ""
+    ).trim()
 
 /*
  * Where Listen Together's party server lives. Not a credential — it is a public
@@ -98,6 +129,11 @@ android {
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "LIBREFM_API_KEY", "\"${libreFmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\")
+        buildConfigField("String", "LIBREFM_SECRET", "\"${libreFmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\")
+        buildConfigField("String", "DISCORD_CLIENT_ID", "\"${discordClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\")
+        buildConfigField("String", "DROPBOX_APP_KEY", "\"${dropboxAppKey.replace("\\", "\\\\").replace("\"", "\\\"")}\")
+        buildConfigField("String", "ONEDRIVE_CLIENT_ID", "\"${oneDriveClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\")
         buildConfigField(
             "String",
             "LISTEN_TOGETHER_SERVER",
