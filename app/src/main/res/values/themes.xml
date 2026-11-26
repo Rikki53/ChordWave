@@ -10,7 +10,10 @@
          before batch 38, handed off to the in-app launch intro that
          flies it into Home's logo. Batch 38 pointed this at
          ic_chordwave_mark, which is the white in-app mark, so the splash
-         showed a big white ribbon instead of the mint one. -->
+         showed a big white ribbon instead of the mint one. Batch 59: the
+         foreground asset is the 2048px mint master now, so the splash
+         ribbon stays sharp with smooth edges on large screens (no black
+         outline). -->
     <style name="Theme.ChordWave.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@android:color/black</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>

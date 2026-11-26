@@ -112,18 +112,22 @@ private val SplashIconSize = 288.dp
 // a square canvas) and the white in-app mark (ic_chordwave_mark), each
 // with the ribbon's own bounds inside its canvas (batch 46: batch 38 drew
 // the white mark for both, so the splash lost the mint ribbon the launcher
-// icon -- and the pre-batch-38 splash -- showed)
-private const val SplashCanvas = 432f
-private const val SplashArtLeft = 87f
-private const val SplashArtTop = 102f
-private const val SplashArtWidth = 255f
-private const val SplashArtHeight = 231f
-private const val MarkWidth = 710f
-private const val MarkHeight = 650f
-private const val MarkArtLeft = 26f
-private const val MarkArtTop = 26f
-private const val MarkArtWidth = 658f
-private const val MarkArtHeight = 598f
+// icon -- and the pre-batch-38 splash -- showed). Batch 59: both assets
+// are high-resolution now (2048px mint master, white mark regenerated at
+// 2x from the same silhouette) so the start screen stays sharp and the
+// ribbon's edges stay smooth on large screens; the bounds below are the
+// measured alpha bounds of the new art. No black outline on either.
+private const val SplashCanvas = 2048f
+private const val SplashArtLeft = 403f
+private const val SplashArtTop = 477f
+private const val SplashArtWidth = 1230f
+private const val SplashArtHeight = 1113f
+private const val MarkWidth = 1420f
+private const val MarkHeight = 1300f
+private const val MarkArtLeft = 56f
+private const val MarkArtTop = 58f
+private const val MarkArtWidth = 1308f
+private const val MarkArtHeight = 1188f
 
 @Stable
 class LaunchIntroState internal constructor(
@@ -219,11 +223,20 @@ fun LaunchIntroOverlay(state: LaunchIntroState, essentialsReady: Boolean) {
     val ready by rememberUpdatedState(essentialsReady)
     val context = LocalContext.current
     // the splash's mint ribbon and Home's white mark (batch 46)
+    // inScaled off (batch 59): the crop bounds above are in the assets' own
+    // pixels, so decode at native size on every density instead of letting
+    // the resource system pre-scale the bitmap out from under the crop
     val splashArt = remember {
-        BitmapFactory.decodeResource(context.resources, R.drawable.ic_launcher_foreground)?.asImageBitmap()
+        BitmapFactory.decodeResource(
+            context.resources, R.drawable.ic_launcher_foreground,
+            BitmapFactory.Options().apply { inScaled = false },
+        )?.asImageBitmap()
     }
     val mark = remember {
-        BitmapFactory.decodeResource(context.resources, R.drawable.ic_chordwave_mark)?.asImageBitmap()
+        BitmapFactory.decodeResource(
+            context.resources, R.drawable.ic_chordwave_mark,
+            BitmapFactory.Options().apply { inScaled = false },
+        )?.asImageBitmap()
     }
 
     LaunchedEffect(state) {
