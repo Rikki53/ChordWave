@@ -75,11 +75,19 @@ private suspend fun ShareRequest.exportVideoRetrying(layers: ShareLayers): File 
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
-        if (job.cancelled) throw e
+        // a cancel the user asked for never retries; the export giving up
+        // on itself (job.failure, batch 36) does — its cancel flag only
+        // stops the gl thread waiting, it is not the user saying no. The
+        // old blanket check blocked the 4K step-down exactly when the
+        // card could not be drawn at 4K, so the export failed outright
+        // instead of finishing at 1080p (batch 49)
+        if (job.cancelled && job.failure == null) throw e
         val refreshed = refreshMusicVideo(session)
         val retryQuality = if (quality == ShareQuality.UltraHd) ShareQuality.FullHd else quality
         if (!refreshed && retryQuality == quality) throw e
         Log.w("SongShare", "Video export failed; retrying with fresh links=$refreshed at $retryQuality", e)
+        if (retryQuality != quality) job.steppedDown = true
+        job.resetForRetry()
         return exportVideo(context, session, theme, retryQuality, layers, songSource, job)
     }
 }

@@ -40,7 +40,11 @@ private const val FrameTimeoutMs = 3_000L
 // encoding a card-less video behind a frozen progress bar (batch 36)
 private const val MaxConsecutiveFrameTimeouts = 10
 
-// what this phone's h264 encoders can take; videos encode on their side, so 9:16 is asked as 16:9
+// what this phone's h264 encoders can take at the size actually encoded.
+// The share is portrait 9:16 and the encoder is handed that size as-is, so
+// the check asks for portrait: asking for the rotated 16:9 size (Mochy's
+// original) passes on phones whose encoder caps height at 2160, and the
+// 2160x3840 export then dies inside the transformer (batch 49)
 internal object ShareEncoders {
     private val cache = HashMap<Pair<ShareQuality, Int>, Boolean>()
 
@@ -52,8 +56,7 @@ internal object ShareEncoders {
                     runCatching {
                         // an audio-only or odd codec has no video capabilities; it just can't encode this
                         val video = info.getCapabilitiesForType(MimeTypes.VIDEO_H264).videoCapabilities ?: return@runCatching false
-                        video.areSizeAndRateSupported(quality.height, quality.width, fps.toDouble()) ||
-                            video.areSizeAndRateSupported(quality.width, quality.height, fps.toDouble())
+                        video.areSizeAndRateSupported(quality.width, quality.height, fps.toDouble())
                     }.getOrDefault(false)
             }
         }.onFailure { Log.w("SongShare", "Encoder check failed for $quality at $fps fps", it) }.getOrDefault(false)
@@ -64,10 +67,27 @@ internal object ShareEncoders {
 
     fun frameRateFor(quality: ShareQuality): Int = if (canEncode(quality, 60)) 60 else 30
 
-    fun bitrateFor(quality: ShareQuality, fps: Int): Int = when (quality) {
-        ShareQuality.UltraHd -> if (fps >= 60) 60_000_000 else 45_000_000
-        ShareQuality.FullHd -> if (fps >= 60) 20_000_000 else 14_000_000
+    // the bitrate asked for, held to what the phone's encoders accept:
+    // 45-60 Mbps at 4K is past many h264 encoders' ceiling, and asking
+    // past it can fail the encode outright (batch 49)
+    fun bitrateFor(quality: ShareQuality, fps: Int): Int {
+        val wanted = when (quality) {
+            ShareQuality.UltraHd -> if (fps >= 60) 60_000_000 else 45_000_000
+            ShareQuality.FullHd -> if (fps >= 60) 20_000_000 else 14_000_000
+        }
+        val ceiling = maxBitrate(quality, fps)
+        return if (ceiling > 0) min(wanted, ceiling) else wanted
     }
+
+    // the highest bitrate any h264 encoder that takes this size and rate
+    // will accept, or 0 when none says
+    private fun maxBitrate(quality: ShareQuality, fps: Int): Int = runCatching {
+        MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+            .filter { it.isEncoder && it.supportedTypes.any { type -> type.equals(MimeTypes.VIDEO_H264, ignoreCase = true) } }
+            .mapNotNull { info -> runCatching { info.getCapabilitiesForType(MimeTypes.VIDEO_H264).videoCapabilities }.getOrNull() }
+            .filter { it.areSizeAndRateSupported(quality.width, quality.height, fps.toDouble()) }
+            .maxOfOrNull { it.bitrateRange.upper } ?: 0
+    }.getOrDefault(0)
 }
 
 // the song through the app's own stream lookup and cache, every video through plain http
@@ -137,7 +157,7 @@ internal class ExportFrames(
                 if (failed == 0) Log.e("SongShare", "Share frame at $presentationTimeUs us not drawn within ${FrameTimeoutMs}ms; continuing without it")
                 failed++
                 settled++
-                job.progress = min(1f, settled.toFloat() / totalFrames)
+                job.advanceProgress(settled.toFloat() / totalFrames)
                 consecutiveTimeouts++
                 if (consecutiveTimeouts >= MaxConsecutiveFrameTimeouts) {
                     job.failure = "The share card could not be drawn on this phone"
@@ -160,7 +180,7 @@ internal class ExportFrames(
         drawn++
         settled++
         consecutiveTimeouts = 0
-        job.progress = min(1f, settled.toFloat() / totalFrames)
+        job.advanceProgress(settled.toFloat() / totalFrames)
         return frame
     }
 }

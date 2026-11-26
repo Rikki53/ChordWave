@@ -83,6 +83,8 @@
     <string name="song_share_quality_1080">1080p</string>
     <string name="song_share_quality_best">Best</string>
     <string name="song_share_quality_standard">Standard</string>
+    <string name="song_share_quality_4k_unsupported">This phone can\'t encode 4K video, so exports are made at 1080p</string>
+    <string name="song_share_stepped_down">Made at 1080p — this phone couldn\'t make the 4K video</string>
     <string name="song_share_making_video">Making your video… %1$d%%</string>
     <string name="song_share_making_picture">Making your picture…</string>
     <string name="song_share_saved">Saved to your gallery too</string>

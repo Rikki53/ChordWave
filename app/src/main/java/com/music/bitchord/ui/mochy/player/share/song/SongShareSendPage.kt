@@ -110,6 +110,7 @@ private class SendState(val session: SongShareSession) {
     var quality by mutableStateOf<ShareQuality?>(null)
     var job by mutableStateOf<ShareExportJob?>(null)
     var progress by mutableFloatStateOf(0f)
+    var steppedDown by mutableStateOf(false)
     var note by mutableStateOf<Int?>(null)
     var scope: CoroutineScope? = null
     var context: Context? = null
@@ -137,6 +138,7 @@ private class SendState(val session: SongShareSession) {
             job = ShareExportJob(),
         )
         job = request.job
+        steppedDown = false
         note = null
         // the song stops while the export reads it, so the two don't fight over the phone, and stays stopped once it's handed to another app
         val wasPlaying = session.previewWanted
@@ -204,6 +206,7 @@ private fun SendContent(send: SendState, live: Boolean) {
         val job = send.job ?: return@LaunchedEffect
         while (true) {
             send.progress = job.progress
+            send.steppedDown = job.steppedDown
             delay(100)
         }
     }
@@ -246,14 +249,18 @@ private fun SendContent(send: SendState, live: Boolean) {
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
             ShareApp.entries.forEach { app ->
-                AppTile(app, enabled = !send.working) { send.start { sendTo(app); null } }
+                AppTile(app, enabled = !send.working) { send.start { sendTo(app); if (job.steppedDown) R.string.song_share_stepped_down else null } }
             }
         }
         Spacer(Modifier.height(16.dp))
         QualityPicker(send, canUltraHd, video)
+        if (video && !canUltraHd) {
+            Spacer(Modifier.height(8.dp))
+            Caption(stringResource(R.string.song_share_quality_4k_unsupported))
+        }
         Divider()
         when {
-            send.working -> ExportProgress(send.progress, video)
+            send.working -> ExportProgress(send.progress, video, send.steppedDown)
             send.note != null -> Caption(stringResource(send.note!!))
             else -> Caption(stringResource(R.string.song_share_send_or))
         }
@@ -283,7 +290,16 @@ private fun SendButton(send: SendState) {
     } else {
         SheetPillButton(
             text = stringResource(R.string.song_share_export_button),
-            onClick = { send.start { if (exportAndShare()) R.string.song_share_saved else null } },
+            onClick = {
+                send.start {
+                    val saved = exportAndShare()
+                    when {
+                        job.steppedDown -> R.string.song_share_stepped_down
+                        saved -> R.string.song_share_saved
+                        else -> null
+                    }
+                }
+            },
         )
     }
 }
@@ -375,7 +391,7 @@ private fun QualityPicker(send: SendState, canUltraHd: Boolean, video: Boolean) 
 }
 
 @Composable
-private fun ExportProgress(progress: Float, video: Boolean) {
+private fun ExportProgress(progress: Float, video: Boolean, steppedDown: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Caption(
             if (video) {
@@ -396,6 +412,10 @@ private fun ExportProgress(progress: Float, video: Boolean) {
                     drawRoundRect(Color.White, size = Size(size.width * progress.coerceIn(0.02f, 1f), size.height), cornerRadius = radius)
                 },
         )
+        if (steppedDown) {
+            Spacer(Modifier.height(8.dp))
+            Caption(stringResource(R.string.song_share_stepped_down))
+        }
     }
 }
 
