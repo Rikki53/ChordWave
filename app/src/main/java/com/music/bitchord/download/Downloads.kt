@@ -17,6 +17,9 @@ import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.AudioCache
+import com.music.bitchord.playback.mochy.EngineSwitch
+import com.music.bitchord.playback.mochy.MochyDownloadUtil
+import com.music.bitchord.playback.mochy.PlaybackEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -419,6 +422,21 @@ object Downloads {
             DownloadSession.waitingForWifi(id)
             return
         }
+        // Two-engine Tahap 5: in Modern the fetch itself is the Mochy
+        // engine's (MochyDownloadUtil's DownloadManager); this object
+        // keeps the gate above, the progress below and the saved
+        // record, so every surface reads a Mochy download exactly as
+        // it read a Classic one. Cached-copy asks stay on the Classic
+        // path: the copy they name lives in the Classic song cache.
+        if (EngineSwitch.activeEngine(context) == PlaybackEngine.MOCHY && id !in fromCache) {
+            val inFlight = _active.value[id]
+            if (inFlight is DownloadState.Queued || inFlight is DownloadState.Running) return
+            synchronized(lock) { waiting.remove(id) }
+            _active.update { it + (id to DownloadState.Queued) }
+            DownloadSession.queued(song, from)
+            MochyDownloadUtil.enqueue(context, song)
+            return
+        }
         synchronized(lock) {
             if (id in pending || id in running) return
             waiting.remove(id)
@@ -476,6 +494,11 @@ object Downloads {
      * told to run is no longer wanted, and stops it on arrival.
      */
     fun cancel(videoId: String) {
+        // Tahap 5: an under-way Mochy download is called off on its
+        // own engine first; a finished one is left alone there, as
+        // here. The Classic claim below then settles the shared
+        // state either way.
+        MochyDownloadUtil.cancel(videoId)
         val job = synchronized(lock) {
             pending.remove(videoId)
             waiting.remove(videoId)
@@ -516,6 +539,29 @@ object Downloads {
         from: String?,
         origin: DownloadOrigin,
     ): Set<String> {
+        // Tahap 5: on the Mochy engine the batch goes to its
+        // DownloadManager instead. Handled means in flight (the
+        // manager persists its queue across process death); whether
+        // each file arrived is read back from [saved] on the next
+        // sync, exactly as a track still downloading at the end of a
+        // Classic batch is.
+        if (EngineSwitch.activeEngine(context) == PlaybackEngine.MOCHY) {
+            val mochyHandled = mutableSetOf<String>()
+            songs.forEach { song ->
+                if (
+                    DownloadGate.decide(
+                        policy = AppSettings.cellularDownloadPolicy.value,
+                        metered = AppSettings.meteredConnection.value,
+                        origin = origin,
+                    ) != DownloadDecision.PROCEED
+                ) return@forEach
+                _active.update { it + (song.videoId to DownloadState.Queued) }
+                DownloadSession.queued(song, from)
+                MochyDownloadUtil.enqueue(context, song)
+                mochyHandled += song.videoId
+            }
+            return mochyHandled
+        }
         val handled = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
         val claimed = synchronized(lock) {
             songs.filter { song ->
@@ -643,7 +689,14 @@ object Downloads {
 
     /** Delete the file saved for [videoId] and forget it. */
     suspend fun delete(context: Context, videoId: String): Boolean = withContext(Dispatchers.IO) {
-        val uri = _saved.value[videoId]?.toUri() ?: return@withContext false
+        // Tahap 5: the Mochy engine's cache copy goes too — deleting
+        // only the exported file would leave the song downloaded in
+        // Modern and gone in Classic. A cache-only download (its
+        // export never landed) has no saved record; removing the
+        // cache copy is still the delete asked for.
+        val hadMochy = MochyDownloadUtil.hasDownload(videoId)
+        MochyDownloadUtil.removeDownload(videoId)
+        val uri = _saved.value[videoId]?.toUri() ?: return@withContext hadMochy
         val deleted = DownloadStore.delete(context, uri)
         forget(videoId)
         deleted
@@ -1763,6 +1816,35 @@ object Downloads {
         DownloadSession.failed(videoId, reason)
     }
 
+    // ---- Mochy engine mirrors (Tahap 5) -------------------------------------
+    // MochyDownloadUtil reports its DownloadManager's states through
+    // these, so [active], [saved] and [DownloadSession] — everything
+    // the Modern surfaces read — stay the one record for both engines.
+
+    internal fun mirrorMochyQueued(videoId: String) {
+        _active.update { it + (videoId to DownloadState.Queued) }
+    }
+
+    internal fun mirrorMochyRunning(videoId: String, fraction: Float) {
+        _active.update { it + (videoId to DownloadState.Running(fraction)) }
+        DownloadSession.running(videoId, fraction)
+    }
+
+    internal fun mirrorMochyDone(song: Song, uri: Uri, badge: String?, artworkUri: String?) {
+        remember(song, song, uri, badge, artworkUri)
+        DownloadSession.done(song.videoId)
+        clear(song.videoId)
+    }
+
+    internal fun mirrorMochyDoneCacheOnly(videoId: String) {
+        DownloadSession.done(videoId)
+        clear(videoId)
+    }
+
+    internal fun mirrorMochyFailed(videoId: String, reason: String) = fail(videoId, reason)
+
+    internal fun mirrorMochyCleared(videoId: String) = clear(videoId)
+
     /**
      * A failure a user can read. The message on an [error] raised in this
      * package is already written for them; anything else is a network fault
@@ -1886,7 +1968,7 @@ internal fun resolvedDownloadDates(
 }
 
 /** Premium source labels used in BitChord's Downloads list. */
-private fun StreamFormat.downloadBadge(): String? = when {
+internal fun StreamFormat.downloadBadge(): String? = when {
     isDolbyAtmos -> "DOLBY"
     codec.equals("flac", ignoreCase = true) || codec.equals("x-flac", ignoreCase = true) -> "FLAC"
     else -> null

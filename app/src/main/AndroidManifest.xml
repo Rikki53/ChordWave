@@ -1162,6 +1162,15 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- The Mochy engine's download service (two-engine Tahap 5):
+             the foreground face of MochyDownloadUtil's DownloadManager,
+             started by sendAddDownload and by its own scheduler. Not
+             exported, like the Classic download service above. -->
+        <service
+            android:name=".playback.mochy.MochyExoDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- AI karaoke stem creation. Same shape as downloads: app-started only. -->
         <service
             android:name=".karaoke.ai.KaraokeAiService"

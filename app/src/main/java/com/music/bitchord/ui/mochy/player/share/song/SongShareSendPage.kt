@@ -59,7 +59,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.transformer.ExportException
-import com.music.bitchord.ui.mochy.playback.SongDataSourceFactory
+import com.music.bitchord.playback.mochy.MochyDataSourceFactory
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.SheetPillButton
@@ -183,10 +183,11 @@ private fun SendContent(send: SendState, live: Boolean) {
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
     val typography = MaterialTheme.typography
-    // made once: the shared song factory (the same one the preview player
-    // uses) — the export's song sequence goes through it, and every video
-    // goes through plain http.
-    val songSource: DataSource.Factory = remember { SongDataSourceFactory.create(context) }
+    // made once: the Mochy player's own factory (Tahap 5; the same one
+    // the preview player uses) — the export's song sequence goes
+    // through it, so the exported audio is the recording the lyrics
+    // were synced to, and every video goes through plain http.
+    val songSource: DataSource.Factory = remember { MochyDataSourceFactory.shareFactory(context) }
     val video = session.isVideo
     SideEffect {
         send.scope = scope

@@ -77,9 +77,22 @@ object MochyStreamResolver {
 
     private val urlCache = ConcurrentHashMap<String, MochyResolvedStream>()
 
+    // Downloads remember their URLs apart from playback's (Tahap 5): a
+    // download asks for its own rung (the download-quality setting, AAC
+    // when the file is headed for Music/ChordWave), which is often not
+    // the rung playback picked, and Mochy keeps the two caches apart for
+    // the same reason (MusicService.songUrlCache vs DownloadUtil's).
+    private val downloadUrlCache = ConcurrentHashMap<String, MochyResolvedStream>()
+
     /** Drops remembered URLs (a quality change makes the remembered pick wrong). */
     fun forget(videoId: String? = null) {
-        if (videoId == null) urlCache.clear() else urlCache.remove(videoId)
+        if (videoId == null) {
+            urlCache.clear()
+            downloadUrlCache.clear()
+        } else {
+            urlCache.remove(videoId)
+            downloadUrlCache.remove(videoId)
+        }
     }
 
     /**
@@ -168,6 +181,72 @@ object MochyStreamResolver {
         }
 
         throw IllegalStateException("No Mochy client could resolve $videoId", lastError)
+    }
+
+    /**
+     * The download engine's resolve (Tahap 5): the same client walk as
+     * [resolve], but the format is picked for keeping — [quality] is the
+     * download rung, and when [requireM4a] the pick is pinned to
+     * AAC-in-MP4, because the file is headed for Music/ChordWave through
+     * the media store, which refuses audio/webm on affected Android
+     * versions (the same pin the Classic download path applies). Falls
+     * back to the best format when no AAC rung exists rather than
+     * failing a download YouTube could have served.
+     */
+    suspend fun resolveForDownload(
+        videoId: String,
+        quality: AudioQuality,
+        requireM4a: Boolean,
+    ): MochyResolvedStream = withContext(Dispatchers.IO) {
+        downloadUrlCache[videoId]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@withContext it }
+
+        var lastError: Throwable? = null
+        val clients = (listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS.toList()).distinct()
+        for (client in clients) {
+            try {
+                val signatureTimestamp = if (client.useSignatureTimestamp) {
+                    NewPipeExtractor.getSignatureTimestamp(videoId).getOrNull()
+                } else {
+                    null
+                }
+                val response = YouTube.player(videoId, null, client, signatureTimestamp).getOrThrow()
+                if (response.playabilityStatus.status != "OK") {
+                    Timber.tag(TAG).d("Download: client ${client.clientName} refused $videoId: ${response.playabilityStatus.status}")
+                    continue
+                }
+                val candidates = selectAudioFormatCandidates(response, quality, networkMetered = false)
+                val ordered = if (requireM4a) {
+                    candidates.filter { isM4a(it) } + candidates.filterNot { isM4a(it) }
+                } else {
+                    candidates
+                }
+                for (format in ordered) {
+                    val url = NewPipeExtractor.getStreamUrl(format, videoId) ?: continue
+                    val resolved = MochyResolvedStream(
+                        url = url,
+                        format = format,
+                        headers = client.streamHeaders(),
+                        expiresAtMs = System.currentTimeMillis() +
+                            (response.streamingData?.expiresInSeconds ?: 3600) * 1000L,
+                        audioConfig = response.playerConfig?.audioConfig,
+                        playbackTrackingUrl = response.playbackTracking?.videostatsPlaybackUrl?.baseUrl,
+                    )
+                    downloadUrlCache[videoId] = resolved
+                    Timber.tag(TAG).d("Download resolved $videoId via ${client.clientName}: ${format.mimeType}@${format.bitrate}")
+                    return@withContext resolved
+                }
+            } catch (e: Exception) {
+                lastError = e
+                Timber.tag(TAG).d(e, "Download: client ${client.clientName} failed for $videoId")
+            }
+        }
+        throw IllegalStateException("No Mochy client could resolve $videoId for download", lastError)
+    }
+
+    /** AAC-in-MP4: the container the media store keeps for Music/ChordWave. */
+    private fun isM4a(format: PlayerResponse.StreamingData.Format): Boolean {
+        val mime = format.mimeType.lowercase()
+        return mime.startsWith("audio/mp4") || mime.contains("mp4a")
     }
 
     /**

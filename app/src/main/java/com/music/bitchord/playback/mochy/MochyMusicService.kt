@@ -21,10 +21,18 @@
 // builders produce (bitchord://watch URIs + extras, so the queue, lyrics,
 // share and menus keep working unchanged), module/source tracks
 // (bitchord://source resolves through SourceResolver, ChordWave's own
-// Sources system), downloads (files in Music/ChordWave, substituted at
-// item-build time), Cast (CastPlayback/CastController, shared with the
+// Sources system), Cast (CastPlayback/CastController, shared with the
 // Classic engine), the widget snapshot, and the equaliser settings (applied
 // through the platform Equalizer on this player's audio session).
+//
+// Tahap 5: downloads run on the Mochy engine too (MochyDownloadUtil's
+// DownloadManager over the download cache, exported to the shared
+// Music/ChordWave folder), the player's chain reads download cache ->
+// player cache -> network through MochyDataSourceFactory, and the lyric
+// share reads through the same factory (shareDataSourceFactory below),
+// so an exported lyric video carries the recording the lyrics belong
+// to. The caches themselves are process singletons (MochyCaches, Mochy's
+// DI places) shared by player, downloads and share.
 //
 // Not yet ported from Mochy's MusicService (later stages, honest list):
 // crossfade/crossmix transitions, PoToken/SABR, loudness normalisation,
@@ -61,14 +69,6 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
-import androidx.media3.datasource.DataSpec
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.ResolvingDataSource
-import androidx.media3.datasource.TransferListener
-import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
-import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
@@ -134,7 +134,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import timber.log.Timber
-import java.io.File
 import java.time.LocalDateTime
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -147,7 +146,6 @@ class MochyMusicService : MediaLibraryService() {
 
     private var player: ExoPlayer? = null
     private var mediaSession: MediaLibrarySession? = null
-    private var playerCache: SimpleCache? = null
 
     private val castPlayback = CastPlayback(
         scope = scope,
@@ -203,19 +201,14 @@ class MochyMusicService : MediaLibraryService() {
     }
 
     private fun buildPlayer(): ExoPlayer {
-        val cache = SimpleCache(
-            File(cacheDir, "mochy_player_cache"),
-            LeastRecentlyUsedCacheEvictor(PLAYER_CACHE_BYTES),
-            StandaloneDatabaseProvider(this),
-        )
-        playerCache = cache
-
-        val resolvingFactory = ResolvingDataSource.Factory(
-            MochyDataSourceFactory(this, cache),
-        ) { dataSpec -> resolveDataSpec(dataSpec) }
-
         return ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(resolvingFactory))
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(
+                    MochyDataSourceFactory.create(this) { videoId, resolved ->
+                        recordFormat(videoId, resolved)
+                    },
+                ),
+            )
             .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_LOCAL)
@@ -226,35 +219,6 @@ class MochyMusicService : MediaLibraryService() {
     private fun applySettings(exoPlayer: ExoPlayer) {
         exoPlayer.skipSilenceEnabled = AppSettings.skipSilence.value
         exoPlayer.repeatMode = AppSettings.repeatMode.value
-    }
-
-    /**
-     * The resolver: bitchord://watch?v=… through the Mochy innertube,
-     * bitchord://source through ChordWave's Sources, everything else
-     * (files, content, radio streams) as it arrived.
-     */
-    private fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
-        val uri = dataSpec.uri
-        if (uri.authority == "source") {
-            val stream = runBlocking {
-                withTimeout(RESOLVE_TIMEOUT_MS) { SourceResolver.resolve(uri) }
-            } ?: throw java.io.IOException("No enabled source could serve ${uri.getQueryParameter("n")}")
-            return dataSpec.buildUpon()
-                .setUri(Uri.parse(stream.url))
-                .setHttpRequestHeaders(stream.headers)
-                .build()
-        }
-        val videoId = uri.getQueryParameter("v") ?: return dataSpec
-        val resolved = runBlocking {
-            withTimeout(RESOLVE_TIMEOUT_MS) {
-                MochyStreamResolver.resolve(videoId, currentAudioQuality(), isMetered())
-            }
-        }
-        recordFormat(videoId, resolved)
-        return dataSpec.buildUpon()
-            .setUri(resolved.url.toUri())
-            .setHttpRequestHeaders(resolved.headers)
-            .build()
     }
 
     private fun recordFormat(videoId: String, resolved: MochyResolvedStream) {
@@ -278,6 +242,14 @@ class MochyMusicService : MediaLibraryService() {
             }.onFailure { Timber.tag(TAG).w(it, "Format record failed for $videoId") }
         }
     }
+
+    /**
+     * The song share's preview and export read the song through this, so
+     * they hit the same caches and the same resolver playback does —
+     * Mochy's MusicService.shareDataSourceFactory, which is its
+     * createDataSourceFactory itself.
+     */
+    fun shareDataSourceFactory(): DataSource.Factory = MochyDataSourceFactory.shareFactory(this)
 
     private fun currentAudioQuality(): AudioQuality {
         val raw = runCatching {
@@ -695,8 +667,8 @@ class MochyMusicService : MediaLibraryService() {
         }
         mediaSession = null
         player = null
-        runCatching { playerCache?.release() }
-        playerCache = null
+        // The caches are process singletons (MochyCaches), shared with
+        // the download engine and the share: nothing to release here.
         MediaWidgetSnapshot.save(this, MediaWidgetSnapshot.EMPTY)
         MediaWidget.refresh(this)
         scope.cancel()
@@ -933,7 +905,6 @@ class MochyMusicService : MediaLibraryService() {
         private const val TAG = "MochyMusicService"
         private const val SESSION_ID = "chordwave_mochy"
         private const val CHANNEL_ID = "chordwave_mochy_playback"
-        private const val PLAYER_CACHE_BYTES = 512L * 1024 * 1024
         private const val RESOLVE_TIMEOUT_MS = 30_000L
         private const val BACK_RESTARTS_AFTER_MS = 3_000L
         private const val SAMPLE_INTERVAL_MS = 1_000L
@@ -1077,55 +1048,5 @@ private class MochySessionPlayer(
             .setMinVolume(0)
             .setMaxVolume(100)
             .build()
-    }
-}
-
-/**
- * Cache for resolved streams, direct reads for everything already on the
- * device or already a stream: files and content URIs bypass the cache (a
- * second copy of a download helps nobody), and live radio streams are not
- * cached at all. Everything else — the resolved googlevideo URLs — goes
- * through the player cache keyed by media id, as in Mochy.
- */
-@OptIn(UnstableApi::class)
-private class MochyDataSourceFactory(
-    context: Context,
-    cache: SimpleCache,
-) : DataSource.Factory {
-
-    private val defaultFactory = DefaultDataSource.Factory(context)
-    private val cacheFactory = CacheDataSource.Factory()
-        .setCache(cache)
-        .setUpstreamDataSourceFactory(defaultFactory)
-        .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-
-    override fun createDataSource(): DataSource = object : DataSource {
-        private var delegate: DataSource? = null
-
-        override fun addTransferListener(transferListener: TransferListener) {
-            delegate?.addTransferListener(transferListener)
-        }
-
-        override fun open(dataSpec: DataSpec): Long {
-            val scheme = dataSpec.uri.scheme
-            val direct = scheme == "file" || scheme == "content" ||
-                dataSpec.key == null || dataSpec.key!!.startsWith("http")
-            val chosen = if (direct) defaultFactory.createDataSource() else cacheFactory.createDataSource()
-            delegate = chosen
-            return chosen.open(dataSpec)
-        }
-
-        override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
-            delegate?.read(buffer, offset, length) ?: C.RESULT_END_OF_INPUT
-
-        override fun getUri(): Uri? = delegate?.uri
-
-        override fun getResponseHeaders(): Map<String, List<String>> =
-            delegate?.responseHeaders ?: emptyMap()
-
-        override fun close() {
-            delegate?.close()
-            delegate = null
-        }
     }
 }

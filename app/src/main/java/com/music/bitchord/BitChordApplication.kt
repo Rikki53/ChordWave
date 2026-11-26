@@ -195,6 +195,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // What's already saved to Downloads, so the song menu can say so
         // without a media-store query per row.
         Downloads.init(this)
+        // Tahap 5: the Mochy engine's DownloadManager, on the main
+        // thread it will be read from. Idle in Classic; in Modern it
+        // is the download engine, mirroring into Downloads above.
+        com.music.bitchord.playback.mochy.MochyDownloadUtil.init(this)
         // After both of the things a check reads: the setting and the record.
         PlaylistSync.init(this)
         // Before anything could run a scheduled backup: its worker reads the

@@ -180,4 +180,16 @@ interface DatabaseDao {
 
     @Query("UPDATE song SET totalPlayTime = totalPlayTime + :deltaMs WHERE id = :id")
     suspend fun addTotalPlayTime(id: String, deltaMs: Long)
+
+    // --- Mochy engine download writes (two-engine Tahap 5) -----------------
+    // The Mochy download engine records what it fetched into the same shared
+    // database: the song row itself (Mochy's upsert(song)), its downloaded
+    // flag + date (Mochy's updateDownloadedInfo), and the stream format
+    // (upsertFormat above). No schema change: queries only.
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSong(song: SongEntity)
+
+    @Query("UPDATE song SET isDownloaded = :downloaded, dateDownload = :date WHERE id = :songId")
+    suspend fun updateDownloadedInfo(songId: String, downloaded: Boolean, date: java.time.LocalDateTime?)
 }

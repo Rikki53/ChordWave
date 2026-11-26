@@ -36,7 +36,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
-import com.music.bitchord.ui.mochy.playback.SongDataSourceFactory
+import com.music.bitchord.playback.mochy.MochyDataSourceFactory
 import com.music.bitchord.ui.mochy.constants.ElementBlurKey
 import com.music.bitchord.ui.mochy.constants.LyricsHighBloomKey
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
@@ -221,7 +221,11 @@ private fun SongPreviewAudio(session: SongShareSession) {
     val pausedApp = remember(session) { mutableStateOf<Boolean?>(null) }
     val currentConnection by rememberUpdatedState(playerConnection)
     DisposableEffect(session) {
-        val preview = SongPreviewPlayer(context, SongDataSourceFactory.create(context))
+        // Tahap 5: the preview reads through the Mochy player's own
+        // chain (Mochy's service.shareDataSourceFactory), so what
+        // plays under the editor is the recording the lyrics belong
+        // to — not a separate resolve that could land on another one.
+        val preview = SongPreviewPlayer(context, MochyDataSourceFactory.shareFactory(context))
         session.preview = preview
         onDispose {
             session.preview = null
