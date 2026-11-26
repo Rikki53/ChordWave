@@ -68,6 +68,10 @@ object MochyDataSourceFactory {
         context: Context,
         onResolved: ((videoId: String, resolved: MochyResolvedStream) -> Unit)? = null,
     ): DataSource.Factory {
+        // The resolver's PoToken minter needs an application context;
+        // hand it over here too so share/download resolves that never
+        // touch the service can still mint (Tahap 6).
+        MochyStreamResolver.init(context)
         val app = context.applicationContext
         val upstream = LocalBypassFactory(
             DefaultDataSource.Factory(app),

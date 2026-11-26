@@ -16,18 +16,24 @@
 //  - the same per-client stream headers googlevideo checks against the
 //    url's own c= parameter.
 //
-// What is deliberately NOT here yet (later stages, recorded honestly):
-// PoToken generation, the SABR/EJS n-transform solver, bot-check resting,
-// studio-version substitution and playback tracking. A track that needs a
-// PoToken on every client fails here the way it would on a Mochy build
-// without those pieces; the Classic engine's resolver is untouched and
-// remains one mode-switch away.
+// Tahap 6: PoToken minting for the web clients (useWebPoTokens) through the
+// shared BotGuard minter the Classic engine uses (PoTokenGenerator +
+// PoTokenWebView), minted lazily on the first client that needs one — the
+// VISIONOS-first walk still serves most tracks untokened, exactly as Mochy
+// measured. What is still NOT here (recorded honestly): the SABR/EJS
+// n-transform solver, bot-check resting, studio-version substitution and
+// playback tracking. A track only SABR can serve still fails here; the
+// Classic engine's resolver is untouched and remains one mode-switch away.
 //
 // Resolved URLs are remembered until they expire (streamingData's own
 // expiresInSeconds), the way Mochy's MusicService keeps its songUrlCache.
 
 package com.music.bitchord.playback.mochy
 
+import android.content.Context
+import android.webkit.CookieManager
+import com.music.bitchord.data.innertube.potoken.PoTokenGenerator
+import com.music.bitchord.data.innertube.potoken.PoTokenWebView
 import com.music.bitchord.ui.mochy.constants.AudioQuality
 import com.music.bitchord.ui.mochy.utils.DataSaver
 import com.music.innertube.NewPipeExtractor
@@ -77,6 +83,50 @@ object MochyStreamResolver {
 
     private val urlCache = ConcurrentHashMap<String, MochyResolvedStream>()
 
+    // BotGuard PoTokens for the web clients, minted in the same hidden
+    // WebView the Classic engine's InnerTubeX path uses. Needs an
+    // application context (the WebView's), handed over by [init] from the
+    // data-source factory / service; without one, resolves simply go
+    // untokened, as they did before Tahap 6.
+    private var appContext: Context? = null
+
+    private val poTokenGenerator: PoTokenGenerator? by lazy {
+        val app = appContext ?: return@lazy null
+        val webViewSupported by lazy { runCatching { CookieManager.getInstance() }.isSuccess }
+        PoTokenGenerator(
+            createMinter = { PoTokenWebView.getNewPoTokenGenerator(app) },
+            available = { webViewSupported },
+        )
+    }
+
+    /** Hands the resolver the application context its PoToken minter needs. */
+    fun init(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    /**
+     * The player-request PoToken for [videoId] on a web client, or null when
+     * the client needs none, no session id is known yet, or minting failed
+     * (the walk then asks untokened, which is where it started).
+     */
+    private suspend fun poTokenFor(videoId: String, client: YouTubeClient): String? {
+        if (!client.useWebPoTokens) return null
+        val sessionId = YouTube.dataSyncId ?: YouTube.visitorData ?: return null
+        return runCatching {
+            poTokenGenerator?.getWebClientPoToken(videoId, sessionId)?.playerRequestPoToken
+        }.onFailure { Timber.tag(TAG).w(it, "PoToken generation failed for $videoId") }.getOrNull()
+    }
+
+    /**
+     * YouTube's loudness figure for a track this resolver has already
+     * resolved, for the Mochy engine's loudness normalisation — read on the
+     * audio thread, so it only touches the concurrent caches. Null while
+     * nothing is known; the gain then glides in once a resolve lands, the
+     * same lazy read the Classic engine's LoudnessProcessor makes.
+     */
+    fun loudnessDbFor(videoId: String): Double? =
+        (urlCache[videoId] ?: downloadUrlCache[videoId])?.audioConfig?.loudnessDb
+
     // Downloads remember their URLs apart from playback's (Tahap 5): a
     // download asks for its own rung (the download-quality setting, AAC
     // when the file is headed for Music/ChordWave), which is often not
@@ -108,6 +158,8 @@ object MochyStreamResolver {
         urlCache[videoId]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@withContext it }
 
         var lastError: Throwable? = null
+        var mintedToken: String? = null
+        var mintTried = false
         val clients = (listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS.toList()).distinct()
         for (client in clients) {
             try {
@@ -116,7 +168,11 @@ object MochyStreamResolver {
                 } else {
                     null
                 }
-                val response = YouTube.player(videoId, null, client, signatureTimestamp).getOrThrow()
+                if (client.useWebPoTokens && !mintTried) {
+                    mintTried = true
+                    mintedToken = poTokenFor(videoId, client)
+                }
+                val response = YouTube.player(videoId, null, client, signatureTimestamp, mintedToken).getOrThrow()
                 if (response.playabilityStatus.status != "OK") {
                     Timber.tag(TAG).d("Client ${client.clientName} refused $videoId: ${response.playabilityStatus.status}")
                     continue
@@ -201,6 +257,8 @@ object MochyStreamResolver {
         downloadUrlCache[videoId]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@withContext it }
 
         var lastError: Throwable? = null
+        var mintedToken: String? = null
+        var mintTried = false
         val clients = (listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS.toList()).distinct()
         for (client in clients) {
             try {
@@ -209,7 +267,11 @@ object MochyStreamResolver {
                 } else {
                     null
                 }
-                val response = YouTube.player(videoId, null, client, signatureTimestamp).getOrThrow()
+                if (client.useWebPoTokens && !mintTried) {
+                    mintTried = true
+                    mintedToken = poTokenFor(videoId, client)
+                }
+                val response = YouTube.player(videoId, null, client, signatureTimestamp, mintedToken).getOrThrow()
                 if (response.playabilityStatus.status != "OK") {
                     Timber.tag(TAG).d("Download: client ${client.clientName} refused $videoId: ${response.playabilityStatus.status}")
                     continue

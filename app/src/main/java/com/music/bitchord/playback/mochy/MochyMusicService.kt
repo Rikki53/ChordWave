@@ -34,10 +34,21 @@
 // to. The caches themselves are process singletons (MochyCaches, Mochy's
 // DI places) shared by player, downloads and share.
 //
-// Not yet ported from Mochy's MusicService (later stages, honest list):
-// crossfade/crossmix transitions, PoToken/SABR, loudness normalisation,
-// sleep timer internals, Listen Together party sync, USB-DAC bit-perfect
-// output. Classic keeps all of those; Modern gains them stage by stage.
+// Tahap 6 (the last stage) completes the engine: the sleep timer runs
+// here (the shared SleepTimer the Modern sheet already sets, faded out
+// through SleepFade like Classic), loudness normalisation levels each
+// track from the Mochy resolver's own figures (the shared
+// LoudnessProcessor in the DSP chain), the USB-DAC bit-perfect output
+// routes in front of the normal sink (BitPerfectRoutingSink, the same
+// chain Classic builds), Listen Together party sync binds this player
+// (PartySync, user intent told apart from party corrections by the
+// session player below), PoToken minting lives in MochyStreamResolver,
+// and transport fades/effects are Mochy's own TransportTransitions +
+// CrossmixTransitionAudioProcessor, driven by the Modern transport-fade
+// settings. Still NOT here (recorded honestly): the automatic two-player
+// crossmix (Mochy's CrossmixDirector + analysis) and SABR — Classic
+// keeps both; a track-to-track overlap in Modern remains a plain
+// gapless handoff, and skips/pauses fade the Mochy way.
 //
 // Placement note: the plan puts Mochy code in :mochyengine, and the
 // providers + Room database live there. This service sits in :app because
@@ -50,7 +61,10 @@ package com.music.bitchord.playback.mochy
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.audiofx.Equalizer
+import android.os.SystemClock
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Bundle
@@ -69,7 +83,13 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
+import androidx.media3.exoplayer.audio.SonicAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
@@ -100,7 +120,24 @@ import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.stats.ListeningRecorder
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.playback.ACTION_CLEAR_BOUNDED_CONTEXT
+import com.music.bitchord.playback.ACTION_QUEUE_DRAG
+import com.music.bitchord.playback.AudioOutputPolicy
+import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.AudioRouting
+import com.music.bitchord.playback.EXTRA_QUEUE_DRAG_ACTIVE
+import com.music.bitchord.playback.LoudnessProcessor
+import com.music.bitchord.playback.PartySync
+import com.music.bitchord.playback.SleepFade
+import com.music.bitchord.playback.SleepTimer
+import com.music.bitchord.playback.audio.DspChain
+import com.music.bitchord.playback.audio.PrecisionAudioSink
+import com.music.bitchord.playback.audio.bitperfect.BitPerfectAudioSink
+import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
+import com.music.bitchord.playback.audio.bitperfect.BitPerfectRoutingSink
+import com.music.bitchord.playback.mochy.audio.CrossmixClockSink
+import com.music.bitchord.playback.mochy.audio.CrossmixTransitionAudioProcessor
 import com.music.bitchord.playback.ACTION_TOGGLE_AUTOPLAY
 import com.music.bitchord.playback.ACTION_TOGGLE_FAVORITE
 import com.music.bitchord.playback.ACTION_TOGGLE_SHUFFLE
@@ -114,6 +151,13 @@ import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.playback.toSong
 import com.music.bitchord.ui.mochy.constants.AudioQuality
 import com.music.bitchord.ui.mochy.constants.AudioQualityKey
+import com.music.bitchord.ui.mochy.constants.TransportEffect
+import com.music.bitchord.ui.mochy.constants.TransportEffectKey
+import com.music.bitchord.ui.mochy.constants.TransportFadeDefaultSeconds
+import com.music.bitchord.ui.mochy.constants.TransportFadeEnabledKey
+import com.music.bitchord.ui.mochy.constants.TransportFadeMaxSeconds
+import com.music.bitchord.ui.mochy.constants.TransportFadeMinSeconds
+import com.music.bitchord.ui.mochy.constants.TransportFadeSecondsKey
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.dataStore
 import com.music.bitchord.wear.WearBridge
@@ -128,7 +172,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.guava.future
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -136,6 +183,7 @@ import kotlinx.coroutines.withTimeout
 import timber.log.Timber
 import java.time.LocalDateTime
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 @OptIn(UnstableApi::class)
@@ -159,6 +207,23 @@ class MochyMusicService : MediaLibraryService() {
     private var favoriteActionJob: Job? = null
     private var autoplayJob: Job? = null
 
+    // Tahap 6: the shared DSP chain's loudness stage (this player's own,
+    // like Classic's per-player stage) and Mochy's crossmix renderer,
+    // idle (a straight copy) except while a transport fade runs.
+    private val loudnessProcessor = LoudnessProcessor().apply { gainFor = ::loudnessGainFor }
+    private val crossmixProcessor = CrossmixTransitionAudioProcessor()
+    private val dspChain = DspChain(loudness = loudnessProcessor)
+
+    /** The volume the listener set; transport fades scale it, never replace it. */
+    @Volatile
+    private var userVolume = 1f
+
+    /** Mochy's transport fades/effects for pause, play and skips. */
+    private val transport: TransportTransitions by lazy { TransportTransitions({ scope }, TransportHost()) }
+
+    /** Listen Together sync for this engine; null until onCreate starts it. */
+    private var partySync: PartySync? = null
+
     // Listening sampler state (mirrors ListeningRecorder's rule).
     private var sampledMediaId: String? = null
     private var sampledSong: Song? = null
@@ -177,11 +242,15 @@ class MochyMusicService : MediaLibraryService() {
                 .apply { setSmallIcon(R.drawable.ic_notification_logo) },
         )
 
+        MochyStreamResolver.init(this)
         val exoPlayer = buildPlayer()
         player = exoPlayer
         exoPlayer.addListener(playerListener)
         applySettings(exoPlayer)
         applyEqualizer(exoPlayer)
+        partySync = PartySync(scope) { player }.also { it.start() }
+        watchSleepTimer()
+        observeTransportPrefs()
 
         mediaSession = MediaLibrarySession.Builder(
             this,
@@ -202,6 +271,7 @@ class MochyMusicService : MediaLibraryService() {
 
     private fun buildPlayer(): ExoPlayer {
         return ExoPlayer.Builder(this)
+            .setRenderersFactory(mochyRenderersFactory())
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(
                     MochyDataSourceFactory.create(this) { videoId, resolved ->
@@ -320,6 +390,22 @@ class MochyMusicService : MediaLibraryService() {
 
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            // "Sleep after this song": the queue moving on by itself is
+            // the moment the track the user meant has finished. REPEAT
+            // counts too, or the timer would never fire with repeat-one on.
+            if ((reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) &&
+                SleepTimer.afterTrack.value
+            ) {
+                player?.pause()
+                SleepTimer.cancel()
+            }
+            // The queue moving on by itself is the user's intent as far
+            // as the party is concerned — see PartySync.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                partySync?.onLocalIntent()
+            }
+            setupLoudness(mediaItem?.mediaId)
             flushPlayRecord()
             sampledMediaId = mediaItem?.mediaId
             sampledSong = mediaItem?.toSong()
@@ -342,6 +428,7 @@ class MochyMusicService : MediaLibraryService() {
         }
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            partySync?.onPlayWhenReadyChanged(playWhenReady, reason)
             publishWidgetState()
             if (!playWhenReady) ListeningRecorder.onStopped()
         }
@@ -641,6 +728,243 @@ class MochyMusicService : MediaLibraryService() {
         return gains.getOrElse(index) { 0f }
     }
 
+    // ---- audio chain (Tahap 6) ------------------------------------------------
+    // The same sink stack Classic builds, for one player: Media3's sink
+    // carrying Mochy's crossmix renderer + silence skipping + Sonic, the
+    // precision DSP chain in front of it (loudness normalisation last, the
+    // other stages idle at their defaults — the equaliser screen still
+    // works through the platform Equalizer above), the bit-perfect USB
+    // output in front of that (a track it can carry skips everything),
+    // and Mochy's clock sink outermost so the crossmix renderer always
+    // knows where in its song each buffer sits.
+
+    private fun mochyRenderersFactory(): DefaultRenderersFactory = object : DefaultRenderersFactory(this) {
+        init {
+            // Do not force PCM_FLOAT onto an OEM speaker mixer merely
+            // because the preference asks for it — the same policy (and
+            // the same reason) as Classic's factory.
+            setEnableAudioFloatOutput(shouldUseFloatOutput())
+        }
+
+        override fun buildAudioSink(
+            context: Context,
+            enableFloatOutput: Boolean,
+            enableAudioTrackPlaybackParams: Boolean,
+        ): AudioSink {
+            val defaultSink = DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                // Speed handled by the AudioTrack itself on a float-capable
+                // route, rather than by Sonic — see Classic's factory.
+                .setEnableAudioTrackPlaybackParams(
+                    enableAudioTrackPlaybackParams || enableFloatOutput,
+                )
+                .setAudioProcessorChain(
+                    DefaultAudioSink.DefaultAudioProcessorChain(
+                        arrayOf<AudioProcessor>(crossmixProcessor),
+                        SilenceSkippingAudioProcessor(
+                            MIN_SILENCE_US,
+                            SilenceSkippingAudioProcessor.DEFAULT_SILENCE_RETENTION_RATIO,
+                            SilenceSkippingAudioProcessor.DEFAULT_MAX_SILENCE_TO_KEEP_DURATION_US,
+                            SilenceSkippingAudioProcessor.DEFAULT_MIN_VOLUME_TO_KEEP_PERCENTAGE,
+                            SilenceSkippingAudioProcessor.DEFAULT_SILENCE_THRESHOLD_LEVEL,
+                        ),
+                        SonicAudioProcessor(),
+                    ),
+                )
+                .build()
+            val precision = PrecisionAudioSink(
+                delegate = defaultSink,
+                dspChain = dspChain,
+                enableFloatOutput = enableFloatOutput,
+            )
+            // In front of everything above: a track the bit-perfect output
+            // can carry skips the DSP chain and Media3's sink altogether.
+            val routing = BitPerfectRoutingSink(precision, BitPerfectAudioSink(BitPerfectOutput.forContext(context)))
+            return CrossmixClockSink(routing, crossmixProcessor)
+        }
+    }
+
+    /** Whether Media3 may open a PCM-float AudioTrack on the current route. */
+    private fun shouldUseFloatOutput(): Boolean {
+        val advertisesFloat = runCatching {
+            val manager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            manager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                ?.any { it.encodings.contains(AudioFormat.ENCODING_PCM_FLOAT) } == true
+        }.getOrDefault(false)
+        return AudioOutputPolicy.shouldUseFloatOutput(
+            requestedMode = AppSettings.outputPcmMode.value,
+            routeKind = AudioOutputStatus.current.value.routeKind,
+            advertisesPcmFloat = advertisesFloat,
+        )
+    }
+
+    // ---- loudness normalisation (Tahap 6) --------------------------------------
+    // The linear gain LoudnessProcessor applies: YouTube's own
+    // normalisation figure, from the Mochy resolver's resolved streams
+    // (MochyStreamResolver.loudnessDbFor), bounded the way the platform
+    // effect Classic replaced was, or exactly 1 when nothing is known yet
+    // or the setting is off. Called on the audio thread, so it only reads
+    // things that are safe there: StateFlow values and concurrent maps.
+
+    private fun loudnessGainFor(mediaId: String): Float = loudnessGainMb(mediaId)
+        ?.let { 10.0.pow(it / 2000.0).toFloat() }
+        ?: 1f
+
+    private fun loudnessGainMb(mediaId: String?): Int? {
+        if (!AppSettings.loudnessNormalization.value) return null
+        if (AppSettings.loudnessOffOnSpeaker.value &&
+            AudioOutputStatus.current.value.routeKind == AudioRouting.Kind.PHONE
+        ) return null
+        val id = mediaId?.takeIf { it.isNotBlank() } ?: return null
+        val loudnessDb = MochyStreamResolver.loudnessDbFor(id) ?: return null
+        return (-loudnessDb * 100.0).roundToInt().coerceIn(MIN_LOUDNESS_GAIN_MB, MAX_LOUDNESS_GAIN_MB)
+    }
+
+    /** Points the loudness stage at [mediaId] and the track queued after it. */
+    private fun setupLoudness(mediaId: String?) {
+        val exoPlayer = player ?: return
+        loudnessProcessor.track(mediaId, nextMediaIdOf(exoPlayer))
+        publishLoudnessFor(mediaId)
+    }
+
+    /** The track [exoPlayer] will move onto gaplessly, if any. */
+    private fun nextMediaIdOf(exoPlayer: ExoPlayer): String? {
+        val next = exoPlayer.nextMediaItemIndex
+        if (next == C.INDEX_UNSET || next !in 0 until exoPlayer.mediaItemCount) return null
+        return exoPlayer.getMediaItemAt(next).mediaId
+    }
+
+    private fun publishLoudnessFor(mediaId: String?) {
+        val gainMb = loudnessGainMb(mediaId)
+        val lufs = mediaId?.takeIf { it.isNotBlank() }?.let(MochyStreamResolver::loudnessDbFor)
+        if (gainMb == null || lufs == null) {
+            AudioOutputStatus.publishLoudness(gainDb = null, lufs = null)
+        } else {
+            AudioOutputStatus.publishLoudness(gainDb = gainMb / 100f, lufs = lufs.toFloat())
+        }
+    }
+
+    // ---- sleep timer (Tahap 6) ---------------------------------------------------
+    // The Modern sleep-timer sheet already sets the shared SleepTimer;
+    // this is the watcher that makes it fire on the Mochy engine, the
+    // same fade Classic runs (SleepFade over the player's own volume,
+    // pause at the deadline, volume handed back).
+
+    private fun watchSleepTimer() {
+        scope.launch {
+            SleepTimer.deadline.collectLatest { deadline ->
+                if (deadline == null) return@collectLatest
+                runTimedSleepFade(deadline)
+            }
+        }
+    }
+
+    private suspend fun runTimedSleepFade(deadline: Long) {
+        if (!AppSettings.sleepTimerFadeOut.value) {
+            // Fade-out switched off in Settings: wait the timer out
+            // without touching the volume, then pause.
+            while (true) {
+                val remaining = deadline - SystemClock.elapsedRealtime()
+                if (remaining <= 0) break
+                delay(minOf(remaining, 1_000L))
+            }
+            player?.pause()
+            SleepTimer.cancel()
+            return
+        }
+        var fadedPlayer: ExoPlayer? = null
+        var baseVolume = 1f
+        var windowMs = 0L
+        var fired = false
+        try {
+            while (true) {
+                val remaining = deadline - SystemClock.elapsedRealtime()
+                if (remaining <= 0) break
+                if (windowMs == 0L && remaining <= SleepFade.MAX_FADE_MS) {
+                    // The fade begins: for a timer shorter than the window
+                    // this is its whole remainder, so the ramp is
+                    // proportional to the time actually left.
+                    windowMs = SleepFade.fadeWindowMs(remaining)
+                    Timber.tag(TAG).d("sleep timer: fading out over ${windowMs}ms")
+                }
+                if (windowMs == 0L) {
+                    delay(minOf(remaining - SleepFade.MAX_FADE_MS, 1_000L).coerceAtLeast(50L))
+                    continue
+                }
+                val current = player
+                // A transport fade owns the volume for its span; a tick
+                // that finds one in flight leaves the gain alone and the
+                // next tick after it picks the fade up.
+                if (current != null && !transport.isFading) {
+                    if (fadedPlayer !== current) {
+                        fadedPlayer = current
+                        baseVolume = current.volume
+                    }
+                    val gain = SleepFade.gain(remaining, windowMs)
+                    current.volume = baseVolume * gain
+                }
+                delay(SleepFade.TICK_MS)
+            }
+            fired = true
+            player?.pause()
+            fadedPlayer?.let { it.volume = baseVolume }
+            SleepTimer.cancel()
+            Timber.tag(TAG).d("sleep timer: paused, volume restored to $baseVolume")
+        } finally {
+            if (!fired) fadedPlayer?.let { it.volume = baseVolume }
+        }
+    }
+
+    // ---- transport fades (Tahap 6) ------------------------------------------------
+    // Mochy's TransportTransitions, fed by the Modern transport-fade
+    // settings (the same keys the settings screen writes) and hosted on
+    // this service's single player. The automatic two-player crossmix is
+    // not ported (see the header), so blendSkip/blendJump stay false and
+    // skips fade on this player, which is Mochy's own fallback path.
+
+    private fun observeTransportPrefs() {
+        scope.launch {
+            applicationContext.dataStore.data
+                .map { prefs ->
+                    Triple(
+                        prefs[TransportFadeEnabledKey] ?: true,
+                        prefs[TransportFadeSecondsKey] ?: TransportFadeDefaultSeconds,
+                        prefs[TransportEffectKey],
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { (enabled, seconds, effectRaw) ->
+                    transport.enabled = enabled
+                    transport.lengthMs = seconds.coerceIn(TransportFadeMinSeconds, TransportFadeMaxSeconds) * 1_000f
+                    transport.effect = runCatching { TransportEffect.valueOf(effectRaw ?: TransportEffect.OFF.name) }
+                        .getOrDefault(TransportEffect.OFF)
+                }
+        }
+    }
+
+    private inner class TransportHost : TransportTransitions.Host {
+        override val player: ExoPlayer get() = requireNotNull(this@MochyMusicService.player)
+
+        override fun processorFor(player: ExoPlayer): CrossmixTransitionAudioProcessor = crossmixProcessor
+
+        override fun targetVolume(): Float = userVolume
+
+        // Not while casting or into an untouched DAC, which drive the
+        // volume themselves (Mochy's own rule).
+        override fun canFade(): Boolean =
+            !speakers.active && !BitPerfectOutput.status.value.active
+
+        // No crossmix analysis on this engine: effects repeat at the
+        // default tempo, as Mochy does for an unanalysed track.
+        override fun beatMsFor(mediaId: String?): Double? = null
+
+        // Finds a picked song's stream while the old one dips, so it
+        // starts the moment the old one is gone.
+        override suspend fun getReady(mediaId: String) {
+            runCatching { MochyStreamResolver.resolve(mediaId, currentAudioQuality(), isMetered()) }
+        }
+    }
+
     // ---- session / library ----------------------------------------------------
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
@@ -654,6 +978,9 @@ class MochyMusicService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        partySync?.stop()
+        partySync = null
+        runCatching { transport.cancel() }
         flushPlayRecord()
         ListeningRecorder.onStopped()
         handler.removeCallbacksAndMessages(null)
@@ -681,6 +1008,7 @@ class MochyMusicService : MediaLibraryService() {
         private val clearBoundedContextCommand = SessionCommand(ACTION_CLEAR_BOUNDED_CONTEXT, Bundle.EMPTY)
         private val autoplayCommand = SessionCommand(ACTION_TOGGLE_AUTOPLAY, Bundle.EMPTY)
         private val shuffleCommand = SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY)
+        private val queueDragCommand = SessionCommand(ACTION_QUEUE_DRAG, Bundle.EMPTY)
 
         private val searchCache = mutableMapOf<String, List<MediaItem>>()
 
@@ -694,6 +1022,7 @@ class MochyMusicService : MediaLibraryService() {
                 .add(clearBoundedContextCommand)
                 .add(autoplayCommand)
                 .add(shuffleCommand)
+                .add(queueDragCommand)
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
@@ -711,6 +1040,13 @@ class MochyMusicService : MediaLibraryService() {
                 // The Mochy engine holds no bounded contexts: its queue is
                 // the plain player queue, so clearing one is already done.
                 ACTION_CLEAR_BOUNDED_CONTEXT -> Unit
+                ACTION_QUEUE_DRAG -> {
+                    if (args.getBoolean(EXTRA_QUEUE_DRAG_ACTIVE, false)) {
+                        partySync?.beginQueueDrag()
+                    } else {
+                        partySync?.endQueueDrag()
+                    }
+                }
                 ACTION_TOGGLE_SHUFFLE -> {
                     player?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
                     refreshCustomLayout()
@@ -902,6 +1238,13 @@ class MochyMusicService : MediaLibraryService() {
     }
 
     companion object {
+        // The loudness gain bounds, Classic's (PlaybackService): -15 dB .. +3 dB.
+        const val MIN_LOUDNESS_GAIN_MB = -1500
+        const val MAX_LOUDNESS_GAIN_MB = 300
+
+        // Silence skipping's minimum, Classic's (PlaybackService).
+        const val MIN_SILENCE_US = 1_000_000L
+
         private const val TAG = "MochyMusicService"
         private const val SESSION_ID = "chordwave_mochy"
         private const val CHANNEL_ID = "chordwave_mochy_playback"
@@ -932,10 +1275,21 @@ class MochyMusicService : MediaLibraryService() {
  * belong to that engine alone (crossfade, party, DAC).
  */
 @OptIn(UnstableApi::class)
-private class MochySessionPlayer(
+/**
+ * The session player: the door every user action passes through (the app,
+ * the notification, a headset button, Android Auto), while the service's
+ * own moves — and PartySync's corrections — go straight to the ExoPlayer
+ * underneath. That asymmetry is how the party tells a listener's action
+ * from its own echo (see PartySync), and it is where Mochy's transport
+ * fades hook in: play, pause and skips here get the same fades as the
+ * app's buttons, exactly as Mochy's TransportFadingPlayer does it.
+ */
+private inner class MochySessionPlayer(
     player: Player,
     private val cast: RemoteSpeaker,
 ) : ForwardingPlayer(player), CastSink {
+
+    private fun locked(): Boolean = ListenTogether.state.value.controlsLocked
 
     private val listeners = java.util.concurrent.CopyOnWriteArraySet<Player.Listener>()
     private var reportedPlayWhenReady = false
@@ -983,23 +1337,155 @@ private class MochySessionPlayer(
     }
 
     override fun play() {
-        if (cast.active) cast.play() else super.play()
+        if (cast.active) {
+            cast.play()
+            return
+        }
+        // Locked, this plays only here — the party carries on untouched
+        // and this device rejoins it wherever it has got to.
+        if (partySync?.onLockedTransport(true) == true) return
+        partySync?.onLocalIntent()
+        // Held back only when a party will schedule the start for
+        // everyone at once — see PartySync.shouldDeferPlay.
+        if (partySync?.shouldDeferPlay() == true) return
+        transport.play()
     }
 
     override fun pause() {
-        if (cast.active) cast.pause() else super.pause()
+        if (cast.active) {
+            cast.pause()
+            return
+        }
+        if (partySync?.onLockedTransport(false) == true) return
+        partySync?.onLocalIntent()
+        transport.pause()
+    }
+
+    override fun setPlayWhenReady(playWhenReady: Boolean) {
+        if (cast.active) {
+            if (playWhenReady) cast.play() else cast.pause()
+            return
+        }
+        if (partySync?.onLockedTransport(playWhenReady) == true) return
+        partySync?.onLocalIntent()
+        if (playWhenReady && partySync?.shouldDeferPlay() == true) return
+        if (playWhenReady) transport.play() else transport.pause()
+    }
+
+    override fun seekToNext() {
+        if (locked()) return
+        partySync?.onLocalIntent()
+        transport.skipNext()
+    }
+
+    override fun seekToNextMediaItem() {
+        if (locked()) return
+        partySync?.onLocalIntent()
+        transport.skipNext()
+    }
+
+    override fun seekToPrevious() {
+        if (locked()) return
+        partySync?.onLocalIntent()
+        transport.skipPrevious()
+    }
+
+    override fun seekToPreviousMediaItem() {
+        if (locked()) return
+        partySync?.onLocalIntent()
+        transport.skipPrevious()
     }
 
     override fun seekTo(positionMs: Long) {
-        if (cast.active) cast.seekTo(positionMs) else super.seekTo(positionMs)
+        if (cast.active) {
+            cast.seekTo(positionMs)
+            return
+        }
+        if (locked()) return
+        partySync?.onLocalIntent()
+        transport.cancel()
+        super.seekTo(positionMs)
     }
 
     override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
         if (cast.active && mediaItemIndex == currentMediaItemIndex) {
             cast.seekTo(positionMs)
+            return
+        }
+        if (locked()) return
+        partySync?.onLocalIntent()
+        // A song picked from the queue fades in like one picked in the
+        // app; a seek within the queue at a position is a plain seek.
+        if (mediaItemIndex != currentMediaItemIndex && positionMs == 0L) {
+            transport.pickFromQueue { mediaItemIndex }
         } else {
+            transport.cancel()
             super.seekTo(mediaItemIndex, positionMs)
         }
+    }
+
+    override fun seekToDefaultPosition(mediaItemIndex: Int) {
+        if (locked()) return
+        partySync?.onLocalIntent()
+        if (mediaItemIndex == currentMediaItemIndex) {
+            transport.cancel()
+            super.seekToDefaultPosition(mediaItemIndex)
+        } else {
+            transport.pickFromQueue { mediaItemIndex }
+        }
+    }
+
+    // Not blocked when locked: stopping is this device going quiet, which
+    // is the listener's own business.
+    override fun stop() {
+        transport.cancel()
+        if (!locked()) partySync?.onLocalIntent()
+        super.stop()
+    }
+
+    override fun setVolume(volume: Float) {
+        // The listener's level is the fades' target; while a fade runs it
+        // owns the player's volume and picks the new level up as its base.
+        userVolume = volume
+        if (!transport.isFading) super.setVolume(volume)
+    }
+
+    override fun setMediaItems(mediaItems: List<MediaItem>) {
+        transport.cancel()
+        super.setMediaItems(mediaItems)
+        partySync?.onLocalIntent()
+    }
+
+    override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
+        transport.cancel()
+        super.setMediaItems(mediaItems, resetPosition)
+        partySync?.onLocalIntent()
+    }
+
+    override fun setMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
+        transport.cancel()
+        super.setMediaItems(mediaItems, startIndex, startPositionMs)
+        partySync?.onLocalIntent()
+    }
+
+    override fun addMediaItems(mediaItems: List<MediaItem>) {
+        super.addMediaItems(mediaItems)
+        partySync?.onLocalIntent()
+    }
+
+    override fun addMediaItems(index: Int, mediaItems: List<MediaItem>) {
+        super.addMediaItems(index, mediaItems)
+        partySync?.onLocalIntent()
+    }
+
+    override fun moveMediaItem(currentIndex: Int, newIndex: Int) {
+        super.moveMediaItem(currentIndex, newIndex)
+        partySync?.onLocalIntent()
+    }
+
+    override fun removeMediaItem(index: Int) {
+        super.removeMediaItem(index)
+        partySync?.onLocalIntent()
     }
 
     override fun onRemotePlaybackChanged() {
