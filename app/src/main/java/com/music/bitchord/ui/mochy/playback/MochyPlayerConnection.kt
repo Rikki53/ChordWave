@@ -50,6 +50,14 @@
 // rememberMediaController() inside a DisposableEffect, provides it via
 // LocalPlayerConnection, and calls dispose() when the host leaves.
 //
+// Two-engine Tahap 4 (26 Nov 2026): rememberMediaController() now binds
+// the active engine's service, so in Modern this connection talks directly
+// to the Mochy engine (MochyMusicService — Mochy innertube resolution,
+// Mochy player cache, Room playback records) instead of adapting the
+// ChordWave engine. The UI-facing shape is unchanged; the queue methods
+// below keep their batch-48 behaviour (a tapped song is set and played at
+// once, the radio tail follows) on the new engine.
+//
 // Round 1 fix (15 Nov 2026): playQueue used to return silently when a
 // queue resolved to nothing (YouTubeQueue was still a stub, so every Home
 // song tap did exactly that), and the Modern item builders put bare video

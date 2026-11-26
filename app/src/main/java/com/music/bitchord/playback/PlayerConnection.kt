@@ -31,6 +31,7 @@ import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.youTubeThumbnailFallback
 import com.music.bitchord.data.sources.SourceKind
@@ -101,15 +102,22 @@ data class PlayerState(
     val isQualityUpgraded: Boolean = false,
 )
 
-/** Binds to [PlaybackService] for the lifetime of the composition. */
+/**
+ * Binds to the active engine's service for the lifetime of the
+ * composition: PlaybackService in Classic, MochyMusicService in Modern
+ * (two-engine Tahap 4 — UiMode is the engine switch, see EngineSwitch).
+ * The hosts recompose on a mode switch, so reading the mode here binds
+ * each host to its own engine.
+ */
 @Composable
 fun rememberMediaController(): MediaController? {
     val context = LocalContext.current
+    val engine = com.music.bitchord.playback.mochy.EngineSwitch.engineFor(AppSettings.uiMode.value)
     var controller by remember { mutableStateOf<MediaController?>(null) }
     val listener = remember(context) { QueueSnapshotRefreshListener() }
 
-    DisposableEffect(context) {
-        val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
+    DisposableEffect(context, engine) {
+        val token = com.music.bitchord.playback.mochy.EngineSwitch.token(context, engine)
         val future = MediaController.Builder(context, token)
             .setListener(listener)
             .buildAsync()

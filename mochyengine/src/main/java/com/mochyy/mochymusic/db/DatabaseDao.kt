@@ -164,4 +164,20 @@ interface DatabaseDao {
     /** Migration: total play time summed from the legacy monthly buckets. */
     @Query("UPDATE song SET totalPlayTime = :totalPlayTime WHERE id = :id")
     suspend fun setTotalPlayTime(id: String, totalPlayTime: Long)
+
+    // --- Mochy engine playback writes (two-engine Tahap 4) -------------------
+    // The Mochy player records what it played into the same shared database
+    // the migration filled: the stream format it resolved, one Event per
+    // counted play, the monthly PlayCount bucket and the song's total play
+    // time. Classic keeps writing its own bucket through ListeningRecorder;
+    // both engines feed the one history (Riki's decision: shared stats).
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFormat(format: FormatEntity)
+
+    @Query("SELECT * FROM playCount WHERE song = :songId AND year = :year AND month = :month")
+    suspend fun getPlayCount(songId: String, year: Int, month: Int): PlayCountEntity?
+
+    @Query("UPDATE song SET totalPlayTime = totalPlayTime + :deltaMs WHERE id = :id")
+    suspend fun addTotalPlayTime(id: String, deltaMs: Long)
 }

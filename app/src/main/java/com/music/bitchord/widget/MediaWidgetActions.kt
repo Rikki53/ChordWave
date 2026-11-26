@@ -42,7 +42,12 @@ class MediaWidgetActions : BroadcastReceiver() {
         // broadcast has returned arrives in a process that may already be gone.
         val pending = goAsync()
         val handler = Handler(Looper.getMainLooper())
-        val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
+        // The widget follows the active engine (two-engine Tahap 4): in
+        // Modern it binds the Mochy engine, in Classic the ChordWave one.
+        val token = com.music.bitchord.playback.mochy.EngineSwitch.token(
+            app,
+            com.music.bitchord.playback.mochy.EngineSwitch.activeEngine(app),
+        )
         val future = MediaController.Builder(app, token).buildAsync()
 
         val done = AtomicBoolean(false)

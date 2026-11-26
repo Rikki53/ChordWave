@@ -1,9 +1,10 @@
 // Ported from Mochy Music (GPL-3.0): viewmodels/OnlineSearchViewModel.kt
-// Online search results for the Modern Search tab, re-implemented over
-// ChordWave sources: the summary view is one searchPage(query, ALL) grouped
-// into sections (Mappers4.toSearchSummaryPage), filtered tabs are
-// searchPage(query, filter) with the Mochy filter mapped to CW's own
-// SearchFilter enum, and loadMore follows searchContinuation. Mochy's init
+// Online search results for the Modern Search tab, on the Mochy engine's
+// own innertube (two-engine Tahap 4; Riki's decision: Modern search is
+// Mochy search, Classic keeps its own): the summary view is
+// YouTube.searchSummary, filtered tabs are YouTube.search with the Mochy
+// filter, and loadMore follows YouTube.searchContinuation. Results cross
+// into the Modern model copies through MochySearchMappers. Mochy's init
 // logic is kept: collect filter; null -> one cached summary fetch; a filter
 // -> one fetch per filter value cached in viewStateMap; all results
 // .distinctBy { it.id } and passed through filterExplicit / filterVideoSongs
@@ -36,10 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
-import com.music.bitchord.data.model.SearchFilter as CwSearchFilter
 import com.music.bitchord.data.settings.SearchHistory as CwSearchHistory
 import com.music.bitchord.ui.mochy.constants.HideExplicitKey
 import com.music.bitchord.ui.mochy.constants.HideVideoSongsKey
@@ -52,6 +51,7 @@ import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
 import com.music.bitchord.ui.mochy.models.innertube.filterYoutubeShorts
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.dataStore
+import com.music.innertube.YouTube
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -132,10 +132,10 @@ class OnlineSearchViewModel @Inject constructor(
     }
 
     private suspend fun fetchSummary(query: String) {
-        YtMusicRepository.searchPage(query, CwSearchFilter.ALL)
+        YouTube.searchSummary(query)
             .onSuccess { page ->
                 if (query != loadedQuery) return@onSuccess
-                summaryPage = page.rows.toSearchSummaryPage()
+                summaryPage = page.toModernSummaryPage()
                     .filterExplicit(hideExplicit)
                     .filterVideoSongs(hideVideoSongs)
                     .filterYoutubeShorts(hideYoutubeShorts)
@@ -145,16 +145,16 @@ class OnlineSearchViewModel @Inject constructor(
     }
 
     private suspend fun fetchFiltered(query: String, filter: SearchFilter) {
-        YtMusicRepository.searchPage(query, filter.toCwFilter())
-            .onSuccess { page ->
+        YouTube.search(query, filter.toEngineFilter())
+            .onSuccess { result ->
                 if (query != loadedQuery) return@onSuccess
                 viewStateMap[filter.value] = ItemsPage(
-                    page.rows.mapNotNull { it.toYTItem() }
+                    result.items.map { it.toModernItem() }
                         .distinctBy { it.id }
                         .filterExplicit(hideExplicit)
                         .filterVideoSongs(hideVideoSongs)
                         .filterYoutubeShorts(hideYoutubeShorts),
-                    page.continuation,
+                    result.continuation,
                 )
             }
             .onFailure { Timber.w(it, "Search: filtered search failed for \"$query\" (${filter.value})") }
@@ -173,11 +173,11 @@ class OnlineSearchViewModel @Inject constructor(
             val query = loadedQuery ?: return@launch
             val viewState = viewStateMap[filter.value] ?: return@launch
             val continuation = viewState.continuation ?: return@launch
-            val next = YtMusicRepository.searchContinuation(continuation, filter.toCwFilter())
+            val next = YouTube.searchContinuation(continuation)
                 .onFailure { Timber.w(it, "Search: loadMore failed for \"$query\" (${filter.value})") }
                 .getOrNull() ?: return@launch
             if (query != loadedQuery) return@launch
-            val newItems = next.rows.mapNotNull { it.toYTItem() }
+            val newItems = next.items.map { it.toModernItem() }
                 .filterExplicit(hideExplicit)
                 .filterVideoSongs(hideVideoSongs)
                 .filterYoutubeShorts(hideYoutubeShorts)

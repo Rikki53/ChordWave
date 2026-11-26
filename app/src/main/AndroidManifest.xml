@@ -1096,6 +1096,23 @@
             </intent-filter>
         </service>
 
+        <!-- The Mochy engine's player service (two-engine Tahap 4). Modern
+             runs on this service, Classic on PlaybackService above.
+             EngineSwitch enables exactly one of the two components, so
+             only one MediaLibraryService can exist at a time. Starts
+             disabled: the persisted default mode is Classic. -->
+        <service
+            android:name=".playback.mochy.MochyMusicService"
+            android:enabled="false"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
         <!-- The floating-lyrics bubble over other apps (batch 32). Plain
              started service, no notification; started by its settings
              toggle and by PlaybackService while the toggle is on. -->

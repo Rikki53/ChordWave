@@ -36,6 +36,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -125,6 +126,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -283,6 +285,7 @@ import com.music.bitchord.ui.components.HeldContextMenu
 import com.music.bitchord.ui.components.HeldItem
 import androidx.media3.session.MediaController
 import com.music.bitchord.playback.QualityUpgrade
+import com.music.bitchord.playback.mochy.EngineSwitch
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.playback.setQueueDragActive
@@ -489,11 +492,43 @@ class MainActivity : AppCompatActivity() {
             // Classic until they switch in Settings). A fresh install that
             // picks Modern onboards inside the Modern host (the setup
             // wizard); a Classic user switching to Modern skips it.
-            // Switching modes only recomposes the host; playback runs in
-            // a service and is untouched by the switch.
+            // Switching modes switches engines too (two-engine Tahap 4):
+            // a short splash covers the handover, the playing song stops,
+            // the old engine's service is stopped and disabled, and only
+            // then does the other host compose onto its own engine.
             val uiMode by AppSettings.uiMode.collectAsStateWithLifecycle()
             val uiModeChosen by AppSettings.uiModeChosen.collectAsStateWithLifecycle()
             val onboardingComplete by AppSettings.onboardingComplete.collectAsStateWithLifecycle()
+            var displayedMode by remember { mutableStateOf(uiMode) }
+            var switchingEngine by remember { mutableStateOf(false) }
+            val switchContext = LocalContext.current
+            LaunchedEffect(uiMode, onboardingComplete) {
+                if (!onboardingComplete) {
+                    displayedMode = uiMode
+                    return@LaunchedEffect
+                }
+                if (uiMode != displayedMode) {
+                    switchingEngine = true
+                    EngineSwitch.stopEngine(switchContext, EngineSwitch.engineFor(displayedMode))
+                    EngineSwitch.syncComponents(switchContext)
+                    delay(650)
+                    displayedMode = uiMode
+                    switchingEngine = false
+                }
+            }
+            if (switchingEngine) {
+                Box(
+                    Modifier.fillMaxSize().background(Color.Black),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(R.mipmap.ic_launcher),
+                        contentDescription = null,
+                        modifier = Modifier.size(96.dp),
+                    )
+                }
+                return@setContent
+            }
             if (!onboardingComplete && !uiModeChosen) {
                 BitChordTheme(darkTheme = true, font = AppFont.DEFAULT) {
                     UiModePicker(onChoose = { AppSettings.setUiMode(it) })
@@ -507,7 +542,7 @@ class MainActivity : AppCompatActivity() {
                 MochyApp()
                 return@setContent
             }
-            if (onboardingComplete && uiMode == UiMode.MODERN) {
+            if (onboardingComplete && displayedMode == UiMode.MODERN) {
                 MochyApp(launchIntroRequested = introPlays)
                 return@setContent
             }

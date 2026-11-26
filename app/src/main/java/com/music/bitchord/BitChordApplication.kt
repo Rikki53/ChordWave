@@ -153,6 +153,17 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // Two-engine Tahap 4: exactly one player service may exist, so the
+        // inactive engine's component is disabled before any UI binds.
+        com.music.bitchord.playback.mochy.EngineSwitch.syncComponents(this)
+        // The Mochy engine's innertube follows the per-app language, like
+        // the Classic client above.
+        AppCompatDelegate.getApplicationLocales().get(0)?.let { locale ->
+            com.music.innertube.YouTube.locale = com.music.innertube.models.YouTubeLocale(
+                gl = locale.country.ifEmpty { java.util.Locale.getDefault().country },
+                hl = locale.toLanguageTag(),
+            )
+        }
         // Loads the Modern UI's hand edits for songs (title/cover/artists/
         // video), so the queue wears them from the first launch.
         com.music.bitchord.ui.mochy.songedit.SongEdits.init(this)

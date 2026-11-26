@@ -1,10 +1,11 @@
 // Ported from Mochy Music (GPL-3.0): viewmodels/OnlineSearchSuggestionViewModel.kt
-// Search suggestions + history for the Modern Search tab, re-implemented over
-// ChordWave sources: history lives in CW's SearchHistory store (query terms
-// filed as SearchHistoryEntity rows with id "q:<term>"), suggestions come
-// from YtMusicRepository.searchSuggestions, top results from
-// searchTypeahead, and a pasted YouTube link resolves through trackLinks /
-// artistPage. Mochy's init logic is kept: empty query -> full history,
+// Search suggestions + history for the Modern Search tab. Suggestions and
+// top results come from the Mochy engine's innertube (YouTube.
+// searchSuggestions returns both, as in Mochy — two-engine Tahap 4);
+// history lives in the shared SearchHistory store (query terms filed as
+// SearchHistoryEntity rows with id "q:<term>"), and a pasted YouTube link
+// resolves through trackLinks / artistPage. Mochy's init logic is kept:
+// empty query -> full history,
 // offline -> local library preview, online -> suggestions + parsed-URL item,
 // history filtered out of suggestions, suggestions .distinct() (a repeated
 // suggestion gave two rows the same key and crashed the app).
@@ -56,6 +57,7 @@ import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.YouTubeUrlParser
 import com.music.bitchord.ui.mochy.utils.dataStore
+import com.music.innertube.YouTube
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -281,25 +283,24 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
         val parsedItem = parsedUrl?.let { fetchParsedUrlItem(it) }
 
         // A pasted link replaces the suggestions entirely, as in Mochy.
-        val suggestions = if (parsedUrl == null) {
-            YtMusicRepository.searchSuggestions(text).getOrNull().orEmpty()
-                .filter { suggestion -> matchingHistory.none { it.query == suggestion } }
-                // a suggestion repeated twice gave two rows the same key and closed the app
-                .distinct()
+        // One Mochy call carries both halves: the text suggestions and the
+        // recommended items the top-result cards draw.
+        val engineSuggestions = if (parsedUrl == null) {
+            YouTube.searchSuggestions(text).getOrNull()
         } else {
-            emptyList()
+            null
         }
-        val typeahead = if (parsedUrl == null) {
-            YtMusicRepository.searchTypeahead(text).getOrNull()?.rows.orEmpty()
-                .mapNotNull { it.toYTItem() }
-                .distinctBy { it.id }
-                .filter { it.id != parsedItem?.id }
-                .filterExplicit(hideExplicit)
-                .filterVideoSongs(hideVideoSongs)
-                .take(TopResultLimit)
-        } else {
-            emptyList()
-        }
+        val suggestions = engineSuggestions?.queries.orEmpty()
+            .filter { suggestion -> matchingHistory.none { it.query == suggestion } }
+            // a suggestion repeated twice gave two rows the same key and closed the app
+            .distinct()
+        val typeahead = engineSuggestions?.recommendedItems.orEmpty()
+            .map { it.toModernItem() }
+            .distinctBy { it.id }
+            .filter { it.id != parsedItem?.id }
+            .filterExplicit(hideExplicit)
+            .filterVideoSongs(hideVideoSongs)
+            .take(TopResultLimit)
         return SearchSuggestionViewState(
             history = matchingHistory,
             suggestions = suggestions,

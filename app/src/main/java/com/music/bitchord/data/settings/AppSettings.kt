@@ -1851,9 +1851,11 @@ object AppSettings {
 
     /**
      * Switches the UI mode, and records that a choice was made — so the
-     * first-run picker never asks again. The host recomposes onto the
-     * other UI; no restart is needed, and playback (a service) is
-     * untouched by the switch.
+     * first-run picker never asks again. The mode is also the playback
+     * engine switch (two-engine Tahap 4): MainActivity covers the change
+     * with a short splash, stops the playing song and the old engine's
+     * service, and the other host composes onto its own engine. No
+     * restart is needed.
      */
     fun setUiMode(value: UiMode) {
         uiMode.value = value
