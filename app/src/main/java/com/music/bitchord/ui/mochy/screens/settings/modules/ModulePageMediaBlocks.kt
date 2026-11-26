@@ -338,7 +338,7 @@ internal fun PageSongsBlock(block: PageBlock.Songs, page: PageContext, glass: Gl
             remember(rows, block.limit) { rows.take(block.limit).map { it.toMediaMetadata() } }
         }
         SongSource.Downloaded -> {
-            val rows by remember(database) { database.downloadedSongs(SongSortType.CREATE_DATE, true) }.collectAsState(initial = emptyList())
+            val rows by remember(database) { database.downloadedSongs() }.collectAsState(initial = emptyList())
             remember(rows, block.limit) { rows.take(block.limit).map { it.toMediaMetadata() } }
         }
         SongSource.Recent -> {
@@ -413,7 +413,7 @@ internal fun PageSongsBlock(block: PageBlock.Songs, page: PageContext, glass: Gl
 
         val playAt: (Int) -> Unit = { idx ->
             if (block.source == SongSource.Queue && connection != null) {
-                connection.player.seekToDefaultPosition(idx)
+                connection.player?.seekToDefaultPosition(idx)
                 connection.player.play()
             } else {
                 connection?.playQueue(ListQueue(title = page.subject.title.ifBlank { null }, items = filtered.map { it.toMediaItem() }, startIndex = idx))

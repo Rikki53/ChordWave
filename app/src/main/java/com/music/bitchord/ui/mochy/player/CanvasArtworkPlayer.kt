@@ -44,6 +44,8 @@ fun CanvasArtworkPlayer(
     onReadyChange: ((Boolean) -> Unit)? = null,
     // the flagship's moving backdrop, fed four tones from a tiny copy of the playing frame
     onFrameColors: ((List<Color>) -> Unit)? = null,
+    // shows the whole picture with room round it instead of zooming past the box, for a module's cover that isn't the video's shape
+    fit: Boolean = false,
 ) {
     val primary = primaryUrl?.takeIf { it.isNotBlank() } ?: return
     val canvas = remember(primary, fallbackUrl) {
@@ -61,6 +63,7 @@ fun CanvasArtworkPlayer(
     SharedCanvasArtworkPlayer(
         canvas = canvas,
         isPlaying = isPlaying,
+        contentMode = if (fit) com.music.bitchord.ui.player.CanvasContentMode.FIT_PORTRAIT else com.music.bitchord.ui.player.CanvasContentMode.CROP,
         modifier = modifier.graphicsLayer { this.alpha = alpha },
         onRenderedChanged = { isVideoReady = it; currentOnReady?.invoke(it) },
         onFrameCaptured = { frame ->

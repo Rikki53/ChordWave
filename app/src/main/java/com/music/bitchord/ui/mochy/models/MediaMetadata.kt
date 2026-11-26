@@ -66,6 +66,38 @@ data class MediaMetadata(
         )
 }
 
+/** the database's own Song row, for the module pages that list library songs straight off Room (batch 55b) */
+fun com.mochyy.mochymusic.db.entities.Song.toMediaMetadata() =
+    MediaMetadata(
+        id = song.id,
+        title = song.title,
+        artists =
+        artists.map {
+            MediaMetadata.Artist(
+                id = it.id,
+                name = it.name,
+            )
+        },
+        duration = song.duration,
+        thumbnailUrl = song.thumbnailUrl,
+        album =
+        album?.let {
+            MediaMetadata.Album(
+                id = it.id,
+                title = it.title,
+            )
+        } ?: song.albumId?.let { albumId ->
+            MediaMetadata.Album(
+                id = albumId,
+                title = song.albumName.orEmpty(),
+            )
+        },
+        explicit = song.explicit,
+        musicVideoType = if (song.isVideo) "MUSIC_VIDEO_TYPE_OMV" else null,
+        suggestedBy = null,
+        localUri = song.localUri,
+    )
+
 fun Song.toMediaMetadata() =
     MediaMetadata(
         id = song.id,

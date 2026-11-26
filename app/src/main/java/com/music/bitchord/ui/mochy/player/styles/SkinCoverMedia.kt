@@ -33,12 +33,10 @@ import com.music.bitchord.ui.mochy.constants.DisableVideoAutoplayKey
 import com.music.bitchord.ui.mochy.constants.PlayVideoBackgroundKey
 import com.music.bitchord.ui.mochy.modules.skin.CoverMedia
 import com.music.bitchord.ui.mochy.modules.skin.ModuleSkin
-import com.music.bitchord.ui.mochy.player.CanvasArtworkPlaybackCache
 import com.music.bitchord.ui.mochy.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.mochy.player.SongVideo
 import com.music.bitchord.ui.mochy.player.SongVideoLookup
 import com.music.bitchord.ui.mochy.player.YouTubeVideoBackground
-import com.music.bitchord.ui.mochy.player.findCanvasCached
 import com.music.bitchord.ui.mochy.player.rememberSongVideoLookup
 import com.music.bitchord.ui.mochy.utils.rememberDataSaverActive
 import com.music.bitchord.ui.mochy.utils.rememberPreference
@@ -181,7 +179,11 @@ private fun rememberAnimatedCover(mediaId: String, title: String, artist: String
     val context = LocalContext.current
     val wifiOnly by rememberPreference(CanvasWifiOnlyKey, defaultValue = true)
     var found by remember(mediaId, enabled) {
-        val cached = if (enabled) CanvasArtworkPlaybackCache.get(mediaId)?.preferredAnimationUrl else null
+        val cached = if (enabled) {
+            com.music.bitchord.data.canvas.CanvasRepository.cached(
+                com.music.bitchord.data.model.Song(videoId = mediaId, title = title, artist = artist, thumbnailUrl = null)
+            )?.url
+        } else null
         mutableStateOf(AnimatedLookup(cached, searching = enabled && cached == null))
     }
     LaunchedEffect(mediaId, title, artist, enabled, wifiOnly) {
@@ -192,7 +194,9 @@ private fun rememberAnimatedCover(mediaId: String, title: String, artist: String
             return@LaunchedEffect
         }
         delay(AnimatedLookupSettleMs)
-        val url = findCanvasCached(context, mediaId, title, artist, durationSec)?.preferredAnimationUrl
+        val url = com.music.bitchord.data.canvas.CanvasRepository.canvasFor(
+            com.music.bitchord.data.model.Song(videoId = mediaId, title = title, artist = artist, thumbnailUrl = null)
+        )?.url
         found = AnimatedLookup(url, searching = false)
     }
     return found

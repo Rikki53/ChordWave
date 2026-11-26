@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Batch 55b: skin/player strings from Mochy Music (GPL-3.0), branding ChordWave. -->
+<resources>
+    <string name="aq_fmt_low">~50–70 kbps · Opus</string>
+    <string name="aq_fmt_medium">~128 kbps · AAC</string>
+    <string name="lyrics">Lyrics</string>
+    <string name="menu_edit_player">Edit player</string>
+    <string name="ps_action_other_menu">Other menu</string>
+    <string name="ps_style_repeat_one">Repeat one</string>
+    <string name="skin_bar_nothing_next">Nothing queued yet</string>
+    <string name="skin_bar_up_next">Up next</string>
+    <string name="skin_customise_row">Customise %1$s</string>
+    <string name="skin_surface_btn_action">ACT</string>
+    <string name="skin_surface_btn_enter">OK</string>
+    <string name="skin_surface_btn_map">MAP</string>
+    <string name="skin_surface_btn_menu">ESC</string>
+    <string name="skin_surface_btn_run">RUN</string>
+    <string name="skin_surface_btn_slot">S%1$d</string>
+    <string name="skin_surface_btn_strafe_l">SL</string>
+    <string name="skin_surface_btn_strafe_r">SR</string>
+    <string name="skin_surface_btn_use">USE</string>
+    <string name="skin_surface_btn_yes">Y</string>
+    <string name="skin_surface_engine_missing">This surface block needs its signed code APK (module.apk)</string>
+    <string name="skin_surface_error">Couldn\'t start surface: %1$s</string>
+    <string name="skin_surface_fullscreen">Fullscreen</string>
+    <string name="skin_surface_fullscreen_exit">Exit fullscreen</string>
+    <string name="skin_surface_loading">Starting…</string>
+    <string name="skin_surface_missing_asset">Data file not found in this module</string>
+    <string name="skin_surface_other_loaded">Another surface engine is already running. Restart ChordWave to switch.</string>
+    <string name="skin_surface_preview_sub">Open player to run</string>
+    <string name="skin_surface_preview_title">PLAY</string>
+</resources>

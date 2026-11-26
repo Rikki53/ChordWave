@@ -7,6 +7,8 @@
 package com.music.bitchord.ui.mochy.player.menu
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -46,7 +48,6 @@ import com.music.bitchord.ui.mochy.component.LocalMenuState
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.SheetIcon
 import com.music.bitchord.ui.mochy.screens.search.searchRoute
-import com.music.bitchord.ui.mochy.screens.settings.devspace.openDevUrl
 import com.music.bitchord.ui.mochy.screens.settings.modules.ModulePageSheetContent
 import com.music.bitchord.ui.mochy.screens.settings.modules.modulePageRoute
 import java.net.URLEncoder

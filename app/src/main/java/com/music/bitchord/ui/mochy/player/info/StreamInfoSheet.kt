@@ -123,7 +123,7 @@ fun StreamInfoSheet(onDismiss: () -> Unit) {
             ForceProviderSheet(
                 currentProviderId = from.providerId,
                 onDismiss = { showForce = false; switchHost.reset() },
-                providers = remember { StreamStatsAdapter.providerEntries(LocalContext.current) },
+                providers = remember { StreamStatsAdapter.providerEntries(playerConnection.context) },
                 switchState = switchState,
                 onForceProvider = switchHost::force,
             )

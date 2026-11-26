@@ -232,7 +232,7 @@ private const val ChromeAccentWash = 0.55f
  */
 @Composable
 fun rememberChromeAccentWash(): () -> Color {
-    val accent = com.mochyy.mochymusic.LocalDetailAccentColor.current
+    val accent = com.music.bitchord.ui.mochy.LocalDetailAccentColor.current
     val wash = remember { androidx.compose.animation.Animatable(Color.Transparent) }
     LaunchedEffect(accent) {
         // fading out keeps the page's hue instead of greying through transparent black

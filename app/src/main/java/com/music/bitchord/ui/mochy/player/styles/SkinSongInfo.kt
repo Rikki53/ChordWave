@@ -67,7 +67,7 @@ internal fun rememberSkinSongInfo(needed: Boolean, preview: Boolean): SkinSongIn
     LaunchedEffect(song?.id) {
         info.about = null
         val now = song ?: return@LaunchedEffect
-        SongAboutLoader.load(now, database, app).collect { info.about = it }
+        SongAboutLoader.load(now).collect { info.about = it }
     }
     return info
 }

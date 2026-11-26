@@ -110,7 +110,7 @@ import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.utils.rememberYouTubeSignedIn
 
-private val LocalizedSettingsPages = mapOf(
+private val SettingsScreenPages = mapOf(
     "Settings" to R.string.settings,
     "App behaviour" to R.string.settings_app_behaviour,
     "Customisation" to R.string.settings_customisation_category,
@@ -123,7 +123,7 @@ private val LocalizedSettingsPages = mapOf(
     "Integrations" to R.string.integrations,
 )
 
-private val SettingsIndex = listOf(
+private val SettingsScreenIndex = listOf(
     // Interface — the Classic/Modern switch lives on this page (UiModeCard)
     SettingsEntry("Interface", "Settings", "mochy_settings", "interface classic modern theme switch ui mode appearance"),
     SettingsEntry("Classic", "Settings", "mochy_settings", "classic interface old ui mode switch theme"),
@@ -347,10 +347,10 @@ fun MochySettingsScreen(
         if (q.isBlank()) {
             emptyList()
         } else {
-            SettingsIndex.filter {
+            SettingsScreenIndex.filter {
                 it.title.contains(q, ignoreCase = true) ||
                     (it.titleRes ?: LocalizedSettingsTitles[it.title])?.let { id -> context.getString(id).contains(q, ignoreCase = true) } == true ||
-                    (it.pageRes ?: LocalizedSettingsPages[it.page])?.let { id -> context.getString(id).contains(q, ignoreCase = true) } == true ||
+                    (it.pageRes ?: SettingsScreenPages[it.page])?.let { id -> context.getString(id).contains(q, ignoreCase = true) } == true ||
                     it.keywords.contains(q, ignoreCase = true) ||
                     it.page.contains(q, ignoreCase = true)
             }
@@ -459,7 +459,7 @@ fun MochySettingsScreen(
                                             color = Color.White
                                         )
                                         Text(
-                                            text = (entry.pageRes ?: LocalizedSettingsPages[entry.page])?.let { stringResource(it) } ?: entry.page,
+                                            text = (entry.pageRes ?: SettingsScreenPages[entry.page])?.let { stringResource(it) } ?: entry.page,
                                             fontFamily = InterFontFamily,
                                             fontSize = 12.sp,
                                             color = Color.White.copy(alpha = 0.55f)

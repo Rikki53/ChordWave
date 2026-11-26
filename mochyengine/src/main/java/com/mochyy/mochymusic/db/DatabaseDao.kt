@@ -90,6 +90,51 @@ interface DatabaseDao {
     suspend fun artistByName(name: String): ArtistEntity?
 
     @Transaction
+    @Query(
+        """
+        SELECT song.* FROM song
+        JOIN (SELECT songId, MAX(timestamp) AS lastPlayed FROM event GROUP BY songId) e
+        ON song.id = e.songId
+        ORDER BY e.lastPlayed DESC
+        LIMIT :limit
+        """
+    )
+    fun recentlyPlayedSongs(limit: Int = 15): Flow<List<Song>>
+
+    @Transaction
+    @androidx.room.RewriteQueriesToDropUnusedColumns
+    @Query(
+        """
+        SELECT song.*,
+               (SELECT COUNT(1)
+                FROM event
+                WHERE songId = song.id
+                  AND timestamp > :fromTimeStamp AND timestamp <= :toTimeStamp) AS songCountListened,
+               (SELECT SUM(event.playTime)
+                FROM event
+                WHERE songId = song.id
+                  AND timestamp > :fromTimeStamp AND timestamp <= :toTimeStamp) AS timeListened
+        FROM song
+        JOIN (SELECT songId
+                     FROM event
+                     WHERE timestamp > :fromTimeStamp
+                     AND timestamp <= :toTimeStamp
+                     GROUP BY songId
+                     ORDER BY SUM(playTime) DESC
+                     LIMIT :limit)
+        ON song.id = songId
+        LIMIT :limit
+        OFFSET :offset
+    """
+    )
+    fun mostPlayedSongs(
+        fromTimeStamp: Long,
+        limit: Int = 6,
+        offset: Int = 0,
+        toTimeStamp: Long? = java.time.LocalDateTime.now().toInstant(java.time.ZoneOffset.UTC).toEpochMilli(),
+    ): Flow<List<Song>>
+
+    @Transaction
     @Query("SELECT * FROM album ORDER BY title")
     fun albums(): Flow<List<Album>>
 

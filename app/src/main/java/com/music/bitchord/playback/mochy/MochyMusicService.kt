@@ -631,13 +631,14 @@ class MochyMusicService : MediaLibraryService() {
             ModulePlaybackBridge.onMediaItemChanged(mediaItem?.mediaId)
             mediaItem?.toSong()?.let { song ->
                 ModulePlaybackBridge.noteQueuedTrack(
-                    song.id,
+                    song.videoId,
                     com.mochyy.mochymusic.module.TrackQuery(
                         title = song.title,
-                        artists = song.artists.map { it.name },
-                        album = song.album?.title,
-                        durationMs = song.duration?.takeIf { it > 0 }?.times(1000L),
-                        videoId = com.music.bitchord.ui.mochy.utils.youtubeIdOrNull(song.id),
+                        artists = song.artists.map { it.name }
+                            .ifEmpty { listOf(song.artist) },
+                        album = song.albumName,
+                        durationMs = (player?.duration ?: 0L).takeIf { it > 0 },
+                        videoId = com.music.bitchord.ui.mochy.utils.youtubeIdOrNull(song.videoId),
                     ),
                 )
             }
