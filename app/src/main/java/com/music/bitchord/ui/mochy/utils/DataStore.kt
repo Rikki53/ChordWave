@@ -48,9 +48,16 @@ object PreferencesCache {
 
     private val writeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val started = java.util.concurrent.atomic.AtomicBoolean(false)
+
     val snapshot: State<Preferences> get() = snapshotState
 
     fun start(context: Context, scope: CoroutineScope) {
+        // Once per process (batch 53): BitChordApplication starts the
+        // collector at launch so the first composition reads a warm
+        // snapshot instead of runBlocking on the main thread; the Modern
+        // host's own start call then has nothing left to do.
+        if (!started.compareAndSet(false, true)) return
         val store = context.applicationContext.dataStore
         scope.launch(Dispatchers.IO, start = CoroutineStart.UNDISPATCHED) {
             store.data.collect { prefs ->

@@ -39,6 +39,7 @@ import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.launch.LaunchGate
+import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.stats.ArtistFacts
@@ -48,6 +49,7 @@ import com.music.bitchord.download.PlaylistSync
 import androidx.work.Configuration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlin.concurrent.thread
 
@@ -69,6 +71,12 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
     @kotlin.OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate() {
         super.onCreate()
+        // Batch 53 (cold start): start collecting the Modern settings
+        // DataStore now, on IO, so its first read overlaps everything
+        // below. Without this, the first Modern composition (and the
+        // Mochy engine's applySettings) hit PreferencesCache.current()
+        // cold and runBlocking'd the main thread on a disk read.
+        PreferencesCache.start(this, CoroutineScope(SupervisorJob() + Dispatchers.IO))
         // The player is drawn by the shared UI module; this is what it reads
         // underneath — settings, the Canvas decoder, outputs, the party.
         AndroidStreamHooks.installEarly()
@@ -124,6 +132,25 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         val backgroundInit = thread(name = "startup-init") {
             SourceRegistry.init(this)
             AndroidStreamHooks.initInnerTubeX(this)
+            // Batch 53 (cold start): plain store opens with no
+            // main-thread affinity (SharedPreferences / files /
+            // StateFlows only — verified per init; nothing here calls
+            // Lifecycle.addObserver, builds a WebView, or otherwise
+            // needs the main looper, the batch-46 trap). They run beside
+            // the main-thread work below instead of serially inside it;
+            // the join at the end of onCreate still guarantees every
+            // store is open before anything after startup reads it.
+            SearchHistory.init(this)
+            LastPlayed.init(this)
+            BoundedContextPersistence.init(this)
+            PartyPersonalQueueStash.init(this)
+            OriginalVersion.init(this)
+            com.music.bitchord.ui.mochy.songedit.SongEdits.init(this)
+            com.music.bitchord.ui.mochy.speeddial.SpeedDialStore.init(this)
+            com.music.bitchord.data.sources.addon.AddonAuth.init(this)
+            ListeningStats.init(this)
+            com.music.bitchord.data.backup.DriveBackup.init(this)
+            com.music.bitchord.playback.audio.LosslessOutput.init(this)
             // Its own directory: canvas clips are looping video, not audio, and
             // belong in a cache AudioCache's own limit and eviction policy were
             // never sized for. See CanvasCache's doc for why this one exists at
@@ -164,50 +191,46 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
                 hl = locale.toLanguageTag(),
             )
         }
-        // Loads the Modern UI's hand edits for songs (title/cover/artists/
-        // video), so the queue wears them from the first launch.
-        com.music.bitchord.ui.mochy.songedit.SongEdits.init(this)
-        // Loads the Modern Home speed dial's pins, so the dial shows them
-        // from the first launch.
-        com.music.bitchord.ui.mochy.speeddial.SpeedDialStore.init(this)
+        // SongEdits + SpeedDialStore open on the startup-init thread
+        // above (batch 53) — joined before onCreate returns, so the
+        // queue and the Home dial still wear them from first launch.
         // After AppSettings: fetches Automix's models as soon as Automix is on,
         // rather than waiting for the first song it would mix.
         com.music.bitchord.playback.smart.AutomixModels.install(this)
-        // Restores the addon token, so the first search after a process restart
-        // doesn't have to attest the device again.
-        com.music.bitchord.data.sources.addon.AddonAuth.init(this)
-        // Before anything resolves a track: an addon with `checkValidLossless`
-        // is gated on this, and the gate reads "no" until it has looked.
-        com.music.bitchord.playback.audio.LosslessOutput.init(this)
+        // AddonAuth + LosslessOutput open on the startup-init thread
+        // above (batch 53); the lossless gate still reads "no" until
+        // it has looked, and the join keeps that true before any
+        // track resolves.
         // Restores a party this device is still a member of, so a process death
         // mid-session is something the rest of the party never sees. The socket
         // and the clock offset are not restored — both are re-established on
         // the next connect, which is the only way to be sure they are current.
         ListenTogether.init(this)
-        SearchHistory.init(this)
-        LastPlayed.init(this)
-        BoundedContextPersistence.init(this)
-        com.music.bitchord.playback.PartyPersonalQueueStash.init(this)
-        // Which tracks the listener has reverted to YouTube's own upload. Read
-        // by [Song.toMediaItem], so it has to be open before the restart
-        // snapshot below is turned back into queue items.
-        OriginalVersion.init(this)
+        // SearchHistory / LastPlayed / BoundedContextPersistence /
+        // PartyPersonalQueueStash / OriginalVersion open on the
+        // startup-init thread above (batch 53) — OriginalVersion is
+        // read by [Song.toMediaItem], and the join still has it open
+        // before any restart snapshot becomes queue items.
         // What's already saved to Downloads, so the song menu can say so
         // without a media-store query per row.
         Downloads.init(this)
         // Tahap 5: the Mochy engine's DownloadManager, on the main
-        // thread it will be read from. Idle in Classic; in Modern it
-        // is the download engine, mirroring into Downloads above.
-        com.music.bitchord.playback.mochy.MochyDownloadUtil.init(this)
+        // thread it will be read from. In Modern it is the download
+        // engine, mirroring into Downloads above. Batch 53 (cold
+        // start): in Classic it stays unbuilt — constructing it reads
+        // the whole download index off disk for an engine that will
+        // not run; EngineSwitch.switchTo builds it on the way into
+        // Modern instead.
+        if (com.music.bitchord.playback.mochy.EngineSwitch.activeEngine(this) ==
+            com.music.bitchord.playback.mochy.PlaybackEngine.MOCHY
+        ) {
+            com.music.bitchord.playback.mochy.MochyDownloadUtil.init(this)
+        }
         // After both of the things a check reads: the setting and the record.
         PlaylistSync.init(this)
-        // Before anything could run a scheduled backup: its worker reads the
-        // account and the schedule this loads.
-        com.music.bitchord.data.backup.DriveBackup.init(this)
-        // The device's own listening record. Opened here rather than in
-        // PlaybackService because the Replay page reads it from the UI side and
-        // both live in this process — one owner, one directory.
-        ListeningStats.init(this)
+        // DriveBackup + ListeningStats open on the startup-init thread
+        // above (batch 53) — still before anything could run a
+        // scheduled backup or read the listening record.
         // The shared Room library (Mochy engine database): copies the
         // legacy stores into it once, with a backup first, off the main
         // thread. The legacy stores are never modified, so Classic is

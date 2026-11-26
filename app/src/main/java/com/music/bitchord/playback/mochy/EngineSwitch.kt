@@ -156,6 +156,16 @@ object EngineSwitch {
             stopEngine(app, current)
             awaitServiceDestroyed(app, current)
         }
+        if (target == PlaybackEngine.MOCHY) {
+            // Batch 53 (cold start): the Mochy DownloadManager is only
+            // built when Modern is (or becomes) the active engine —
+            // BitChordApplication skips it on a Classic cold start.
+            // switchTo is called from the main thread (MainActivity's
+            // switch LaunchedEffect), where the manager is read from;
+            // init() is idempotent.
+            runCatching { MochyDownloadUtil.init(app) }
+                .onFailure { Timber.tag(TAG).w(it, "switchTo: download engine init failed") }
+        }
         syncComponents(app)
     }
 
