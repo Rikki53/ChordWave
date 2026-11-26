@@ -7,8 +7,9 @@
 // DownloadState>>). These helpers translate the CW flows back into the
 // media3 Download.STATE_* ints the ported Mochy UI already speaks
 // (SheetDownloadCard, Icon.Download), so no ported call site has to learn
-// CW's download model. Downloading/queued both map to STATE_DOWNLOADING —
-// the Mochy UI draws a spinner for either — and a failed download reads as
+// CW's download model. Running maps to STATE_DOWNLOADING and queued /
+// waiting-for-Wi-Fi to STATE_QUEUED (batch 52: the menus name the queue
+// instead of calling it downloading), and a failed download reads as
 // "nothing", the same as never downloaded.
 //
 // Also here: Mochy -> CW Song builders, because Downloads.enqueue() takes
@@ -32,9 +33,12 @@ import com.music.bitchord.ui.mochy.models.innertube.SongItem
 private fun stateOf(id: String, saved: Map<String, String>, active: Map<String, DownloadState>): Int? =
     when {
         id in saved -> Download.STATE_COMPLETED
-        active[id] is DownloadState.Running ||
-            active[id] == DownloadState.Queued ||
-            active[id] == DownloadState.WaitingForWifi -> Download.STATE_DOWNLOADING
+        active[id] is DownloadState.Running -> Download.STATE_DOWNLOADING
+        // queued (or held for Wi-Fi) is its own state, not "downloading": the menus say
+        // "Queued" for it, so a song merely waiting its turn does not read as one
+        // already coming down (batch 52)
+        active[id] == DownloadState.Queued ||
+            active[id] == DownloadState.WaitingForWifi -> Download.STATE_QUEUED
         else -> null
     }
 

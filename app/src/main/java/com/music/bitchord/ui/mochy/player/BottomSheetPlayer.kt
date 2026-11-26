@@ -1834,6 +1834,7 @@ private fun PlayerSheet(
             repeatMode = transportState.repeatMode,
             downloadFraction = menuExtras.downloadFraction,
             downloadCompleted = menuExtras.downloadCompleted,
+            downloadQueued = menuExtras.downloadQueued,
             videoShowing = videoShowing,
             // a lambda, so the chevron moving with the sheet doesn't recompose the whole player
             getChevronRect = { if (!landscapeFlagship && (showLyrics || showQueue)) lyricsChevronRect ?: chevronButtonRect else chevronButtonRect },
@@ -2085,6 +2086,8 @@ private fun ExpandMenuOverlay(
     downloadFraction: Float?,
     /** the song is saved: the Download label says so (tapping deletes it) instead of offering a re-download */
     downloadCompleted: Boolean,
+    /** the song is only queued: the Download label says "Queued" instead of "Downloading" (batch 52) */
+    downloadQueued: Boolean,
     /** a video is on the cover right now: the See video button then offers the way back to audio */
     videoShowing: Boolean,
     getChevronRect: () -> androidx.compose.ui.geometry.Rect?,
@@ -2263,6 +2266,8 @@ private fun ExpandMenuOverlay(
                             // while it is still coming down the words say how far it has got (batch 14)
                             val labelText = if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && downloadCompleted) {
                                 stringResource(R.string.player_menu_delete_download)
+                            } else if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && downloadQueued) {
+                                stringResource(R.string.queued)
                             } else if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && downloadFraction != null) {
                                 stringResource(R.string.downloading_percent, (downloadFraction * 100).toInt())
                             } else if (action == com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.DOWNLOAD && isToggled) {

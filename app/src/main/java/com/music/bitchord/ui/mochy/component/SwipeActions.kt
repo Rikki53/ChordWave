@@ -532,7 +532,7 @@ fun downloadSwipeAction(mediaItem: (() -> MediaItem)?): SwipeAction {
     val context = LocalContext.current
     val item = remember(mediaItem) { mediaItem?.invoke() }
     val state = item?.let { downloadStateFor(it.mediaId) }
-    val isDownloaded = state == Download.STATE_COMPLETED || state == Download.STATE_DOWNLOADING
+    val isDownloaded = state == Download.STATE_COMPLETED || state == Download.STATE_DOWNLOADING || state == Download.STATE_QUEUED
     return SwipeAction(
         icon = if (isDownloaded) R.drawable.offline else SongSwipeAction.Download.icon,
         color = SongSwipeAction.Download.color,

@@ -53,6 +53,9 @@ class PlayerMenuExtras internal constructor(
     /** the song is saved on this phone: the download button deletes it instead of starting one */
     val downloadCompleted: Boolean get() = downloadState == Download.STATE_COMPLETED
 
+    /** the song is only waiting its turn: the download button says "Queued", not "Downloading" (batch 52) */
+    val downloadQueued: Boolean get() = downloadState == Download.STATE_QUEUED
+
     fun isActive(action: PlayerMenuAction): Boolean = when (action) {
         PlayerMenuAction.KEEP_AWAKE -> keepScreenOn
         PlayerMenuAction.TRANSLATE_LYRICS -> translating
@@ -84,13 +87,11 @@ class PlayerMenuExtras internal constructor(
     private fun toggleDownload() {
         val song = song ?: return
         if (isActive(PlayerMenuAction.DOWNLOAD)) {
-            if (downloadState == Download.STATE_COMPLETED) {
-                scope.removeDownload(context, song.id)
-                toast("Removed the download")
-            } else {
-                Downloads.cancel(song.id)
-                toast("Download stopped")
-            }
+            // the same remove the song menu's download card runs (cancel + delete),
+            // whichever state the download is in — this dropdown used to only cancel
+            // a queued/running one, so the two buttons did different things (batch 52)
+            scope.removeDownload(context, song.id)
+            toast(if (downloadState == Download.STATE_COMPLETED) "Removed the download" else "Download stopped")
             return
         }
         Downloads.enqueue(context, song.toCwSong(), from = "player-menu")

@@ -266,7 +266,7 @@ fun toggleSongsDownload(
     songs: List<Song>,
     state: Int,
 ) {
-    if (state == Download.STATE_COMPLETED || state == Download.STATE_DOWNLOADING) {
+    if (state == Download.STATE_COMPLETED || state == Download.STATE_DOWNLOADING || state == Download.STATE_QUEUED) {
         scope.launch {
             songs.forEach { song ->
                 Downloads.cancel(song.song.id)

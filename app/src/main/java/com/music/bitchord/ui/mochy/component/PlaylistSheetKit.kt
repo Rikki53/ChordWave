@@ -456,8 +456,9 @@ internal fun SheetActionCard(
 }
 
 /**
- * The Download card, following the download as it goes: "Download" to start it, a spinner while
- * it runs (tap to cancel), and "Remove download" once the song is saved. [downloadState] is a
+ * The Download card, following the download as it goes: "Download" to start it, "Queued" while
+ * it waits its turn, a spinner with the percentage while it runs (tap either to cancel), and
+ * "Remove download" once the song is saved. [downloadState] is a
  * media3 `Download.STATE_*`, or null when nothing was ever downloaded. [downloadFraction] is how
  * far a running download has got (0f..1f, null when it isn't running) — the card says the
  * percentage instead of a bare "Downloading" when it is known (batch 14).
@@ -477,7 +478,21 @@ internal fun SheetDownloadCard(
             onClick = onRemove,
             modifier = modifier,
         )
-        Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> SheetActionCard(
+        // queued is named as queued, not as downloading: the song is waiting its
+        // turn, and saying so keeps the two states from reading as one (batch 52)
+        Download.STATE_QUEUED -> SheetActionCard(
+            icon = {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(24.dp),
+                )
+            },
+            title = stringResource(R.string.queued),
+            onClick = onRemove,
+            modifier = modifier,
+        )
+        Download.STATE_DOWNLOADING -> SheetActionCard(
             icon = {
                 CircularProgressIndicator(
                     color = Color.White,

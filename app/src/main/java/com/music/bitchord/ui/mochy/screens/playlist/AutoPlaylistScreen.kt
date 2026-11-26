@@ -347,7 +347,7 @@ fun AutoPlaylistScreen(
                     onDownload = {
                         when (downloadState) {
                             Download.STATE_COMPLETED -> showRemoveDownloadDialog = true
-                            Download.STATE_DOWNLOADING -> {
+                            Download.STATE_DOWNLOADING, Download.STATE_QUEUED -> {
                                 current.forEach { song ->
                                     Downloads.cancel(song.song.id)
                                 }
