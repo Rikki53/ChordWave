@@ -64,7 +64,7 @@ val SettingsPaneRoutes = setOf(
     "import_sync",
     "settings/update",
     "import_progress",
-    "sources",
+    "modules",
     "listen_together",
 )
 

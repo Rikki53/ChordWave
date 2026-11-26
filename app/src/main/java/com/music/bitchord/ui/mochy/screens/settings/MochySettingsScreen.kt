@@ -6,9 +6,10 @@
 // Deviations from Mochy (all documented in NEEDS.md):
 // - Devices bubble + device-integration search entry DROPPED: Mochy's
 //   Devices/remote-control UI is out of scope (MAPPING.md).
-// - Modules bubble + module pages + Apple Music/Monochrome search entries
-//   DROPPED: the Mochy modules UI is out of scope; ChordWave sources live in
-//   Sources (Phase 5 restyle).
+// - Modules bubble + module pages + Apple Music/Monochrome search entries:
+//   restored in batch 55b (Mochy's modules system replaces Sources in
+//   Modern; the Phase 5 Sources restyle is gone from Modern, Classic keeps
+//   its own Sources screen).
 // - Scrobble/Discord search entries link to settings/integrations (the root);
 //   sub-routes belong to the integrations worker.
 // - Profile page is out of scope, so the avatar opens the YouTube account
@@ -28,7 +29,10 @@
 package com.music.bitchord.ui.mochy.screens.settings
 
 import androidx.activity.compose.BackHandler
+import com.music.bitchord.data.mochydata.modules.browser.ModuleFeed
 import com.music.bitchord.ui.mochy.screens.devices.showDeviceIntegration
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleBrowserRoute
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleSettingsPages
 import com.music.bitchord.ui.mochy.screens.devices.rememberDevicesLink
 import com.music.bitchord.ui.mochy.screens.devices.DeviceIntegrationRoute
 import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
@@ -172,7 +176,7 @@ private val LocalizedSettingsTitles = mapOf(
     "Canvas on Wi-Fi only" to R.string.appearance_canvas_wifi,
     "Studio version for music videos" to R.string.settings_studio_for_videos,
     "Storage" to R.string.storage,
-    "Sources" to R.string.source,
+    "Modules" to R.string.settings_modules_category,
     "Listen together" to R.string.listen_together,
     "App behaviour" to R.string.settings_app_behaviour,
     "Disable description on settings" to R.string.settings_hide_descriptions,
@@ -194,7 +198,7 @@ private val LocalizedSettingsPages = mapOf(
     "App behaviour" to R.string.settings_app_behaviour,
     "Customisation" to R.string.settings_customisation_category,
     "Storage" to R.string.storage,
-    "Sources" to R.string.source,
+    "Modules" to R.string.settings_modules_category,
     "Listen together" to R.string.listen_together,
     "Audio Lab" to R.string.settings_audio_lab_category,
     "Playback" to R.string.settings_playback_category,
@@ -315,9 +319,10 @@ private val SettingsIndex = listOf(
     SettingsEntry("Manage downloads", "Storage", "storage_settings", "downloads delete remove biggest offline space"),
     SettingsEntry("Remove all downloads", "Storage", "storage_settings", "delete clear downloads offline space"),
 
-    // Sources (Phase 5 restyle)
-    SettingsEntry("Sources", "Sources", "sources", "addon addons sources jiosaavn youtube webdav smb lossless quality order"),
-    SettingsEntry("Add source", "Sources", "sources", "add addon url provider source new"),
+    // Modules (batch 55b, Mochy original)
+    SettingsEntry("Modules", "Modules", "modules", "apple music source module plugin extension stream subscription"),
+    SettingsEntry("Apple Music", "Modules", "module/applemusic", "apple music itunes subscription stream aac"),
+    SettingsEntry("Monochrome", "Modules", "module/monochrome", "monochrome lossless flac hi-res tidal"),
 
     // Listen together (Phase 5 restyle)
     SettingsEntry("Listen together", "Listen together", "listen_together", "party jam friends together code invite host queue"),
@@ -632,6 +637,15 @@ fun MochySettingsScreen(
                         }
                     }
 
+                    // a build without the module feed (most forks) has no store to open
+                    if (ModuleFeed.FeedUrl.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        ModuleStoreCard(
+                            onClick = { navigator.navigate(ModuleBrowserRoute) },
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(18.dp))
 
                     // Divider
@@ -710,11 +724,14 @@ fun MochySettingsScreen(
                         )
 
                         CategoryBubble(
-                            title = stringResource(R.string.source),
-                            iconRes = R.drawable.puzzle,
-                            selected = selected == "sources",
-                            onClick = { open("sources") }
+                            title = stringResource(R.string.settings_modules_category),
+                            iconRes = R.drawable.library_add,
+                            selected = selected == "modules",
+                            onClick = { open("modules") }
                         )
+
+                        // pages the modules that are on bring to settings, right under modules
+                        ModuleSettingsPages(open = open, selected = selected)
 
                         CategoryBubble(
                             title = stringResource(R.string.listen_together),

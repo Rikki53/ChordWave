@@ -189,7 +189,16 @@ import com.music.bitchord.ui.mochy.screens.stats.StatsScreen
 import com.music.bitchord.ui.mochy.screens.replay.ReplayStoriesHost
 import com.music.bitchord.ui.mochy.screens.search.NewReleaseScreen
 import com.music.bitchord.ui.mochy.screens.settings.CustomisationScreen
-import com.music.bitchord.ui.mochy.screens.sources.SourcesScreen
+import com.music.bitchord.data.mochydata.MochyDatabaseHolder
+import com.music.bitchord.ui.mochy.screens.settings.modules.LocalModuleNavigator
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleAppBackground
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleBrowserScreen
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModulePageScreen
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleScreen
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleStoreScreen
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleTakeover
+import com.music.bitchord.ui.mochy.screens.settings.modules.ModulesScreen
+import com.music.bitchord.ui.mochy.viewmodels.ModuleBrowserViewModel
 import com.music.bitchord.ui.mochy.utils.rememberYouTubeSignedIn
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.ui.mochy.screens.setup.ProfilePhotoStore
@@ -424,6 +433,11 @@ fun MochyApp(modifier: Modifier = Modifier, launchIntroRequested: Boolean = fals
                     // it is given, and the local's default is detached.
                     LocalZoomOutOverlayState provides menuState,
                     LocalPlayerAwareWindowInsets provides playerAwareInsets,
+                    // Batch 55b: module pages read the shared library database
+                    // and navigate through the host's navigator (Mochy's
+                    // LocalDatabase / nav controller locals).
+                    LocalDatabase provides remember(context) { MochyDatabaseHolder.get(context) },
+                    LocalModuleNavigator provides navigator,
                 ) {
                     // Menus (and later info pages) render through this host; the
                     // app zooms out and dims behind the active sheet.
@@ -608,6 +622,8 @@ private fun MochyContent(
                 )
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
+                // Batch 55b: a look module's app-wide background, behind every page (Mochy MainActivity).
+                ModuleAppBackground(currentRoute = currentRoute, modifier = Modifier.fillMaxSize())
                 // Page transitions exactly as Mochy's NavHost (batch 40):
                 // each page slides by the tab it belongs to, not by its own
                 // route — an album open in the Library moves like the
@@ -657,6 +673,8 @@ private fun MochyContent(
                             label = "mochy_page",
                         ) { shown ->
                             CompositionLocalProvider(LocalNavAnimatedContentScope provides this) {
+                                // Batch 55b: a module page can stand in for any of these pages (Mochy's ModuleTakeover).
+                                ModuleTakeover(shown.route) {
                                 when {
                                     shown.depth > 0 -> DetailContent(
                                         route = shown.route,
@@ -687,6 +705,7 @@ private fun MochyContent(
                                         navigator = navigator,
                                         snackbarHostState = snackbarHostState,
                                     )
+                                }
                                 }
                             }
                         }
@@ -1012,7 +1031,32 @@ private fun DetailContent(
         route == "drive_devices" -> DriveDevicesScreen(navigator = navigator)
         // ---- ChordWave-only restyles (Phase 5) ----
         route == "listen_together" -> ListenTogetherScreen(navigator = navigator)
-        route == "sources" -> SourcesScreen(navigator = navigator)
+        // ---- Modules (batch 55b: Mochy modules system replaces Sources in Modern) ----
+        route == "modules" -> ModulesScreen(navigator = navigator)
+        route == "module_browser" -> ModuleBrowserScreen(navigator = navigator)
+        route.startsWith("module_store/") -> {
+            // the store page borrows the browser view model (the same
+            // Activity-scoped instance the browser composes with), so
+            // opening a module never waits on the feed again
+            val browserViewModel: ModuleBrowserViewModel = hiltViewModel()
+            ModuleStoreScreen(
+                navigator = navigator,
+                post = Uri.decode(route.removePrefix("module_store/")),
+                viewModel = browserViewModel,
+            )
+        }
+        route.startsWith("module_page/") -> {
+            val parts = route.removePrefix("module_page/").split("/")
+            ModulePageScreen(
+                navigator = navigator,
+                id = Uri.decode(parts.getOrNull(0).orEmpty()),
+                pageId = Uri.decode(parts.getOrNull(1).orEmpty()),
+            )
+        }
+        route.startsWith("module/") -> ModuleScreen(
+            navigator = navigator,
+            id = Uri.decode(route.removePrefix("module/")),
+        )
         // Radio is a tab now (round 2, item 7 — Classic parity), so
         // navigate("radio") switches to it instead of pushing; this branch
         // stays as the safety net for a stacked "radio" route.
