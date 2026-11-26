@@ -6,7 +6,13 @@
 
 package com.music.bitchord.ui.mochy.player
 
+import android.content.Context
 import android.graphics.Bitmap
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import coil3.request.ImageRequest
+import kotlin.math.roundToInt
 import androidx.core.graphics.createBitmap
 import coil3.size.Size
 import coil3.transform.Transformation
@@ -77,3 +83,23 @@ class BackdropBlurTransformation(private val radiusPx: Int) : Transformation() {
         }
     }
 }
+
+// Batch 55b: from Mochy's BackdropBlurTransformation.kt — builds a small
+// coil-cached blurred image request for api < 31 so static module
+// backgrounds blur once off the main thread.
+@Composable
+internal fun rememberFallbackBlurredImage(model: Any?, blurDp: Float, targetPx: Int = 192): Any? {
+    val context = LocalContext.current
+    val radiusPx = (blurDp * 0.45f).roundToInt().coerceIn(2, 24)
+    return remember(context, model, radiusPx, targetPx) {
+        if (model == null) null else buildFallbackBlurredRequest(context, model, radiusPx, targetPx)
+    }
+}
+
+internal fun buildFallbackBlurredRequest(context: Context, model: Any, radiusPx: Int, targetPx: Int = 192): ImageRequest =
+    ImageRequest.Builder(context)
+        .data(model)
+        .allowHardware(false)
+        .transformations(BackdropBlurTransformation(radiusPx))
+        .size(Size(targetPx, targetPx))
+        .build()

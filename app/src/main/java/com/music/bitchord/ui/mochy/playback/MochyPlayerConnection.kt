@@ -1191,3 +1191,14 @@ class MochyPlayerConnection(context: Context) {
         PreferencesCache.set(context.dataStore, InfiniteQueueKey, enabled)
     }
 }
+
+/** Batch 55b: Mochy's Player.toggleRepeatMode (extensions/PlayerExt.kt), for module pages' repeat buttons. */
+fun androidx.media3.common.Player.toggleRepeatMode() {
+    repeatMode =
+        when (repeatMode) {
+            androidx.media3.common.Player.REPEAT_MODE_OFF -> androidx.media3.common.Player.REPEAT_MODE_ALL
+            androidx.media3.common.Player.REPEAT_MODE_ALL -> androidx.media3.common.Player.REPEAT_MODE_ONE
+            androidx.media3.common.Player.REPEAT_MODE_ONE -> androidx.media3.common.Player.REPEAT_MODE_OFF
+            else -> throw IllegalStateException()
+        }
+}

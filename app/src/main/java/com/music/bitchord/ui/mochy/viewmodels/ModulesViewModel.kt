@@ -1,0 +1,554 @@
+// ModulesViewModel.kt
+
+package com.music.bitchord.ui.mochy.viewmodels
+
+import android.media.MediaDrm
+import android.media.NotProvisionedException
+import android.os.Build
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
+import androidx.media3.common.util.UnstableApi
+import com.mochyy.mochymusic.module.AccountState
+import com.mochyy.mochymusic.module.DiagnosticStep
+import com.mochyy.mochymusic.module.ItemListModule
+import com.mochyy.mochymusic.module.ItemProblem
+import com.mochyy.mochymusic.module.ItemsAdded
+import com.mochyy.mochymusic.module.LyricsModule
+import com.mochyy.mochymusic.module.MetadataModule
+import com.mochyy.mochymusic.module.ModuleFeature
+import com.mochyy.mochymusic.module.ModuleItem
+import com.mochyy.mochymusic.module.ModuleServer
+import com.mochyy.mochymusic.module.ResolveResult
+import com.mochyy.mochymusic.module.ServerListModule
+import com.mochyy.mochymusic.module.ServerProblem
+import com.mochyy.mochymusic.module.StreamDrm
+import com.mochyy.mochymusic.module.TrackQuery
+import com.music.bitchord.data.mochydata.modules.CatalogModule
+import com.music.bitchord.data.mochydata.modules.ModuleCatalog
+import com.music.bitchord.data.mochydata.modules.ModuleRegistry
+import com.music.bitchord.data.mochydata.modules.SourceModules
+import com.music.innertube.YouTube
+import com.music.innertube.models.SongItem
+import org.json.JSONObject
+import com.music.bitchord.playback.mochy.WidevineDrm
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+
+/** the modules settings: each module's account, switch, choices and settings, its test, ordering, and adding new ones */
+@HiltViewModel
+class ModulesViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
+    private val modules: SourceModules,
+    private val registry: ModuleRegistry,
+    private val moduleCatalog: ModuleCatalog,
+) : ViewModel() {
+
+    val entries = modules.entries
+
+    /** the provider order: module ids and "youtube" */
+    val order = modules.order
+
+    /** reorders only the providers a page shows, the switched-off modules it hides keep their places */
+    fun setVisibleOrder(ids: List<String>) = modules.setVisibleOrder(ids)
+
+    /** the order downloads are looked for in, apart from the one songs play in */
+    val downloadOrder = modules.downloadOrder
+
+    fun setVisibleDownloadOrder(ids: List<String>) = modules.setVisibleDownloadOrder(ids)
+
+    /** YouTube Music's switch; it's not a module, so it isn't in [entries] */
+    val youTubeEnabled = modules.youTubeEnabled
+
+    fun isUsable(id: String): Boolean = modules.isUsable(id)
+
+    fun nameOf(id: String): String = modules.nameOf(id)
+
+    private val _steps = MutableStateFlow<List<DiagnosticStep>>(emptyList())
+    val steps: StateFlow<List<DiagnosticStep>> = _steps.asStateFlow()
+
+    private val _testing = MutableStateFlow(false)
+    val testing: StateFlow<Boolean> = _testing.asStateFlow()
+
+    // true while a check-server or check-account press is waiting on the service
+    private val _checking = MutableStateFlow(false)
+    val checking: StateFlow<Boolean> = _checking.asStateFlow()
+
+    private val _servers = MutableStateFlow<List<ModuleServer>>(emptyList())
+    val servers: StateFlow<List<ModuleServer>> = _servers.asStateFlow()
+
+    private val _items = MutableStateFlow<List<ModuleItem>>(emptyList())
+    val items: StateFlow<List<ModuleItem>> = _items.asStateFlow()
+
+    private var testJob: Job? = null
+    private var signedIn = false
+
+    // the module being updated right now, for its button's spinner
+    private val _updating = MutableStateFlow<String?>(null)
+    val updating: StateFlow<String?> = _updating.asStateFlow()
+
+    // the module whose source is being asked for a newer copy by hand
+    private val _checkingUpdate = MutableStateFlow<String?>(null)
+    val checkingUpdate: StateFlow<String?> = _checkingUpdate.asStateFlow()
+
+    init {
+        modules.refresh()
+        // a quiet look for newer copies each time the modules open; each source is only really asked a few times a day
+        viewModelScope.launch { runCatching { registry.checkUpdates(force = false) } }
+    }
+
+    /** asks one module's github project or link for a newer copy right now */
+    fun checkUpdate(id: String) {
+        if (_checkingUpdate.value != null) return
+        _checkingUpdate.value = id
+        viewModelScope.launch {
+            runCatching { registry.checkUpdates(force = true, only = id) }
+            modules.refresh()
+            _checkingUpdate.value = null
+        }
+    }
+
+    /** puts the newer copy in place; gives back what the check came to, so a problem can be said */
+    suspend fun update(id: String): ModuleRegistry.LinkCheck {
+        _updating.value = id
+        val result = runCatching { registry.update(id) }.getOrDefault(ModuleRegistry.LinkCheck.Unreachable)
+        modules.refresh()
+        _updating.value = null
+        return result
+    }
+
+    fun setEnabled(id: String, on: Boolean) = modules.setEnabled(id, on)
+
+    fun hasAcknowledgedScriptWarning(id: String): Boolean = registry.hasAcknowledgedScriptWarning(id)
+
+    fun acknowledgeScriptWarning(id: String) = registry.acknowledgeScriptWarning(id)
+
+    /** puts a look above the others that are on, so what it brings wins where they meet */
+    fun raise(id: String) {
+        registry.raise(id)
+        modules.refresh()
+    }
+
+    fun setPick(id: String, choiceId: String, optionId: String) = modules.setPick(id, choiceId, optionId)
+
+    /** one of the module's own settings; a look that's on changes with it */
+    fun setField(id: String, fieldId: String, value: String) = registry.setField(id, fieldId, value)
+
+    /** a section of the modules page dragged into a new order; songs then play from the modules in that order too */
+    fun reorder(ids: List<String>, looks: Boolean) {
+        val all = entries.value
+        val others = all.filter { it.id !in ids }.map { it.id }
+        registry.setOrder(if (looks) others + ids else ids + others)
+        modules.setVisibleOrder(ids.filter { id -> all.firstOrNull { it.id == id }?.adds(ModuleFeature.AudioSource) == true })
+    }
+
+    // ---- the test's song search ----
+
+    private val _found = MutableStateFlow<List<SongItem>>(emptyList())
+    val found: StateFlow<List<SongItem>> = _found.asStateFlow()
+
+    private val _searching = MutableStateFlow(false)
+    val searching: StateFlow<Boolean> = _searching.asStateFlow()
+
+    private var searchJob: Job? = null
+
+    /** looks songs up on youtube music to test the module with, the latest query wins */
+    fun searchSongs(query: String) {
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            _found.value = emptyList()
+            _searching.value = false
+            return
+        }
+        searchJob = viewModelScope.launch {
+            _searching.value = true
+            kotlinx.coroutines.delay(350)
+            val items = withContext(Dispatchers.IO) {
+                YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()?.items.orEmpty().filterIsInstance<SongItem>().take(8)
+            }
+            _found.value = items
+            _searching.value = false
+        }
+    }
+
+    fun signOut(id: String) {
+        registry.module(id)?.signOut()
+        modules.setEnabled(id, false)
+        _steps.value = emptyList()
+    }
+
+    fun verify(id: String) {
+        if (_checking.value) return
+        _checking.value = true
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { runCatching { registry.module(id)?.verifyAccount() } }
+            modules.refresh()
+            _checking.value = false
+        }
+    }
+
+    // ---- a module's servers ----
+
+    fun loadServers(id: String) {
+        _servers.value = (registry.module(id) as? ServerListModule)?.servers.orEmpty()
+    }
+
+    /** checks the link and adds the server it finds; null once it's in, otherwise why not */
+    suspend fun addServer(id: String, link: String): ServerProblem? {
+        val module = registry.module(id) as? ServerListModule ?: return ServerProblem.NotAServer
+        val problem = withContext(Dispatchers.IO) { runCatching { module.addServer(link) }.getOrDefault(ServerProblem.Unreachable) }
+        loadServers(id)
+        modules.refresh()
+        return problem
+    }
+
+    fun removeServer(id: String, url: String) {
+        (registry.module(id) as? ServerListModule)?.removeServer(url)
+        loadServers(id)
+        modules.refresh()
+    }
+
+    // ---- what people added to a module ----
+
+    sealed interface ItemsOutcome {
+        data class Added(val names: List<String>) : ItemsOutcome
+        data class AddedAsModule(val name: String) : ItemsOutcome
+        data class Problem(val problem: ItemProblem) : ItemsOutcome
+        data class Blocked(val name: String, val scan: com.music.bitchord.data.mochydata.modules.security.ScriptScanResult) : ItemsOutcome
+    }
+
+    internal data class PreparedItemsZip(
+        val fileName: String,
+        val bytes: ByteArray,
+        val uri: android.net.Uri,
+        val scan: com.music.bitchord.data.mochydata.modules.security.ScriptScanResult,
+    )
+
+    fun loadItems(id: String) {
+        _items.value = (registry.module(id) as? ItemListModule)?.items.orEmpty()
+    }
+
+    internal suspend fun prepareItemsZip(uri: android.net.Uri): Result<PreparedItemsZip> = withContext(Dispatchers.IO) {
+        val (name, bytes) = registry.readFile(uri, MaxItemsZipBytes)
+            ?: return@withContext Result.failure(IllegalArgumentException(ItemProblem.NotAZip.name))
+        if (bytes.size > MaxItemsZipBytes) {
+            return@withContext Result.failure(IllegalArgumentException(ItemProblem.TooBig.name))
+        }
+        val scan = com.music.bitchord.data.mochydata.modules.security.ScriptSecurityScanner.scanBytes(name, bytes)
+        Result.success(PreparedItemsZip(name, bytes, uri, scan))
+    }
+
+    internal suspend fun commitItemsZip(id: String, prepared: PreparedItemsZip): ItemsOutcome {
+        if (prepared.scan.verdict == com.music.bitchord.data.mochydata.modules.security.ScriptVerdict.Blocked) {
+            return ItemsOutcome.Blocked(prepared.fileName, prepared.scan)
+        }
+        val module = registry.module(id) as? ItemListModule ?: return ItemsOutcome.Problem(ItemProblem.NothingFound)
+        val added = withContext(Dispatchers.IO) {
+            runCatching { module.addZip(prepared.fileName, prepared.bytes) }.getOrDefault(ItemsAdded.Problem(ItemProblem.Broken))
+        }
+        return settleItems(id, added, fallBackOn = setOf(ItemProblem.NothingFound)) { registry.checkZip(prepared.uri) }
+    }
+
+    suspend fun addItemsZip(id: String, uri: android.net.Uri): ItemsOutcome {
+        val prepared = prepareItemsZip(uri).getOrElse { e ->
+            val p = runCatching { ItemProblem.valueOf(e.message.orEmpty()) }.getOrDefault(ItemProblem.NotAZip)
+            return ItemsOutcome.Problem(p)
+        }
+        return commitItemsZip(id, prepared)
+    }
+
+    internal fun scanItemsLink(link: String): com.music.bitchord.data.mochydata.modules.security.ScriptScanResult =
+        com.music.bitchord.data.mochydata.modules.security.ScriptSecurityScanner.scanLink(link)
+
+    suspend fun addItemsLink(id: String, link: String): ItemsOutcome {
+        val scan = scanItemsLink(link)
+        if (scan.verdict == com.music.bitchord.data.mochydata.modules.security.ScriptVerdict.Blocked) {
+            return ItemsOutcome.Blocked(link.trim(), scan)
+        }
+        val module = registry.module(id) as? ItemListModule ?: return ItemsOutcome.Problem(ItemProblem.NothingFound)
+        val added = withContext(Dispatchers.IO) { runCatching { module.addLink(link) }.getOrDefault(ItemsAdded.Problem(ItemProblem.Unreachable)) }
+        return settleItems(id, added, fallBackOn = setOf(ItemProblem.NothingFound, ItemProblem.Unreachable)) { registry.check(link) }
+    }
+
+    fun removeItem(id: String, itemId: String) {
+        (registry.module(id) as? ItemListModule)?.removeItem(itemId)
+        loadItems(id)
+        modules.refresh()
+    }
+
+    // something that plays over plain http is a web module, so when the module found nothing it could use it goes in that way, switched off like any new module
+    private suspend fun settleItems(
+        id: String,
+        added: ItemsAdded,
+        fallBackOn: Set<ItemProblem>,
+        asWebModule: suspend () -> ModuleRegistry.LinkCheck,
+    ): ItemsOutcome {
+        loadItems(id)
+        modules.refresh()
+        if (added is ItemsAdded.Added) return ItemsOutcome.Added(added.names)
+        val problem = (added as ItemsAdded.Problem).problem
+        if (problem !in fallBackOn) return ItemsOutcome.Problem(problem)
+        val check = runCatching { asWebModule() }.getOrNull()
+        if (check !is ModuleRegistry.LinkCheck.Ready || check.base == null) return ItemsOutcome.Problem(problem)
+        install(check)
+        return ItemsOutcome.AddedAsModule(check.name)
+    }
+
+    /** a header from the sign-in page; [onDone] runs once, when the account is in */
+    fun onSignInHeader(id: String, name: String, value: String, url: String, onDone: (AccountState) -> Unit) {
+        val module = registry.module(id) ?: return
+        if (signedIn || !module.onSignInHeader(name, value, url)) return
+        signedIn = true
+        viewModelScope.launch {
+            val state = withContext(Dispatchers.IO) { runCatching { module.verifyAccount() }.getOrNull() } ?: module.accountState()
+            // signing in is asking for it: the module plays from now on
+            if (state is AccountState.SignedIn) modules.setEnabled(id, true) else modules.refresh()
+            onDone(state)
+        }
+    }
+
+    fun resetSignIn() {
+        signedIn = false
+    }
+
+    /** what the import's musickit probe read off music.apple.com: the same two tokens the web player sends as headers */
+    fun onApplePageProbe(id: String, raw: String?, onDone: (AccountState) -> Unit) {
+        if (raw.isNullOrBlank() || raw == "null") return
+        val tokens = runCatching { JSONObject(raw) }.getOrNull() ?: return
+        tokens.optString("dev").takeIf { it.length > 20 && it != "null" }?.let {
+            onSignInHeader(id, "authorization", "Bearer $it", AppleApi, onDone)
+        }
+        tokens.optString("user").takeIf { it.length > 20 && it != "null" }?.let {
+            onSignInHeader(id, "media-user-token", it, AppleApi, onDone)
+        }
+    }
+
+    /** apple also keeps the user token as a cookie on music.apple.com */
+    fun onAppleCookies(id: String, cookies: String?, onDone: (AccountState) -> Unit) {
+        cookies?.split(';')?.forEach { pair ->
+            if (pair.substringBefore('=').trim().equals("media-user-token", ignoreCase = true)) {
+                onSignInHeader(id, "media-user-token", pair.substringAfter('=').trim(), "https://music.apple.com/", onDone)
+            }
+        }
+    }
+
+    // ---- finding and adding modules ----
+
+    suspend fun check(link: String): ModuleRegistry.LinkCheck = registry.check(link)
+
+    suspend fun checkZip(uri: android.net.Uri): ModuleRegistry.LinkCheck = registry.checkZip(uri)
+
+    /** adds a checked module, switched off so nothing changes until the user turns it on; gives back its id, null when a zip's code wouldn't start */
+    suspend fun install(ready: ModuleRegistry.LinkCheck.Ready): String? {
+        // a zip's pictures and fonts are unpacked on the way in, and its code is copied and started
+        val id = withContext(Dispatchers.IO) { registry.install(ready) }
+        modules.refresh()
+        return id
+    }
+
+    /** a module's skin (its player, font and pages), when it brings one */
+    fun skinOf(id: String): com.music.bitchord.ui.mochy.modules.skin.ModuleSkin? =
+        (registry.module(id) as? com.music.bitchord.ui.mochy.modules.skin.SkinSource)?.skin
+
+    fun remove(id: String) {
+        registry.remove(id)
+        modules.refresh()
+    }
+
+    suspend fun catalog(): Result<List<CatalogModule>> = moduleCatalog.load()
+
+    /** everything the module adds, tried with [track]: its song (with the license and a real decode), its lyrics, its song info */
+    fun runTest(id: String, track: TrackQuery) {
+        val any = registry.module(id) ?: return
+        testJob?.cancel()
+        _steps.value = emptyList()
+        _testing.value = true
+        testJob = viewModelScope.launch {
+            if (ModuleFeature.Lyrics in any.adds && any is LyricsModule) testLyrics(any, track)
+            if (ModuleFeature.Metadata in any.adds && any is MetadataModule) testMetadata(any, track)
+            val module = modules.module(id)
+            if (module == null) {
+                _testing.value = false
+                return@launch
+            }
+            // the picks a song really plays with, so data saver's lighter stream is what gets tested
+            val result = withContext(Dispatchers.IO) {
+                runCatching { module.diagnose(track, modules.playbackPicks(id, module)) { report(it) } }
+                    .getOrElse { e ->
+                        report(DiagnosticStep("Error", false, e.message ?: e.javaClass.simpleName))
+                        null
+                    }
+            }
+            val stream = (result as? ResolveResult.Found)?.stream
+            val drm = stream?.drm as? StreamDrm.Widevine
+            var licensed = stream != null && drm == null
+            if (drm != null) {
+                report(DiagnosticStep("License", null, "Asking for a license on this phone…"))
+                val outcome = withContext(Dispatchers.IO) { runCatching { checkWidevine(drm) } }
+                licensed = outcome.isSuccess
+                report(
+                    outcome.fold(
+                        onSuccess = { DiagnosticStep("License", true, it) },
+                        onFailure = { DiagnosticStep("License", false, it.message ?: it.javaClass.simpleName) },
+                    )
+                )
+            }
+            // a license alone isn't proof: Apple's enhanced streams licensed fine and then
+            // decrypted nothing, so the test ends by really decoding the start of the song
+            if (stream != null && licensed) {
+                report(DiagnosticStep("Play", null, "Decoding the start of the song, muted…"))
+                val outcome = runCatching { checkPlayback(stream) }
+                report(
+                    outcome.fold(
+                        onSuccess = { DiagnosticStep("Play", true, it) },
+                        onFailure = { DiagnosticStep("Play", false, it.message ?: it.javaClass.simpleName) },
+                    )
+                )
+            }
+            modules.refresh()
+            _testing.value = false
+        }
+    }
+
+    private suspend fun testLyrics(module: LyricsModule, track: TrackQuery) {
+        report(DiagnosticStep(StepLyrics, null, "Asking ${module.info.name} for the lyrics…"))
+        val lyrics = withContext(Dispatchers.IO) { runCatching { module.lyrics(track) } }
+        report(
+            lyrics.fold(
+                onSuccess = { text ->
+                    val lines = text?.lines()?.map { it.replace(LrcTime, "").trim() }?.filter { it.isNotEmpty() }.orEmpty()
+                    val timed = text?.let { LrcTime.containsMatchIn(it) } == true
+                    if (lines.isEmpty()) DiagnosticStep(StepLyrics, false, "No lyrics for “${track.title}”")
+                    else DiagnosticStep(StepLyrics, true, "${lines.size} ${if (timed) "timed" else "plain"} lines · “${lines.first()}”")
+                },
+                onFailure = { DiagnosticStep(StepLyrics, false, it.message ?: it.javaClass.simpleName) },
+            )
+        )
+    }
+
+    private suspend fun testMetadata(module: MetadataModule, track: TrackQuery) {
+        report(DiagnosticStep(StepInfo, null, "Asking ${module.info.name} about the song…"))
+        val found = withContext(Dispatchers.IO) { runCatching { module.metadata(track) } }
+        report(
+            found.fold(
+                onSuccess = { info ->
+                    if (info == null) return@fold DiagnosticStep(StepInfo, false, "Nothing about “${track.title}”")
+                    val facts = listOfNotNull(
+                        info.genres.firstOrNull(),
+                        info.releaseDate,
+                        info.album,
+                        info.writers.takeIf { it.isNotEmpty() }?.let { "written by ${it.joinToString(", ")}" },
+                        info.label,
+                        info.about?.let { "says what it's about" },
+                    )
+                    DiagnosticStep(StepInfo, true, facts.joinToString(" · ").ifBlank { "An answer with nothing in it" })
+                },
+                onFailure = { DiagnosticStep(StepInfo, false, it.message ?: it.javaClass.simpleName) },
+            )
+        )
+    }
+
+    private fun report(step: DiagnosticStep) {
+        // release builds drop Timber; this shows in `adb logcat -s ModuleTest`
+        if (step.ok != null) android.util.Log.i("ModuleTest", "${if (step.ok == true) "OK" else "FAIL"} ${step.name}: ${step.detail}")
+        val list = _steps.value.toMutableList()
+        val at = list.indexOfFirst { it.name == step.name }
+        if (at >= 0) list[at] = step else list += step
+        _steps.value = list
+    }
+
+    /**
+     * Plays the stream in a throwaway, muted player until two seconds have been decoded: the
+     * whole path playback takes (playlist, segments, DRM sessions, the decoder), nothing faked.
+     */
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private suspend fun checkPlayback(stream: com.mochyy.mochymusic.module.SourceStream): String {
+        val safe = com.music.bitchord.data.mochydata.modules.security.ModuleUrlGuard.sanitizeStream(stream)
+            ?: throw java.io.IOException("Blocked unsafe stream URL")
+        val drm = safe.drm as? StreamDrm.Widevine
+        // http-only datasource so a module can't trick exoplayer into opening file:// or content://
+        val httpFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(false)
+            .setDefaultRequestProperties(safe.headers)
+        val factory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(httpFactory)
+        if (drm != null) factory.setDrmSessionManagerProvider { WidevineDrm.sessionManager(drm.license) }
+        val player = androidx.media3.exoplayer.ExoPlayer.Builder(context).setMediaSourceFactory(factory).build()
+        var error: androidx.media3.common.PlaybackException? = null
+        try {
+            player.volume = 0f
+            player.addListener(object : androidx.media3.common.Player.Listener {
+                override fun onPlayerError(e: androidx.media3.common.PlaybackException) {
+                    error = e
+                }
+            })
+            val item = androidx.media3.common.MediaItem.Builder()
+                .setUri(safe.url)
+                .apply {
+                    if (safe.format == com.mochyy.mochymusic.module.StreamFormat.Hls) setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
+                    if (drm != null) setDrmConfiguration(
+                        androidx.media3.common.MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID).setMultiSession(true).build()
+                    )
+                }
+                .build()
+            player.setMediaItem(item)
+            player.prepare()
+            player.play()
+            val deadline = System.currentTimeMillis() + 20_000
+            while (System.currentTimeMillis() < deadline) {
+                error?.let { e ->
+                    android.util.Log.w("ModuleTest", "Test playback failed", e)
+                    throw java.io.IOException(generateSequence<Throwable>(e) { it.cause }.last().message ?: e.errorCodeName)
+                }
+                if (player.currentPosition >= 2_000) return "Decoded ${player.currentPosition / 1000} s here (${safe.qualityLabel})"
+                kotlinx.coroutines.delay(200)
+            }
+            throw java.io.IOException("Didn't start playing within 20 s")
+        } finally {
+            player.release()
+        }
+    }
+
+    /**
+     * Opens a Widevine session on the device's own CDM and has every key of the stream licensed,
+     * the same exchange playback makes, without playing anything.
+     */
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private fun checkWidevine(drm: StreamDrm.Widevine): String {
+        val mediaDrm = MediaDrm(C.WIDEVINE_UUID)
+        var session: ByteArray? = null
+        try {
+            val level = runCatching { mediaDrm.getPropertyString("securityLevel") }.getOrNull()
+            session = try {
+                mediaDrm.openSession()
+            } catch (e: NotProvisionedException) {
+                val request = mediaDrm.provisionRequest
+                mediaDrm.provideProvisionResponse(WidevineDrm.provision(request.defaultUrl, request.data))
+                mediaDrm.openSession()
+            }
+            drm.initData.forEach { pssh ->
+                val request = mediaDrm.getKeyRequest(session, pssh, "audio/mp4", MediaDrm.KEY_TYPE_STREAMING, null)
+                mediaDrm.provideKeyResponse(session, drm.license.acquire(request.data))
+            }
+            return "Licensed on this phone (Widevine ${level ?: "?"}, ${drm.initData.size} keys)"
+        } finally {
+            session?.let { runCatching { mediaDrm.closeSession(it) } }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) mediaDrm.close() else @Suppress("DEPRECATION") mediaDrm.release()
+        }
+    }
+
+    private companion object {
+        const val AppleApi = "https://amp-api.music.apple.com/"
+        const val StepLyrics = "Lyrics"
+        const val StepInfo = "Song info"
+        val LrcTime = Regex("""\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?]""")
+        // a zip for a module's list is read no further than this, the same ceiling the js modules put on one
+        const val MaxItemsZipBytes = 25 * 1024 * 1024
+    }
+}

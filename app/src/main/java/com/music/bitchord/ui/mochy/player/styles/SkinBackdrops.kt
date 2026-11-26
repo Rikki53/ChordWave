@@ -1,5 +1,4 @@
-// Ported from Mochy Music (GPL-3.0): ui/player/styles/SkinBackdrops.kt (verbatim except package/imports).
-// what a module's player draws behind its blocks: one of the player's backgrounds, colours, a picture or its own shader, with more layers stacked on top
+// what a module's player draws behind its blocks: one of mochy's backgrounds, colours, a picture or its own shader, with more layers stacked on top
 
 package com.music.bitchord.ui.mochy.player.styles
 
@@ -21,9 +20,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.mochy.LocalAppContentObscured
-import com.music.bitchord.ui.mochy.component.glassRoot
+import com.music.bitchord.ui.mochy.constants.DisableBlurKey
 import com.music.bitchord.ui.mochy.constants.PlayerBackgroundStyle
 import com.music.bitchord.ui.mochy.modules.skin.SkinBackground
+import com.music.bitchord.ui.mochy.component.glassRoot
+import com.music.bitchord.ui.mochy.player.rememberFallbackBlurredImage
+import com.music.bitchord.ui.mochy.utils.resize
+import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.player.customize.PlayerBackgroundContent
 import com.music.bitchord.ui.mochy.player.flagship.AmbientBackdrop
 import com.music.bitchord.ui.mochy.player.flagship.FollowPicture
@@ -58,15 +61,30 @@ private fun SkinBackgroundFill(background: SkinBackground, context: SkinContext,
         is SkinBackground.Player -> if (background.style == PlayerBackgroundStyle.AMBIENT) {
             AmbientSkinBackdrop(context, modifier)
         } else {
-            PlayerBackgroundContent(style = background.style, thumbnailUrl = context.track.artwork, pureBlack = false, modifier = modifier)
+            val showing = rememberStyleShowing()
+            val obscured = LocalAppContentObscured.current
+            val running by remember { derivedStateOf { !context.preview && showing() && !obscured.value } }
+            PlayerBackgroundContent(style = background.style, thumbnailUrl = context.track.artwork, pureBlack = false, modifier = modifier, animate = running)
         }
         is SkinBackground.Fill -> {
             val colors = background.colors.map(context::color)
-            Box(modifier.then(if (colors.size == 1) Modifier.background(colors.first()) else Modifier.background(Brush.verticalGradient(colors))))
+            val fillModifier = if (colors.size == 1) {
+                Modifier.background(colors.first())
+            } else {
+                val gradient = remember(colors) { Brush.verticalGradient(colors) }
+                Modifier.background(gradient)
+            }
+            Box(modifier.then(fillModifier))
         }
         is SkinBackground.Picture -> SkinPictureBackdrop(background, context, modifier)
+        is SkinBackground.CoverBlur -> SkinCoverBlurBackdrop(background, context, modifier)
         is SkinBackground.Shader -> SkinShaderSurface(background.program, context, modifier) {
             SkinBackgroundFill(background.fallback, context, modifier)
+        }
+        // the fallback stays under the video, so it's there until the first frame and for songs with nothing moving
+        is SkinBackground.Live -> {
+            SkinBackgroundFill(background.fallback, context, modifier)
+            SkinCoverMedia(background.media, context, fit = false, rides = false, modifier = modifier)
         }
         SkinBackground.Tones -> Unit
     }
@@ -75,20 +93,66 @@ private fun SkinBackgroundFill(background: SkinBackground, context: SkinContext,
 // a picture, blurred once when it asks; a little bigger than the screen so the blur's clamped edges never show as a glow
 @Composable
 private fun SkinPictureBackdrop(background: SkinBackground.Picture, context: SkinContext, modifier: Modifier) {
-    val blurred = background.blur > 0.5f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    AsyncImage(
-        model = context.skin.resolve(background.image),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = modifier.then(
-            if (!blurred) Modifier else Modifier
-                .graphicsLayer {
-                    scaleX = 1.1f
-                    scaleY = 1.1f
-                }
-                .blur(background.blur.dp),
-        ),
-    )
+    val disableBlur by rememberPreference(DisableBlurKey, defaultValue = false)
+    val wantBlur = !disableBlur && background.blur > 0.5f
+    val nativeBlur = wantBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val rawModel = context.skin.resolve(background.image)
+    val model = if (wantBlur && !nativeBlur) rememberFallbackBlurredImage(rawModel, background.blur) else rawModel
+    Box(modifier) {
+        AsyncImage(
+            model = model,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().then(
+                if (!nativeBlur) Modifier else Modifier
+                    .graphicsLayer {
+                        scaleX = 1.1f
+                        scaleY = 1.1f
+                    }
+                    .blur(background.blur.dp),
+            ),
+        )
+        // a gif or webp moves unless it's blurred, since a blur over a moving picture is worked out again on every frame
+        if (!wantBlur && rawModel != null && isMovingPicture(rawModel)) MovingPictureOverlay(rawModel, context, ContentScale.Crop, null, Modifier.fillMaxSize())
+        if (background.edgeBlur) {
+            Box(Modifier.fillMaxSize().background(SkinPictureEdgeVignette))
+        }
+    }
+}
+
+private val SkinPictureEdgeVignette = Brush.verticalGradient(
+    0f to Color.Black.copy(alpha = 0.45f),
+    0.28f to Color.Transparent,
+    0.68f to Color.Transparent,
+    1f to Color.Black.copy(alpha = 0.65f),
+)
+
+// the song's cover art blurred at a custom radius with a dim veil
+@Composable
+private fun SkinCoverBlurBackdrop(background: SkinBackground.CoverBlur, context: SkinContext, modifier: Modifier) {
+    val disableBlur by rememberPreference(DisableBlurKey, defaultValue = false)
+    val wantBlur = !disableBlur && background.blur > 0.5f
+    val nativeBlur = wantBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val rawModel = if (wantBlur) context.track.artwork?.resize(256, 256) else context.track.artwork
+    val model = if (wantBlur && !nativeBlur) rememberFallbackBlurredImage(rawModel, background.blur) else rawModel
+    Box(modifier.background(Color.Black)) {
+        AsyncImage(
+            model = model,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().then(
+                if (!nativeBlur) Modifier else Modifier
+                    .graphicsLayer {
+                        scaleX = 1.15f
+                        scaleY = 1.15f
+                    }
+                    .blur(background.blur.dp),
+            ),
+        )
+        if (background.dim > 0f) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = background.dim)))
+        }
+    }
 }
 
 // the flagship's drifting colours, whose clock rests while the style can't be seen instead of running under the mini player

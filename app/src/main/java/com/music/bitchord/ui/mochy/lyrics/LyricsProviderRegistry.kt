@@ -6,6 +6,17 @@
 package com.music.bitchord.ui.mochy.lyrics
 
 object LyricsProviderRegistry {
+    // Batch 55b: lyrics modules that are on, by provider name ("module:<id>"),
+    // handed over by the module registry on every refresh, as in Mochy.
+    @Volatile
+    private var moduleProviders: Map<String, ModuleLyricsProvider> = emptyMap()
+
+    fun setModuleProviders(providers: List<ModuleLyricsProvider>) {
+        moduleProviders = providers.associateBy { it.name }
+    }
+
+    fun moduleProvider(name: String): ModuleLyricsProvider? = moduleProviders[name]
+
     /** The providers the picker lists, in default preference order. */
     val providerNames: List<String>
         get() = getDefaultProviderOrder()
@@ -13,7 +24,7 @@ object LyricsProviderRegistry {
     // NetEase, QQ Music and KuGou near the end: they are Chinese services, and LyricsHelper only
     // believes them first-hand for Chinese songs. NetEase leads them because it often has word
     // timing. YouTube's auto captions last of all - they are speech recognition.
-    fun getDefaultProviderOrder(): List<String> = listOf(
+    fun getDefaultProviderOrder(): List<String> = moduleProviders.keys.toList() + listOf(
         "BetterLyrics",
         "YouLyPlus",
         "Paxsenix",
@@ -29,7 +40,7 @@ object LyricsProviderRegistry {
         "YouTubeCaptions",
     )
 
-    fun getDisplayName(name: String): String = when (name) {
+    fun getDisplayName(name: String): String = moduleProviders[name]?.displayName ?: when (name) {
         "YouLyPlus"       -> "YouLyPlus"
         "Paxsenix"        -> "PaxSenix"
         "BetterLyrics"    -> "Apple Music"

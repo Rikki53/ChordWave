@@ -1,0 +1,192 @@
+// adding to a module's own list, the things people bring it: the .zip they came in, or a link to a zip or a single file
+
+package com.music.bitchord.ui.mochy.screens.settings.modules
+
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.music.bitchord.R
+import com.mochyy.mochymusic.module.ItemProblem
+import com.music.bitchord.data.mochydata.modules.security.ScriptVerdict
+import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
+import com.music.bitchord.ui.mochy.component.PopupSheetHandle
+import com.music.bitchord.ui.mochy.component.PopupSheetState
+import com.music.bitchord.ui.mochy.component.SheetLabel
+import com.music.bitchord.ui.mochy.component.SheetPillButton
+import com.music.bitchord.ui.mochy.component.SheetTextField
+import com.music.bitchord.ui.mochy.screens.search.SearchColors
+import com.music.bitchord.ui.mochy.viewmodels.ModulesViewModel
+import com.music.bitchord.ui.mochy.viewmodels.ModulesViewModel.ItemsOutcome
+import kotlinx.coroutines.launch
+
+/** opens the sheet for module [id], called [name]; it closes itself once something is in, with a toast saying what */
+fun PopupSheetState.showAddItemsSheet(id: String, name: String, viewModel: ModulesViewModel) {
+    var sheet: PopupSheetHandle? = null
+    sheet = showWithHandle {
+        AddItemsContent(id, name, viewModel, onAdded = { sheet?.dismiss() })
+    }
+}
+
+@Composable
+private fun AddItemsContent(id: String, name: String, viewModel: ModulesViewModel, onAdded: () -> Unit) {
+    val context = LocalContext.current
+    val overlay = LocalZoomOutOverlayState.current
+    val scope = rememberCoroutineScope()
+    val keyboard = LocalSoftwareKeyboardController.current
+    var link by rememberSaveable { mutableStateOf("") }
+    var adding by remember { mutableStateOf(false) }
+    var problem by remember { mutableStateOf<String?>(null) }
+    var problemFromFile by remember { mutableStateOf(false) }
+
+    fun show(outcome: ItemsOutcome) {
+        val message = when (outcome) {
+            is ItemsOutcome.Added -> context.getString(R.string.module_items_added, outcome.names.joinToString(", "))
+            is ItemsOutcome.AddedAsModule -> context.getString(R.string.module_items_added_as_module, outcome.name)
+            is ItemsOutcome.Blocked -> {
+                problem = context.getString(R.string.module_items_blocked)
+                overlay.showScriptBlockedSheet(outcome.name, outcome.scan)
+                return
+            }
+            is ItemsOutcome.Problem -> {
+                problem = context.getString(problemText(outcome.problem), name)
+                return
+            }
+        }
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        onAdded()
+    }
+
+    fun runCommit(fromFile: Boolean, work: suspend () -> ItemsOutcome) {
+        if (adding) return
+        keyboard?.hide()
+        adding = true
+        problem = null
+        problemFromFile = fromFile
+        scope.launch {
+            val outcome = work()
+            adding = false
+            show(outcome)
+        }
+    }
+
+    fun pickZip(uri: Uri) {
+        if (adding) return
+        keyboard?.hide()
+        adding = true
+        problem = null
+        problemFromFile = true
+        scope.launch {
+            val prepared = viewModel.prepareItemsZip(uri).getOrElse { e ->
+                adding = false
+                val p = runCatching { ItemProblem.valueOf(e.message.orEmpty()) }.getOrDefault(ItemProblem.NotAZip)
+                problem = context.getString(problemText(p), name)
+                return@launch
+            }
+            adding = false
+            if (prepared.scan.verdict == ScriptVerdict.Blocked) {
+                problem = context.getString(R.string.module_items_blocked)
+                overlay.showScriptBlockedSheet(prepared.fileName, prepared.scan)
+                return@launch
+            }
+            overlay.showScriptWarningSheet(
+                targetName = prepared.fileName,
+                isCodeModule = false,
+                scan = prepared.scan,
+                onContinue = { runCommit(fromFile = true) { viewModel.commitItemsZip(id, prepared) } },
+            )
+        }
+    }
+
+    fun addLink() {
+        val raw = link.trim()
+        if (raw.isBlank() || adding) return
+        keyboard?.hide()
+        problem = null
+        problemFromFile = false
+        val scan = viewModel.scanItemsLink(raw)
+        if (scan.verdict == ScriptVerdict.Blocked) {
+            problem = context.getString(R.string.module_items_blocked)
+            overlay.showScriptBlockedSheet(raw, scan)
+            return
+        }
+        overlay.showScriptWarningSheet(
+            targetName = raw.substringAfter("://").take(60),
+            isCodeModule = false,
+            scan = scan,
+            onContinue = { runCommit(fromFile = false) { viewModel.addItemsLink(id, raw) } },
+        )
+    }
+
+    val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) pickZip(uri)
+    }
+
+    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Text(stringResource(R.string.module_items_add_to, name), color = SearchColors.Primary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(R.string.module_items_add_body, name), color = SearchColors.Secondary, fontSize = 14.sp, lineHeight = 20.sp)
+        Spacer(Modifier.height(22.dp))
+        SheetPillButton(
+            text = stringResource(if (adding && problemFromFile) R.string.module_items_adding else R.string.modules_choose_zip),
+            onClick = { zipPicker.launch(ZipTypes) },
+            enabled = !adding,
+        )
+        problem?.takeIf { problemFromFile }?.let { ProblemText(it) }
+
+        Spacer(Modifier.height(26.dp))
+        SheetLabel(stringResource(R.string.modules_add_from_link))
+        Spacer(Modifier.height(8.dp))
+        SheetTextField(
+            value = link,
+            onValueChange = {
+                link = it
+                problem = null
+            },
+            placeholder = stringResource(R.string.modules_link_hint),
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { addLink() }),
+        )
+        problem?.takeIf { !problemFromFile }?.let { ProblemText(it) }
+        Spacer(Modifier.height(14.dp))
+        SheetPillButton(
+            text = stringResource(if (adding && !problemFromFile) R.string.module_items_adding else R.string.module_items_add_link),
+            onClick = { addLink() },
+            enabled = link.isNotBlank() && !adding,
+        )
+    }
+}
+
+// some of these name the module, the rest ignore the name they're handed
+private fun problemText(problem: ItemProblem): Int = when (problem) {
+    ItemProblem.NotAZip -> R.string.module_items_not_a_zip
+    ItemProblem.NotALink -> R.string.modules_link_not_a_link
+    ItemProblem.Unreachable -> R.string.modules_link_unreachable
+    ItemProblem.NothingFound -> R.string.module_items_nothing
+    ItemProblem.Broken -> R.string.module_items_broken
+    ItemProblem.TooBig -> R.string.module_items_too_big
+}

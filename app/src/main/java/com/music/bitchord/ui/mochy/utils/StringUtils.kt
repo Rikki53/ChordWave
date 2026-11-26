@@ -83,3 +83,8 @@ fun listeningTime(totalSeconds: Int): String {
         stringResource(R.string.lib_time_minutes, minutes)
     }
 }
+
+// Batch 55b: from Mochy's StringUtils — a bare 11-character id is a YouTube video id.
+fun youtubeIdOrNull(id: String?): String? = id?.takeIf { YouTubeIdPattern.matches(it) }
+
+private val YouTubeIdPattern = Regex("[A-Za-z0-9_-]{11}")

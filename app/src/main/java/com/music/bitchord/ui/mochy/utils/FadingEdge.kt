@@ -4,6 +4,13 @@
 package com.music.bitchord.ui.mochy.utils
 
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.composed
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -90,3 +97,45 @@ fun Modifier.fadingEdge(
     top = vertical,
     bottom = vertical,
 )
+
+// Batch 55b: the scroll-edge fades from Mochy's FadingEdge.kt, for the module store rows.
+/** fades a sideways row out at whichever edge still has more to show (0 to 1 each), so it reads as going on instead of cut off; no extra layer while neither shows */
+fun Modifier.scrollEdgeFade(width: Dp, left: () -> Float, right: () -> Float) = graphicsLayer {
+    compositingStrategy = if (left() > 0f || right() > 0f) CompositingStrategy.Offscreen else CompositingStrategy.Auto
+}.drawWithContent {
+    drawContent()
+    val edge = width.toPx().coerceAtMost(size.width / 2f)
+    val l = left()
+    val r = right()
+    if (l > 0f) {
+        drawRect(
+            brush = Brush.horizontalGradient(0f to Color.Black.copy(alpha = 1f - l), 1f to Color.Black, startX = 0f, endX = edge),
+            size = Size(edge, size.height),
+            blendMode = BlendMode.DstIn,
+        )
+    }
+    if (r > 0f) {
+        drawRect(
+            brush = Brush.horizontalGradient(0f to Color.Black, 1f to Color.Black.copy(alpha = 1f - r), startX = size.width - edge, endX = size.width),
+            topLeft = Offset(size.width - edge, 0f),
+            size = Size(edge, size.height),
+            blendMode = BlendMode.DstIn,
+        )
+    }
+}
+
+/** a scrolling row's edges fade in over their first stretch of scroll, so they don't pop */
+fun Modifier.scrollEdgeFade(state: ScrollState, width: Dp) = composed {
+    val edge = with(LocalDensity.current) { width.toPx() }
+    scrollEdgeFade(width, left = { (state.value / edge).coerceIn(0f, 1f) }, right = { ((state.maxValue - state.value) / edge).coerceIn(0f, 1f) })
+}
+
+/** the same for a lazy row, which only knows whether it can go further each way */
+fun Modifier.scrollEdgeFade(state: LazyListState, width: Dp) = composed {
+    val edge = with(LocalDensity.current) { width.toPx() }
+    scrollEdgeFade(
+        width,
+        left = { if (state.firstVisibleItemIndex > 0) 1f else (state.firstVisibleItemScrollOffset / edge).coerceIn(0f, 1f) },
+        right = { if (state.canScrollForward) 1f else 0f },
+    )
+}

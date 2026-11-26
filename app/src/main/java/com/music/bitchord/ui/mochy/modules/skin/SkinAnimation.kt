@@ -35,8 +35,8 @@ class SkinKeyframes(val tracks: List<SkinTrack>)
 /** how many times an animation runs: once, round and round, or there and back */
 enum class SkinRepeat { Once, Loop, PingPong }
 
-/** what moves an animation along: the time, how far the song has played, or how loud a part of the music is right now */
-enum class SkinClock { Time, Progress, Level, Bass, Mid, Treble }
+/** what moves an animation along: the time, how far the song or the sung line or word has got, or how loud a part of the music is right now */
+enum class SkinClock { Time, Progress, Level, Bass, Mid, Treble, Line, Word }
 
 /** keyframes played over [durationMs] by a [clock]; [always] keeps a time animation going while the song is paused */
 @Immutable
@@ -71,7 +71,7 @@ data class SkinState(val condition: SkinCondition, val values: Map<PoseProp, Flo
 data class SkinTransition(val durationMs: Int, val easing: Easing, val spring: Boolean)
 
 /** what can set off a one-shot animation on a block */
-enum class SkinEvent { Song, Play, Pause, Like, Unlike, Open, Beat }
+enum class SkinEvent { Song, Play, Pause, Like, Unlike, Open, Beat, Line, Queue }
 
 /** a one-shot animation a block plays each time [event] happens */
 @Immutable
@@ -79,9 +79,28 @@ data class SkinTrigger(val event: SkinEvent, val timeline: SkinTimeline)
 
 /** the built-in conditions, written with an @ in "when" and "states": they follow the player instead of a setting */
 enum class SkinFlag(val key: String) {
-    Playing("@playing"), Paused("@paused"), Liked("@liked"), Shuffle("@shuffle"), Repeat("@repeat"), Lyrics("@lyrics"), Landscape("@landscape");
+    Playing("@playing"), Paused("@paused"), Liked("@liked"), Shuffle("@shuffle"), Repeat("@repeat"), Lyrics("@lyrics"), Landscape("@landscape"),
+    /** a line is being sung right now, not a gap between them */
+    Singing("@singing"),
+    /** there is another song coming up after this one in the queue */
+    HasNext("@hasNext"),
+    /** there is a song before this one in the queue */
+    HasPrev("@hasPrev"),
+    /** repeat is set to loop this one song */
+    RepeatOne("@repeatOne"),
+    /** the stream playing now is lossless */
+    Lossless("@lossless"),
+    /** the song has a few words about it to show, from {about} */
+    About("@about");
 
     companion object {
-        fun of(key: String): SkinFlag? = entries.firstOrNull { it.key.equals(key.trim(), ignoreCase = true) }
+        fun of(key: String): SkinFlag? {
+            val clean = key.trim()
+            return entries.firstOrNull { it.key.equals(clean, ignoreCase = true) } ?: when (clean.lowercase()) {
+                "@next" -> HasNext
+                "@prev", "@previous" -> HasPrev
+                else -> null
+            }
+        }
     }
 }

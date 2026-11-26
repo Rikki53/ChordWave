@@ -1326,6 +1326,25 @@
             </intent-filter>
         </activity>
 
+        <!-- the module feed's sign-in sends the browser back here with a session (batch 55b, Mochy original; the scheme is the feed's own) -->
+        <activity
+            android:name="com.music.bitchord.data.mochydata.modules.browser.ModuleBrowserLoginActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="mochy-modules" android:host="signed-in" />
+            </intent-filter>
+        </activity>
+
         <!-- Dropbox's and OneDrive's sign-in pages send the browser back here for cloud backups (batch 55a) -->
         <activity
             android:name="com.music.bitchord.data.mochydata.backup.CloudLoginActivity"
