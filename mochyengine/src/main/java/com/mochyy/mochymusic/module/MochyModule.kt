@@ -19,8 +19,8 @@ data class ModuleInfo(
     val author: String? = null,
 )
 
-/** what a module brings to mochy, one module can bring several */
-enum class ModuleFeature { AudioSource, Lyrics, Look, Metadata }
+/** what a module brings to mochy, one module can bring several; AudioProcessor is effects for the mixer, listed in the manifest's "audio" */
+enum class ModuleFeature { AudioSource, Lyrics, Look, Metadata, AudioProcessor }
 
 /** a module's own pictures: a square icon for its row and a wide banner over its page, each a link or a file path; null keeps mochy's own */
 interface ModuleArt : MochyModule {
@@ -86,12 +86,14 @@ class HttpResponse(val code: Int, val body: ByteArray, val headers: Map<String, 
 }
 
 /** The track Mochy wants to play, as Mochy knows it. */
-data class TrackQuery(
+data class TrackQuery @JvmOverloads constructor(
     val title: String,
     val artists: List<String>,
     val album: String? = null,
     val durationMs: Long? = null,
     val isrc: String? = null,
+    /** the song's youtube video id when it came from youtube, so a source keyed by it can skip the search; null for local files */
+    val videoId: String? = null,
 )
 
 /**
@@ -313,6 +315,29 @@ interface LookModule : MochyModule {
     val look: Map<String, String>
 }
 
+/** a module that renders live 32-bit argb frames into a player block (games, emulators, visualizers) */
+interface SurfaceModule : MochyModule {
+    /** starts the engine for [assetPath] with saves in [dataDir] and optional [extraPaths]; 0 ready, 1 another asset loaded, -1 error */
+    fun surfaceStart(assetPath: String, dataDir: String, extraPaths: List<String> = emptyList()): Int
+
+    /** framebuffer width and height in pixels as a two-element array */
+    fun surfaceSize(): IntArray
+
+    /** advances one engine tick; false once the engine hits a fatal error */
+    fun surfaceTick(): Boolean
+
+    /** fills [pixels] with the latest 0xAARRGGBB frame when newer than [lastSeq], returning the new sequence number */
+    fun surfaceCopyFrame(pixels: IntArray, lastSeq: Long): Long
+
+    fun surfaceSetPaused(paused: Boolean)
+
+    fun surfaceKey(keyCode: Int, pressed: Boolean)
+
+    fun surfaceTurn(delta: Int)
+
+    fun surfaceLastError(): String
+}
+
 /** the only settings a look may change, so a module can restyle mochy but never touch accounts, network or playback */
 object LookSetting {
     /** a player style's name: FLAGSHIP, CLASSIC, TURNTABLE, VIDEO, IPOD, POSTER, TIMELINE, LYRICS */
@@ -325,6 +350,8 @@ object LookSetting {
     const val COVER_ROUNDING = "thumbnailCornerRadius"
     /** MOTION, LEGACY, BORING or PLAIN */
     const val LYRICS_MOTION = "lyricsMotionStyle"
+    /** true or false: whether blur is enabled across mochy */
+    const val BLUR = "blur"
     /** LOW or HIGH */
     const val BLUR_QUALITY = "blurQuality"
     /** glass blur radius in px, 10 to 50 */
