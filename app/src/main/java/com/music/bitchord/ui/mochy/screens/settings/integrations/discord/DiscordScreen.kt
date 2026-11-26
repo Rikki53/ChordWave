@@ -299,7 +299,7 @@ private fun CustomizeSection(
         )
     }
     Spacer(gap)
-    DiscordTextCard(stringResource(R.string.discord_activity_name_title), settings.name, { text -> edit { copy(name = text) } }, hint = "Mochy")
+    DiscordTextCard(stringResource(R.string.discord_activity_name_title), settings.name, { text -> edit { copy(name = text) } }, hint = "ChordWave")
 
     DiscordSectionTitle(stringResource(R.string.discord_section_strings))
     DiscordNoticeCard(stringResource(R.string.discord_empty_to_hide))

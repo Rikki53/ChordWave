@@ -96,7 +96,7 @@ internal class WebDavCloud(account: CloudAccount) : BackupCloud {
         runCatching { ZonedDateTime.parse(text, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli() }.getOrDefault(0L)
 
     companion object {
-        private const val FolderName = "Mochy Backups"
+        private const val FolderName = "ChordWave Backups"
         private val XmlType = "application/xml; charset=utf-8".toMediaType()
         private const val PropfindBody = """<?xml version="1.0" encoding="utf-8"?>
 <d:propfind xmlns:d="DAV:"><d:prop><d:getcontentlength/><d:getlastmodified/><d:resourcetype/></d:prop></d:propfind>"""

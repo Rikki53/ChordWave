@@ -49,7 +49,7 @@ internal class SpinningArtwork(
         if (working.add(key)) {
             scope.launch {
                 try {
-                    made[key] = PictureHosts.upload(render(download(sourceUrl), style), "mochy.gif", "image/gif")
+                    made[key] = PictureHosts.upload(render(download(sourceUrl), style), "chordwave.gif", "image/gif")
                     onReady()
                 } catch (e: CancellationException) {
                     throw e

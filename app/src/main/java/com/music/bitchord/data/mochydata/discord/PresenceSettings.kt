@@ -38,7 +38,7 @@ enum class PresenceImage(val label: String, val forLargeImage: Boolean) {
     ARTWORK("Music artwork", true),
     ARTIST("Artist artwork", true),
     PLAYBACK_STATUS("Playback status", false),
-    APP_LOGO("Mochy logo", true),
+    APP_LOGO("ChordWave logo", true),
     SPINNING_ARTIST("Rotating artist artwork", false),
     SPINNING_ARTWORK("Rotating music artwork", false),
     // a picture from the phone, put on a free host for discord like the rotating ones
@@ -69,7 +69,7 @@ enum class PresenceButtonTarget(val label: String, @DrawableRes val icon: Int) {
     SPOTIFY("Spotify", R.drawable.provider_spotify),
     APPLE_MUSIC("Apple Music", R.drawable.provider_apple_music),
     TIDAL("Tidal", R.drawable.provider_tidal),
-    MOCHY("Mochy on GitHub", R.drawable.github),
+    MOCHY("ChordWave on GitHub", R.drawable.github),
 }
 
 data class PresenceButton(val text: String, val target: PresenceButtonTarget)
@@ -90,7 +90,7 @@ data class PresenceSettings(
     val largeImage: PresenceImage = PresenceImage.ARTWORK,
     val smallImage: PresenceImage = PresenceImage.PLAYBACK_STATUS,
     val button1: PresenceButton = PresenceButton("See on YouTube Music", PresenceButtonTarget.YOUTUBE_MUSIC),
-    val button2: PresenceButton = PresenceButton("Open Mochy", PresenceButtonTarget.MOCHY),
+    val button2: PresenceButton = PresenceButton("Open ChordWave", PresenceButtonTarget.MOCHY),
     /** how long one full turn of the rotating artwork takes */
     val spinSeconds: Int = DefaultSpinSeconds,
     /** frames per second of the rotating artwork's GIF, one of [SpinFpsSteps] */

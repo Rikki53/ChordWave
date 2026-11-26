@@ -61,10 +61,10 @@ internal class UploadedPictures(
         val out = ByteArrayOutputStream()
         if (picture.hasAlpha()) {
             picture.compress(Bitmap.CompressFormat.PNG, 100, out)
-            Triple(out.toByteArray(), "mochy.png", "image/png")
+            Triple(out.toByteArray(), "chordwave.png", "image/png")
         } else {
             picture.compress(Bitmap.CompressFormat.JPEG, 90, out)
-            Triple(out.toByteArray(), "mochy.jpg", "image/jpeg")
+            Triple(out.toByteArray(), "chordwave.jpg", "image/jpeg")
         }
     }
 

@@ -38,7 +38,7 @@ class CloudException(val problem: CloudProblem, cause: Throwable? = null) : Exce
 
 /** how backups are named: mochy-backup-<phone>-<date>-<time>.zip, so each phone keeps and trims only its own */
 object BackupNames {
-    private const val Prefix = "mochy-backup-"
+    private const val Prefix = "chordwave-backup-"
     private const val Suffix = ".zip"
     private val Stamp = Regex("-\\d{8}-\\d{6}$")
 
