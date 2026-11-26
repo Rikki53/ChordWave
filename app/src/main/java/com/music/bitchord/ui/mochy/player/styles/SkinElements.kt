@@ -317,6 +317,11 @@ internal fun rememberTargetRunner(context: SkinContext): (SkinTarget) -> Unit {
                         }
                     } else if (kind == SheetKind.Customise) {
                         context.openCustomise()
+                    } else if (kind == SheetKind.Share) {
+                        // Mochy opens the song share here (BottomSheetPlayer onOpenSheet);
+                        // ChordWave styles do not wire onOpenSheet, so open it directly,
+                        // like ButtonKind.Share below
+                        connection?.mediaMetadata?.value?.let { SongShare.open(it) }
                     } else {
                         context.actions.onOpenSheet?.invoke(kind)
                     }
