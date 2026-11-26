@@ -43,6 +43,22 @@ val lastfmSecret: String = (
 // discord-<id>:/authorize/callback, so the manifest needs it too. Without
 // one, the Discord page says so instead of opening a login that can't
 // come back. Blank until Riki registers the apps; nothing is invented.
+// Libre.fm takes any 32-character key and never checks the secret, so a
+// build without its own gets one made from the app id instead of losing
+// Libre.fm (Mochy's fallback, ported with the scrobble engine).
+fun libreFmStandIn(name: String): String =
+    java.security.MessageDigest.getInstance("MD5")
+        .digest("com.riki.chordwave.librefm.$name".toByteArray()).joinToString("") { "%02x".format(it) }
+val libreFmApiKey: String = (
+    localProps.getProperty("LIBREFM_API_KEY")
+        ?: System.getenv("LIBREFM_API_KEY")?.takeIf { it.isNotEmpty() }
+        ?: libreFmStandIn("key")
+    ).trim()
+val libreFmSecret: String = (
+    localProps.getProperty("LIBREFM_SECRET")
+        ?: System.getenv("LIBREFM_SECRET")?.takeIf { it.isNotEmpty() }
+        ?: libreFmStandIn("secret")
+    ).trim()
 val discordClientId: String = (
     localProps.getProperty("DISCORD_CLIENT_ID")
         ?: System.getenv("DISCORD_CLIENT_ID")
@@ -119,6 +135,8 @@ android {
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "LIBREFM_API_KEY", "\"${libreFmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\")
+        buildConfigField("String", "LIBREFM_SECRET", "\"${libreFmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\")
         buildConfigField("String", "DISCORD_CLIENT_ID", "\"${discordClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         manifestPlaceholders["discordRedirectScheme"] =
             if (discordClientId.isNotBlank()) "discord-$discordClientId" else "chordwave-discord-unset"
