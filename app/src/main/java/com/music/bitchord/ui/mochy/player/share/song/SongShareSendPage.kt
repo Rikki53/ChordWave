@@ -57,10 +57,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.media3.datasource.DataSource
-import androidx.media3.datasource.HttpDataSource
 import androidx.media3.transformer.ExportException
-import com.music.bitchord.playback.mochy.MochyDataSourceFactory
 import com.music.bitchord.R
+import com.music.bitchord.playback.mochy.MochyDataSourceFactory
+import com.music.bitchord.ui.mochy.component.PopupSheetHandleHeight
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.SheetPillButton
 import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
@@ -83,13 +83,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.ConnectException
-import java.net.SocketException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
-import javax.net.ssl.SSLException
+import java.io.FileNotFoundException
+import java.io.IOException
 import com.music.bitchord.ui.mochy.component.RemoteFocus
-import timber.log.Timber
 
 // "Share to": the finished picture, the three apps, and export and share for everything else
 internal fun PopupSheetState.showSendPage(session: SongShareSession) {
@@ -110,7 +106,6 @@ private class SendState(val session: SongShareSession) {
     var quality by mutableStateOf<ShareQuality?>(null)
     var job by mutableStateOf<ShareExportJob?>(null)
     var progress by mutableFloatStateOf(0f)
-    var steppedDown by mutableStateOf(false)
     var note by mutableStateOf<Int?>(null)
     var scope: CoroutineScope? = null
     var context: Context? = null
@@ -123,22 +118,15 @@ private class SendState(val session: SongShareSession) {
     fun start(work: suspend ShareRequest.() -> Int?) {
         if (working) return
         val scope = scope ?: return
-        val songSource = songSource ?: run {
-            // The send page always supplies the shared song factory now; this
-            // guard only stands in case SendState is ever started without one.
-            Timber.w("SongShare: export requested with no song stream source")
-            return
-        }
         val request = ShareRequest(
             context = context ?: return,
             session = session,
             theme = theme ?: return,
             quality = quality ?: ShareQuality.FullHd,
-            songSource = songSource,
+            songSource = songSource ?: return,
             job = ShareExportJob(),
         )
         job = request.job
-        steppedDown = false
         note = null
         // the song stops while the export reads it, so the two don't fight over the phone, and stays stopped once it's handed to another app
         val wasPlaying = session.previewWanted
@@ -167,12 +155,9 @@ private class SendState(val session: SongShareSession) {
     }
 }
 
-// only a failure to reach the network is worth blaming on the connection; a
-// picture is made entirely on the phone, and a full disk or a broken encoder
-// is not the connection's fault
+// only a failure to load something is worth blaming on the connection; a picture is made entirely on the phone
 private fun Throwable.isConnectionProblem(): Boolean = generateSequence(this) { it.cause }.any { cause ->
-    cause is UnknownHostException || cause is ConnectException || cause is SocketTimeoutException ||
-        cause is SocketException || cause is SSLException || cause is HttpDataSource.HttpDataSourceException ||
+    cause is IOException && cause !is FileNotFoundException ||
         cause is ExportException && cause.errorCode in ExportException.ERROR_CODE_IO_UNSPECIFIED..ExportException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE
 }
 
@@ -183,11 +168,13 @@ private fun SendContent(send: SendState, live: Boolean) {
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
     val typography = MaterialTheme.typography
-    // made once: the Mochy player's own factory (Tahap 5; the same one
-    // the preview player uses) — the export's song sequence goes
-    // through it, so the exported audio is the recording the lyrics
-    // were synced to, and every video goes through plain http.
-    val songSource: DataSource.Factory = remember { MochyDataSourceFactory.shareFactory(context) }
+    // made once: the player's own factory (the same one the preview player
+    // uses), so the export reads the song exactly as playback does
+    // (Mochy's service.shareDataSourceFactory; Tahap 5 wired it to the
+    // Mochy engine's chain)
+    val songSource: DataSource.Factory = remember {
+        MochyDataSourceFactory.shareFactory(context)
+    }
     val video = session.isVideo
     SideEffect {
         send.scope = scope
@@ -207,14 +194,12 @@ private fun SendContent(send: SendState, live: Boolean) {
         val job = send.job ?: return@LaunchedEffect
         while (true) {
             send.progress = job.progress
-            send.steppedDown = job.steppedDown
             delay(100)
         }
     }
-    // big enough to judge the picture before exporting it (batch 28)
-    val previewHeight = (LocalConfiguration.current.screenHeightDp * 0.46f).dp
+    val previewHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = PopupSheetHandleHeight)) {
         Text(
             stringResource(R.string.song_share_send_title),
             fontFamily = InterFontFamily,
@@ -250,18 +235,14 @@ private fun SendContent(send: SendState, live: Boolean) {
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
             ShareApp.entries.forEach { app ->
-                AppTile(app, enabled = !send.working) { send.start { sendTo(app); if (job.steppedDown) R.string.song_share_stepped_down else null } }
+                AppTile(app, enabled = !send.working) { send.start { sendTo(app); null } }
             }
         }
         Spacer(Modifier.height(16.dp))
         QualityPicker(send, canUltraHd, video)
-        if (video && !canUltraHd) {
-            Spacer(Modifier.height(8.dp))
-            Caption(stringResource(R.string.song_share_quality_4k_unsupported))
-        }
         Divider()
         when {
-            send.working -> ExportProgress(send.progress, video, send.steppedDown)
+            send.working -> ExportProgress(send.progress, video)
             send.note != null -> Caption(stringResource(send.note!!))
             else -> Caption(stringResource(R.string.song_share_send_or))
         }
@@ -291,16 +272,7 @@ private fun SendButton(send: SendState) {
     } else {
         SheetPillButton(
             text = stringResource(R.string.song_share_export_button),
-            onClick = {
-                send.start {
-                    val saved = exportAndShare()
-                    when {
-                        job.steppedDown -> R.string.song_share_stepped_down
-                        saved -> R.string.song_share_saved
-                        else -> null
-                    }
-                }
-            },
+            onClick = { send.start { if (exportAndShare()) R.string.song_share_saved else null } },
         )
     }
 }
@@ -392,7 +364,7 @@ private fun QualityPicker(send: SendState, canUltraHd: Boolean, video: Boolean) 
 }
 
 @Composable
-private fun ExportProgress(progress: Float, video: Boolean, steppedDown: Boolean) {
+private fun ExportProgress(progress: Float, video: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Caption(
             if (video) {
@@ -413,10 +385,6 @@ private fun ExportProgress(progress: Float, video: Boolean, steppedDown: Boolean
                     drawRoundRect(Color.White, size = Size(size.width * progress.coerceIn(0.02f, 1f), size.height), cornerRadius = radius)
                 },
         )
-        if (steppedDown) {
-            Spacer(Modifier.height(8.dp))
-            Caption(stringResource(R.string.song_share_stepped_down))
-        }
     }
 }
 

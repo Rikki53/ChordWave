@@ -20,11 +20,8 @@ import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.player.share.song.ShareLayers
 import com.music.bitchord.ui.mochy.player.share.song.SongShareKind
 import com.music.bitchord.ui.mochy.player.share.song.SongShareSession
-import com.music.bitchord.ui.mochy.player.share.song.refreshMusicVideo
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import android.util.Log
 import java.io.File
 
 // the only three apps the share sends to directly
@@ -59,38 +56,10 @@ internal class ShareRequest(
 // the whole picture, or a layer of it, as a video or an image depending on the share's mode
 private suspend fun ShareRequest.export(layers: ShareLayers): ShareFile =
     if (session.isVideo) {
-        ShareFile(exportVideoRetrying(layers), "video/mp4")
+        ShareFile(exportVideo(context, session, theme, quality, layers, songSource, job), "video/mp4")
     } else {
         ShareFile(exportStill(context, session, theme, quality, layers), "image/png")
     }
-
-// one more try when a video export fails: fresh music-video links first (a
-// googlevideo link is tied to the address that minted it and dies quietly
-// when that changes), and from 4k a step down to 1080p — a finished 1080p
-// video beats none at all. A cancelled export is never retried, and when
-// neither change applies the failure stands as it is.
-private suspend fun ShareRequest.exportVideoRetrying(layers: ShareLayers): File {
-    try {
-        return exportVideo(context, session, theme, quality, layers, songSource, job)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Throwable) {
-        // a cancel the user asked for never retries; the export giving up
-        // on itself (job.failure, batch 36) does — its cancel flag only
-        // stops the gl thread waiting, it is not the user saying no. The
-        // old blanket check blocked the 4K step-down exactly when the
-        // card could not be drawn at 4K, so the export failed outright
-        // instead of finishing at 1080p (batch 49)
-        if (job.cancelled && job.failure == null) throw e
-        val refreshed = refreshMusicVideo(session)
-        val retryQuality = if (quality == ShareQuality.UltraHd) ShareQuality.FullHd else quality
-        if (!refreshed && retryQuality == quality) throw e
-        Log.w("SongShare", "Video export failed; retrying with fresh links=$refreshed at $retryQuality", e)
-        if (retryQuality != quality) job.steppedDown = true
-        job.resetForRetry()
-        return exportVideo(context, session, theme, retryQuality, layers, songSource, job)
-    }
-}
 
 // a lyrics video's words move with the song, so they can't be a sticker; they stay in the video instead
 private val ShareRequest.cardMoves: Boolean
@@ -171,7 +140,7 @@ private fun uriOf(context: Context, file: File): Uri =
     FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 
 // the shared folders only take files without a permission from android 10 on
-internal suspend fun saveToGallery(context: Context, file: ShareFile): Boolean = withContext(Dispatchers.IO) {
+private suspend fun saveToGallery(context: Context, file: ShareFile): Boolean = withContext(Dispatchers.IO) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return@withContext false
     runCatching {
         val video = file.mimeType.startsWith("video")

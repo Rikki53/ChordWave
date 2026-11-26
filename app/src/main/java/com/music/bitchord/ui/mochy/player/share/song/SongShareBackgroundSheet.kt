@@ -348,7 +348,7 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
 }
 
 @Composable
-internal fun CoverStill(session: SongShareSession) {
+private fun CoverStill(session: SongShareSession) {
     AsyncImage(
         model = session.song.thumbnailUrl?.resize(544, 544),
         contentDescription = null,
