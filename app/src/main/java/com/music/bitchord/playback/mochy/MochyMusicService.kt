@@ -89,7 +89,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
-import androidx.media3.exoplayer.audio.SonicAudioProcessor
+import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
@@ -254,7 +254,13 @@ class MochyMusicService : MediaLibraryService() {
 
         mediaSession = MediaLibrarySession.Builder(
             this,
-            MochySessionPlayer(exoPlayer, speakers),
+            MochySessionPlayer(
+                exoPlayer,
+                speakers,
+                transport,
+                partySync,
+                onUserVolume = { userVolume = it },
+            ),
             LibraryCallback(),
         )
             .setId(SESSION_ID)
@@ -1284,9 +1290,12 @@ class MochyMusicService : MediaLibraryService() {
  * fades hook in: play, pause and skips here get the same fades as the
  * app's buttons, exactly as Mochy's TransportFadingPlayer does it.
  */
-private inner class MochySessionPlayer(
+private class MochySessionPlayer(
     player: Player,
     private val cast: RemoteSpeaker,
+    private val transport: TransportTransitions,
+    private val partySync: PartySync?,
+    private val onUserVolume: (Float) -> Unit,
 ) : ForwardingPlayer(player), CastSink {
 
     private fun locked(): Boolean = ListenTogether.state.value.controlsLocked
@@ -1446,7 +1455,7 @@ private inner class MochySessionPlayer(
     override fun setVolume(volume: Float) {
         // The listener's level is the fades' target; while a fade runs it
         // owns the player's volume and picks the new level up as its base.
-        userVolume = volume
+        onUserVolume(volume)
         if (!transport.isFading) super.setVolume(volume)
     }
 
