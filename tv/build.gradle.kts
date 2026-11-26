@@ -130,11 +130,11 @@ android {
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "LIBREFM_API_KEY", "\"${libreFmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\")
-        buildConfigField("String", "LIBREFM_SECRET", "\"${libreFmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\")
-        buildConfigField("String", "DISCORD_CLIENT_ID", "\"${discordClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\")
-        buildConfigField("String", "DROPBOX_APP_KEY", "\"${dropboxAppKey.replace("\\", "\\\\").replace("\"", "\\\"")}\")
-        buildConfigField("String", "ONEDRIVE_CLIENT_ID", "\"${oneDriveClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\")
+        buildConfigField("String", "LIBREFM_API_KEY", "\"${libreFmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "LIBREFM_SECRET", "\"${libreFmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "DISCORD_CLIENT_ID", "\"${discordClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "DROPBOX_APP_KEY", "\"${dropboxAppKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "ONEDRIVE_CLIENT_ID", "\"${oneDriveClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField(
             "String",
             "LISTEN_TOGETHER_SERVER",
