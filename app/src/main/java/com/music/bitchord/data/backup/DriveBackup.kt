@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.content.edit
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -172,18 +174,26 @@ object DriveBackup {
                     firstLook = false
                 }
         }
-        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) {
-                val s = _settings.value
-                if (s.account == null || s.needsDevice || s.needsSignIn) return
-                if (System.currentTimeMillis() - prefs.getLong(KEY_LAST_PULL, 0L) < CATCH_UP_MILLIS) return
-                val request = OneTimeWorkRequestBuilder<DriveBackupWorker>()
-                    .setConstraints(constraints(s.overCellular))
-                    .setInputData(workDataOf(KEY_PUSH to false))
-                    .build()
-                WorkManager.getInstance(app).enqueueUniqueWork(CATCH_UP_WORK, ExistingWorkPolicy.KEEP, request)
-            }
-        })
+        // Lifecycle.addObserver must run on the main thread, but init is
+        // called from the startup-init background thread (batch 53) so the
+        // store opens beside the main-thread work. Only the registration
+        // hops to main; the prefs read and the schedule collector above
+        // stay parallel. Registering a moment later is harmless: the
+        // registry replays onStart to a late observer when already started.
+        Handler(Looper.getMainLooper()).post {
+            ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    val s = _settings.value
+                    if (s.account == null || s.needsDevice || s.needsSignIn) return
+                    if (System.currentTimeMillis() - prefs.getLong(KEY_LAST_PULL, 0L) < CATCH_UP_MILLIS) return
+                    val request = OneTimeWorkRequestBuilder<DriveBackupWorker>()
+                        .setConstraints(constraints(s.overCellular))
+                        .setInputData(workDataOf(KEY_PUSH to false))
+                        .build()
+                    WorkManager.getInstance(app).enqueueUniqueWork(CATCH_UP_WORK, ExistingWorkPolicy.KEEP, request)
+                }
+            })
+        }
     }
 
     // ---- Settings -----------------------------------------------------------

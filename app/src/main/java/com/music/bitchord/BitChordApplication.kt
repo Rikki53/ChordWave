@@ -134,9 +134,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             AndroidStreamHooks.initInnerTubeX(this)
             // Batch 53 (cold start): plain store opens with no
             // main-thread affinity (SharedPreferences / files /
-            // StateFlows only — verified per init; nothing here calls
-            // Lifecycle.addObserver, builds a WebView, or otherwise
-            // needs the main looper, the batch-46 trap). They run beside
+            // StateFlows only — verified per init; the one main-thread
+            // call among them, DriveBackup's Lifecycle.addObserver,
+            // posts to the main looper itself, batch 54). They run beside
             // the main-thread work below instead of serially inside it;
             // the join at the end of onCreate still guarantees every
             // store is open before anything after startup reads it.
