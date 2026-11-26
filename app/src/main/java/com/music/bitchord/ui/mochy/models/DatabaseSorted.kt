@@ -44,6 +44,7 @@ fun DatabaseDao.albums(sortType: AlbumSortType, descending: Boolean): Flow<List<
             AlbumSortType.YEAR -> rows.sortedBy { it.album.year ?: 0 }
             AlbumSortType.SONG_COUNT -> rows.sortedBy { it.album.songCount }
             AlbumSortType.LENGTH -> rows.sortedBy { it.album.duration }
+            AlbumSortType.PLAY_TIME -> rows.sortedBy { it.timeListened ?: 0 }
         }
         if (descending) sorted.reversed() else sorted
     }
