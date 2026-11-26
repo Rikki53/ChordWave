@@ -1,4 +1,4 @@
-package com.mochyy.mochymusic.di
+package com.music.bitchord.ui.mochy.di
 
 import com.music.bitchord.data.mochydata.scrobble.Scrobbler
 import dagger.hilt.EntryPoint

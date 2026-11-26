@@ -47,7 +47,7 @@ val lastfmSecret: String = (
 // build without its own gets one made from the app id instead of losing
 // Libre.fm (Mochy's fallback, ported with the scrobble engine).
 fun libreFmStandIn(name: String): String =
-    java.security.MessageDigest.getInstance("MD5")
+    MessageDigest.getInstance("MD5")
         .digest("com.riki.chordwave.librefm.$name".toByteArray()).joinToString("") { "%02x".format(it) }
 val libreFmApiKey: String = (
     localProps.getProperty("LIBREFM_API_KEY")
@@ -135,8 +135,8 @@ android {
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "LIBREFM_API_KEY", "\"${libreFmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\")
-        buildConfigField("String", "LIBREFM_SECRET", "\"${libreFmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\")
+        buildConfigField("String", "LIBREFM_API_KEY", "\"${libreFmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "LIBREFM_SECRET", "\"${libreFmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "DISCORD_CLIENT_ID", "\"${discordClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         manifestPlaceholders["discordRedirectScheme"] =
             if (discordClientId.isNotBlank()) "discord-$discordClientId" else "chordwave-discord-unset"

@@ -326,6 +326,11 @@ class MochyMusicService : MediaLibraryService() {
         watchSleepTimer()
         observeTransportPrefs()
         observeScrobblePrefs()
+        // the Discord status reconnects as soon as the network is back
+        runCatching {
+            getSystemService(ConnectivityManager::class.java)
+                ?.registerDefaultNetworkCallback(discordNetworkCallback)
+        }
 
         mediaSession = MediaLibrarySession.Builder(
             this,
@@ -534,6 +539,11 @@ class MochyMusicService : MediaLibraryService() {
     private val discordPresence: DiscordPresence by lazy { integrations.discordPresence() }
     private val scrobbler: Scrobbler by lazy { integrations.scrobbler() }
     private val scrobbleTimer by lazy { ScrobbleTimer({ scope }, scrobbler) }
+    private val discordNetworkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: android.net.Network) {
+            runCatching { discordPresence.nudge() }
+        }
+    }
 
     /** what the player is on, in the shape the scrobble timer reads */
     private fun currentMediaMetadata(): MediaMetadata? {
@@ -1399,6 +1409,10 @@ class MochyMusicService : MediaLibraryService() {
         runCatching { transport.cancel() }
         flushPlayRecord()
         ListeningRecorder.onStopped()
+        runCatching {
+            getSystemService(ConnectivityManager::class.java)
+                ?.unregisterNetworkCallback(discordNetworkCallback)
+        }
         runCatching { scrobbleTimer.onSongStop() }
         runCatching { discordPresence.update(null) }
         handler.removeCallbacksAndMessages(null)

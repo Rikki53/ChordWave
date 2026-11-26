@@ -1,4 +1,4 @@
-package com.mochyy.mochymusic.di
+package com.music.bitchord.ui.mochy.di
 
 import com.music.bitchord.data.mochydata.backup.CloudBackupManager
 import com.music.bitchord.data.mochydata.backup.CloudSignIn
