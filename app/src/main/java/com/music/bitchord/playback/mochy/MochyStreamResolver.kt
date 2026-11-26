@@ -83,6 +83,39 @@ object MochyStreamResolver {
 
     private val urlCache = ConcurrentHashMap<String, MochyResolvedStream>()
 
+    // Batch 64 (27 Nov 2026): a tapped song waited on the whole client walk
+    // before any audio. Two of the walk's costs are paid again on every tap
+    // even though they barely change: the signature timestamp (a watch-page
+    // fetch + player-JS parse inside NewPipe, asked once per client that
+    // needs one) and the walk's own order (a client that refuses every track
+    // is retried first on every track). The timestamp is a property of the
+    // player version, so it is remembered for an hour and dropped when a
+    // whole walk fails (the player may have rotated); the last client that
+    // served a track is asked first next time, with Mochy's full walk
+    // unchanged behind it.
+    @Volatile
+    private var lastGoodClient: YouTubeClient? = null
+
+    @Volatile
+    private var cachedSignatureTimestamp: Int? = null
+
+    @Volatile
+    private var signatureTimestampAtMs: Long = 0L
+
+    private const val SIGNATURE_TIMESTAMP_TTL_MS = 60 * 60 * 1000L
+
+    /** The signature timestamp for [videoId], remembered across resolves until it ages out. */
+    private fun signatureTimestampFor(videoId: String): Int? {
+        val cached = cachedSignatureTimestamp
+        if (cached != null && System.currentTimeMillis() - signatureTimestampAtMs < SIGNATURE_TIMESTAMP_TTL_MS) {
+            return cached
+        }
+        val fresh = NewPipeExtractor.getSignatureTimestamp(videoId).getOrNull() ?: return cached
+        cachedSignatureTimestamp = fresh
+        signatureTimestampAtMs = System.currentTimeMillis()
+        return fresh
+    }
+
     // BotGuard PoTokens for the web clients, minted in the same hidden
     // WebView the Classic engine's InnerTubeX path uses. Needs an
     // application context (the WebView's), handed over by [init] from the
@@ -160,13 +193,14 @@ object MochyStreamResolver {
         var lastError: Throwable? = null
         var mintedToken: String? = null
         var mintTried = false
-        val clients = (listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS.toList()).distinct()
+        var signatureTimestamp: Int? = null
+        var signatureTimestampFetched = false
+        val clients = (listOfNotNull(lastGoodClient, MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS.toList()).distinct()
         for (client in clients) {
             try {
-                val signatureTimestamp = if (client.useSignatureTimestamp) {
-                    NewPipeExtractor.getSignatureTimestamp(videoId).getOrNull()
-                } else {
-                    null
+                if (client.useSignatureTimestamp && !signatureTimestampFetched) {
+                    signatureTimestampFetched = true
+                    signatureTimestamp = signatureTimestampFor(videoId)
                 }
                 if (client.useWebPoTokens && !mintTried) {
                     mintTried = true
@@ -190,6 +224,7 @@ object MochyStreamResolver {
                         playbackTrackingUrl = response.playbackTracking?.videostatsPlaybackUrl?.baseUrl,
                     )
                     urlCache[videoId] = resolved
+                    lastGoodClient = client
                     Timber.tag(TAG).d("Resolved $videoId via ${client.clientName}: ${format.mimeType}@${format.bitrate}")
                     return@withContext resolved
                 }
@@ -198,6 +233,10 @@ object MochyStreamResolver {
                 Timber.tag(TAG).d(e, "Client ${client.clientName} failed for $videoId")
             }
         }
+
+        // Every client failed: the remembered signature timestamp may belong
+        // to a player YouTube has since rotated, so the next resolve refetches it.
+        cachedSignatureTimestamp = null
 
         // Last resort: a full NewPipe extraction of the watch page.
         val extracted = NewPipeExtractor.newPipePlayer(videoId)
@@ -259,13 +298,14 @@ object MochyStreamResolver {
         var lastError: Throwable? = null
         var mintedToken: String? = null
         var mintTried = false
-        val clients = (listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS.toList()).distinct()
+        var signatureTimestamp: Int? = null
+        var signatureTimestampFetched = false
+        val clients = (listOfNotNull(lastGoodClient, MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS.toList()).distinct()
         for (client in clients) {
             try {
-                val signatureTimestamp = if (client.useSignatureTimestamp) {
-                    NewPipeExtractor.getSignatureTimestamp(videoId).getOrNull()
-                } else {
-                    null
+                if (client.useSignatureTimestamp && !signatureTimestampFetched) {
+                    signatureTimestampFetched = true
+                    signatureTimestamp = signatureTimestampFor(videoId)
                 }
                 if (client.useWebPoTokens && !mintTried) {
                     mintTried = true
@@ -294,6 +334,7 @@ object MochyStreamResolver {
                         playbackTrackingUrl = response.playbackTracking?.videostatsPlaybackUrl?.baseUrl,
                     )
                     downloadUrlCache[videoId] = resolved
+                    lastGoodClient = client
                     Timber.tag(TAG).d("Download resolved $videoId via ${client.clientName}: ${format.mimeType}@${format.bitrate}")
                     return@withContext resolved
                 }
