@@ -1,17 +1,13 @@
-// settings → integrations → discord: log in, then shape the status friends see with a live preview
-// Ported from Mochy Music (GPL-3.0). No ViewModel: the page reads CW's AppSettings discord*
-// flows and KizzyRPC directly, the way the classic DiscordScreen does. The differences from
-// Mochy are all honest ones:
-// - Login opens the classic in-app WebView login (DiscordLoginScreen) at the host-owned
-//   DiscordLoginRoute — CW signs in with a token, not Mochy's browser OAuth redirect.
-// - No Live/Connecting states: CW's socket has no connection state to show, so the status line
-//   only says whether presence is on and signed in.
-// - Refresh interval, clear-on-pause and the four text lines have no CW engine, so they stay
-//   visible but disabled, each saying what ChordWave does instead.
-// - Image customisation is one notice card: CW shows the track artwork, or its own mark.
+// mochy → settings → integrations → discord: log in in the browser, then shape the status friends see with a live preview
 
 package com.music.bitchord.ui.mochy.screens.settings.integrations.discord
 
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -31,6 +27,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,105 +35,81 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.music.bitchord.R
-import com.music.bitchord.data.NerdStats
-import com.music.bitchord.data.discord.SuperProperties
-import com.music.bitchord.data.discord.discordAudioQualityLine
-import com.music.bitchord.data.settings.AppSettings
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
+import com.music.bitchord.R
+import com.music.bitchord.data.mochydata.discord.DiscordLogin
+import com.music.bitchord.data.mochydata.discord.NowPlaying
+import com.music.bitchord.data.mochydata.discord.PresenceConnection
+import com.music.bitchord.data.mochydata.discord.PresenceImage
+import com.music.bitchord.data.mochydata.discord.PresenceKind
+import com.music.bitchord.data.mochydata.discord.PresenceSettings
 import com.music.bitchord.ui.mochy.component.SubSettingsScaffold
-import com.music.bitchord.ui.mochy.component.toCwSong
-import com.music.bitchord.ui.mochy.navigation.MochyNavigator
-import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.screens.settings.integrations.IntegrationPageSubtitle
+import com.music.bitchord.ui.mochy.viewmodels.DiscordViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.music.bitchord.ui.mochy.utils.stableStatusBars
-import com.music.bitchord.ui.screens.DiscordActivityKind
-import com.music.bitchord.ui.screens.DiscordPresenceStatus
-import com.my.kizzy.rpc.KizzyRPC
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 const val DiscordRoute = "integrations_settings/discord"
-
-/**
- * Host contract: the Modern host renders the classic DiscordLoginScreen at this route and, when
- * it captures a token, calls AppSettings.setDiscordToken(token) and pops back. See NEEDS.md.
- */
-const val DiscordLoginRoute = "integrations_settings/discord/login"
 
 /** where SubSettingsScaffold's header ends; the preview counts as gone once it's under it */
 private val HeaderHeight = 118.dp
 
 @Composable
-fun DiscordScreen(navigator: MochyNavigator) {
-    val token by AppSettings.discordToken.collectAsState()
-    val username by AppSettings.discordUsername.collectAsState()
-    val name by AppSettings.discordName.collectAsState()
-    val avatar by AppSettings.discordAvatar.collectAsState()
-    val rpcEnabled by AppSettings.discordRpcEnabled.collectAsState()
-    val useDetails by AppSettings.discordUseDetails.collectAsState()
-    val showAudioQuality by AppSettings.discordShowAudioQuality.collectAsState()
-    val status by AppSettings.discordStatus.collectAsState()
-    val activityType by AppSettings.discordActivityType.collectAsState()
-    val activityName by AppSettings.discordActivityName.collectAsState()
-    val details by AppSettings.discordDetails.collectAsState()
-    val state by AppSettings.discordState.collectAsState()
-    val largeText by AppSettings.discordLargeText.collectAsState()
-    val smallText by AppSettings.discordSmallText.collectAsState()
-    val button1Text by AppSettings.discordButton1Text.collectAsState()
-    val button1Visible by AppSettings.discordButton1Visible.collectAsState()
-    val button2Text by AppSettings.discordButton2Text.collectAsState()
-    val button2Visible by AppSettings.discordButton2Visible.collectAsState()
+fun DiscordScreen(
+    navigator: com.music.bitchord.ui.mochy.navigation.MochyNavigator,
+    viewModel: DiscordViewModel = hiltViewModel(),
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settings by viewModel.settings.collectAsState()
+    val profile by viewModel.profile.collectAsState()
+    val signedIn by viewModel.signedIn.collectAsState()
+    val login by viewModel.login.collectAsState()
+    val connection by viewModel.connection.collectAsState()
+    val playing by viewModel.nowPlaying.collectAsState()
+    // nothing playing: show a made-up song so the preview still means something
+    val sample = remember { NowPlaying.sample(System.currentTimeMillis()) }
+    val track = playing ?: sample
 
-    val signedIn = token.isNotBlank()
-    val appName = stringResource(R.string.app_name).removeSuffix(" Dev")
-
-    // refreshes the cached profile whenever the connected account changes. A failure is left
-    // to stand rather than clearing the cache: the usual reason for one is being offline, and
-    // blanking the name every time the phone loses signal would read as having been signed out.
-    LaunchedEffect(token) {
-        if (token.isEmpty()) {
-            AppSettings.setDiscordAccount("", "", null)
-            return@LaunchedEffect
+    LaunchedEffect(signedIn) {
+        if (signedIn) viewModel.refreshProfile()
+    }
+    LaunchedEffect(login) {
+        (login as? DiscordLogin.Failed)?.let {
+            Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
+            viewModel.dismissProblem()
         }
-        withContext(Dispatchers.IO) {
-            KizzyRPC.getUserInfo(
-                token,
-                SuperProperties.userAgent,
-                SuperProperties.superPropertiesBase64,
-            ).onSuccess {
-                AppSettings.setDiscordAccount(it.username, it.name, it.avatar)
-            }
+    }
+    // back from the browser without an answer, give the redirect a moment to land before the button goes back to log in
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        scope.launch {
+            delay(1_500)
+            viewModel.cancelWaiting()
         }
     }
 
-    val nerdStats by NerdStats.current.collectAsState()
-    val qualityLine = discordAudioQualityLine(nerdStats)
-    // nothing playing: show a made-up song so the preview still means something
-    val sample = remember { CwNowPlaying.sample() }
-    val track = liveNowPlaying(qualityLine) ?: sample
-    val settings = CwPresenceSettings(
-        enabled = rpcEnabled,
-        activityType = activityType,
-        activityName = activityName,
-        useDetails = useDetails,
-        showAudioQuality = showAudioQuality,
-        button1Text = button1Text,
-        button1Visible = button1Visible,
-        button2Text = button2Text,
-        button2Visible = button2Visible,
-    )
-    val profile = CwDiscordProfile(
-        displayName = name,
-        username = username,
-        avatarUrl = avatar.ifBlank { null },
-    ).takeIf { signedIn }
+    fun openLogin() {
+        scope.launch {
+            val uri = viewModel.loginUri()
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (e: android.content.ActivityNotFoundException) {
+                viewModel.cancelWaiting()
+                Toast.makeText(context, context.getString(R.string.discord_no_browser_toast), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     val density = LocalDensity.current
     val statusBarTop = WindowInsets.stableStatusBars.asPaddingValues().calculateTopPadding()
@@ -147,45 +120,41 @@ fun DiscordScreen(navigator: MochyNavigator) {
 
     Box(Modifier.fillMaxSize()) {
         SubSettingsScaffold(
-            title = "Discord",
+            title = stringResource(R.string.discord_settings_title),
             onBack = { navigator.popBackStack() },
-            backLabel = stringResource(R.string.integrations),
         ) {
-            IntegrationPageSubtitle("Rich presence on your profile")
+            IntegrationPageSubtitle(stringResource(R.string.discord_subtitle_rich_presence))
             DiscordToggleCard(
-                checked = rpcEnabled,
-                onCheckedChange = AppSettings::setDiscordRpcEnabled,
-                status = statusLine(signedIn, rpcEnabled),
+                checked = settings.enabled,
+                onCheckedChange = { on -> viewModel.edit { copy(enabled = on) } },
+                status = statusLine(context, viewModel.isConfigured, signedIn, settings.enabled, connection, login),
                 enabled = signedIn,
             )
             Spacer(Modifier.height(12.dp))
             DiscordProfileCard(
-                profile = profile,
+                profile = profile.takeIf { signedIn },
                 track = track,
                 settings = settings,
-                appName = appName,
                 modifier = Modifier.onGloballyPositioned { previewBottomPx = it.boundsInWindow().bottom },
             )
             Spacer(Modifier.height(12.dp))
             AccountButton(
+                configured = viewModel.isConfigured,
                 signedIn = signedIn,
-                onLogin = { navigator.navigate(DiscordLoginRoute) },
-                onLogOut = AppSettings::clearDiscordAccount,
+                login = login,
+                onLogin = ::openLogin,
+                onLogOut = viewModel::logOut,
             )
             CustomizeSection(
-                useDetails = useDetails,
-                showAudioQuality = showAudioQuality,
-                status = status,
-                activityType = activityType,
-                activityName = activityName,
-                details = details,
-                state = state,
-                largeText = largeText,
-                smallText = smallText,
-                button1Text = button1Text,
-                button1Visible = button1Visible,
-                button2Text = button2Text,
-                button2Visible = button2Visible,
+                settings = settings,
+                edit = viewModel::edit,
+                onPickCustom = { large, picked ->
+                    scope.launch {
+                        if (!viewModel.pickCustomPicture(large, picked)) {
+                            Toast.makeText(context, context.getString(R.string.discord_custom_failed), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
             )
             // room for the floating preview over the last card
             Spacer(Modifier.height(220.dp))
@@ -195,7 +164,6 @@ fun DiscordScreen(navigator: MochyNavigator) {
             visible = previewHidden,
             track = track,
             settings = settings,
-            appName = appName,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 20.dp)
@@ -204,47 +172,40 @@ fun DiscordScreen(navigator: MochyNavigator) {
     }
 }
 
-/** the live track as the preview needs it, or null when the player has nothing on */
-@Composable
-private fun liveNowPlaying(qualityLine: String?): CwNowPlaying? {
-    val connection = LocalPlayerConnection.current ?: return null
-    val song by connection.currentSong.collectAsState()
-    val progress by connection.progressState.collectAsState()
-    val playing by connection.isPlaying.collectAsState()
-    val currentSong = song ?: return null
-    return CwNowPlaying(
-        // The connection's song is a Mochy-model Song; the preview
-        // renders a CW Song (title/artist/artwork only).
-        song = currentSong.toCwSong(),
-        positionMs = progress.position,
-        durationMs = progress.duration,
-        isPlaying = playing,
-        // the listener's own rate, not the player's instantaneous one — a crossfade stretch
-        // must not get stamped into the title, the same reason PlaybackService reads
-        // AppSettings.playbackSpeed instead of the player here
-        speed = AppSettings.playbackSpeed.value,
-        qualityLine = qualityLine,
-    )
-}
-
-private fun statusLine(signedIn: Boolean, enabled: Boolean): String = when {
-    !signedIn -> "Log in below to turn it on"
-    !enabled -> "Off, so your profile shows nothing from ChordWave"
-    else -> "Shows up when you play something"
+private fun statusLine(
+    context: Context,
+    configured: Boolean,
+    signedIn: Boolean,
+    enabled: Boolean,
+    connection: PresenceConnection,
+    login: DiscordLogin,
+): String = when {
+    !configured -> context.getString(R.string.discord_status_not_configured)
+    login == DiscordLogin.Finishing -> context.getString(R.string.discord_status_signing_in)
+    !signedIn -> context.getString(R.string.discord_status_login_below)
+    !enabled -> context.getString(R.string.discord_status_off)
+    connection == PresenceConnection.Live -> context.getString(R.string.discord_status_live)
+    connection == PresenceConnection.Connecting -> context.getString(R.string.discord_status_connecting)
+    connection == PresenceConnection.Retrying -> context.getString(R.string.discord_status_retrying)
+    else -> context.getString(R.string.discord_status_idle_playing)
 }
 
 @Composable
 private fun AccountButton(
+    configured: Boolean,
     signedIn: Boolean,
+    login: DiscordLogin,
     onLogin: () -> Unit,
     onLogOut: () -> Unit,
 ) {
-    val (text, action) = if (signedIn) {
-        "Log out from Discord" to onLogOut
-    } else {
-        "Log in with Discord" to onLogin
+    val (text, action) = when {
+        !configured -> stringResource(R.string.discord_btn_not_configured) to null
+        signedIn -> stringResource(R.string.discord_btn_logout) to onLogOut
+        login == DiscordLogin.Finishing -> stringResource(R.string.discord_status_signing_in) to null
+        login == DiscordLogin.InBrowser -> stringResource(R.string.discord_btn_waiting_browser) to onLogin
+        else -> stringResource(R.string.discord_btn_login) to onLogin
     }
-    val inviting = !signedIn
+    val inviting = configured && !signedIn
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -252,18 +213,18 @@ private fun AccountButton(
             .height(50.dp)
             .clip(CircleShape)
             .background(if (inviting) DiscordColors.Blurple else DiscordColors.Profile)
-            .clickable { action() },
+            .clickable(enabled = action != null) { action?.invoke() },
     ) {
         Text(
             text = text,
-            color = Color.White,
+            color = if (action != null) Color.White else DiscordColors.Secondary,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
         )
     }
     if (inviting) {
         LoginNote(stringResource(R.string.discord_login_note), Modifier.padding(top = 8.dp))
-        // CW signs in with the account's own token, not OAuth, so say up front what that means
+        // discord's consent page lists the whole presence bundle, so say up front what mochy really uses
         LoginNote(stringResource(R.string.discord_permissions_note), Modifier.padding(top = 4.dp, bottom = 8.dp))
     }
 }
@@ -283,129 +244,114 @@ private fun LoginNote(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CustomizeSection(
-    useDetails: Boolean,
-    showAudioQuality: Boolean,
-    status: String,
-    activityType: String,
-    activityName: String,
-    details: String,
-    state: String,
-    largeText: String,
-    smallText: String,
-    button1Text: String,
-    button1Visible: Boolean,
-    button2Text: String,
-    button2Visible: Boolean,
+    settings: PresenceSettings,
+    edit: (PresenceSettings.() -> PresenceSettings) -> Unit,
+    // a picture picked for the big (true) or small slot's "your own picture"
+    onPickCustom: (large: Boolean, picked: android.net.Uri) -> Unit,
 ) {
+    val context = LocalContext.current
     val gap = Modifier.height(12.dp)
+    val pickSmall = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { picked ->
+        if (picked != null) onPickCustom(false, picked)
+    }
+    val pickLarge = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { picked ->
+        if (picked != null) onPickCustom(true, picked)
+    }
+    val imagesOnly = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
 
-    DiscordSectionTitle("CUSTOMIZE")
+    DiscordSectionTitle(stringResource(R.string.discord_section_customize))
     DiscordPlaceholderCard()
 
-    DiscordSectionTitle("Options")
+    DiscordSectionTitle(stringResource(R.string.discord_section_options))
     DiscordCard {
-        DiscordCardTitle("Refresh interval")
+        DiscordCardTitle(stringResource(R.string.discord_refresh_interval))
         Spacer(Modifier.height(4.dp))
         DiscordStepSlider(
-            value = 15,
-            values = (5..60).toList(),
+            value = settings.refreshSeconds,
+            values = (PresenceSettings.MinRefreshSeconds..PresenceSettings.MaxRefreshSeconds).toList(),
             label = { "${it}s" },
-            onValueChange = {},
-            enabled = false,
-        )
-        Text(
-            text = stringResource(R.string.discord_presence_footer),
-            color = DiscordColors.Secondary,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-            modifier = Modifier.padding(start = 4.dp, top = 10.dp),
+            onValueChange = { seconds -> edit { copy(refreshSeconds = seconds) } },
         )
     }
-    Spacer(gap)
-    DiscordSwitchCard(
-        title = stringResource(R.string.discord_use_details),
-        description = stringResource(R.string.discord_use_details_desc),
-        checked = useDetails,
-        onCheckedChange = AppSettings::setDiscordUseDetails,
-    )
-    Spacer(gap)
-    DiscordSwitchCard(
-        title = stringResource(R.string.discord_show_audio_quality),
-        description = stringResource(R.string.discord_show_audio_quality_subtitle),
-        checked = showAudioQuality,
-        onCheckedChange = AppSettings::setDiscordShowAudioQuality,
-    )
 
     DiscordSectionTitle(stringResource(R.string.discord_behaviour))
     DiscordSwitchCard(
         title = stringResource(R.string.discord_clear_on_pause),
         description = stringResource(R.string.discord_clear_on_pause_desc),
-        checked = false,
-        onCheckedChange = {},
-        enabled = false,
-        note = stringResource(R.string.discord_clear_on_pause_na),
+        checked = settings.clearOnPause,
+        onCheckedChange = { on -> edit { copy(clearOnPause = on) } },
     )
 
-    DiscordSectionTitle("Activity")
+    DiscordSectionTitle(stringResource(R.string.discord_section_activity))
     DiscordCard {
-        DiscordCardTitle("Select the activity type")
+        DiscordCardTitle(stringResource(R.string.discord_select_activity_type))
         Spacer(Modifier.height(10.dp))
-        // four kinds do not fit the segmented row's fixed slots, so this one is a dropdown
-        DiscordDropdown(
-            selected = DiscordActivityKind.entries.find { it.value == activityType } ?: DiscordActivityKind.LISTENING,
-            options = DiscordActivityKind.entries,
-            label = { it.label },
-            onSelect = { kind -> AppSettings.setDiscordActivityType(kind.value) },
+        DiscordSegmented(
+            options = PresenceKind.entries,
+            selected = settings.kind,
+            label = {
+                when (it) {
+                    PresenceKind.LISTENING -> context.getString(R.string.discord_kind_listening)
+                    PresenceKind.PLAYING -> context.getString(R.string.discord_kind_playing)
+                }
+            },
+            onSelect = { kind -> edit { copy(kind = kind) } },
         )
     }
     Spacer(gap)
-    DiscordTextCard("Activity name", activityName, AppSettings::setDiscordActivityName, hint = "ChordWave")
-    Spacer(gap)
-    DiscordCard {
-        DiscordCardTitle("Status")
-        Spacer(Modifier.height(10.dp))
-        DiscordDropdown(
-            selected = DiscordPresenceStatus.entries.find { it.value == status } ?: DiscordPresenceStatus.ONLINE,
-            options = DiscordPresenceStatus.entries,
-            label = { it.label },
-            onSelect = { presence -> AppSettings.setDiscordStatus(presence.value) },
-        )
-    }
+    DiscordTextCard(stringResource(R.string.discord_activity_name_title), settings.name, { text -> edit { copy(name = text) } }, hint = "Mochy")
 
-    DiscordSectionTitle("Strings customisation")
-    DiscordNoticeCard(stringResource(R.string.discord_strings_note))
+    DiscordSectionTitle(stringResource(R.string.discord_section_strings))
+    DiscordNoticeCard(stringResource(R.string.discord_empty_to_hide))
     Spacer(gap)
-    DiscordTextCard("Details string", details, AppSettings::setDiscordDetails, hint = "{song_name}")
+    DiscordTextCard(stringResource(R.string.discord_details_string), settings.details, { text -> edit { copy(details = text) } })
     Spacer(gap)
-    DiscordTextCard("State string", state, AppSettings::setDiscordState, hint = "{artist_name}")
+    DiscordTextCard(stringResource(R.string.discord_state_string), settings.state, { text -> edit { copy(state = text) } })
     Spacer(gap)
-    DiscordTextCard("Large image hover text", largeText, AppSettings::setDiscordLargeText, hint = "{quality}")
+    DiscordTextCard(stringResource(R.string.discord_large_image_hover), settings.largeText, { text -> edit { copy(largeText = text) } })
     Spacer(gap)
-    DiscordTextCard("Small image hover text", smallText, AppSettings::setDiscordSmallText, hint = "{album_name}")
+    DiscordTextCard(stringResource(R.string.discord_small_image_hover), settings.smallText, { text -> edit { copy(smallText = text) } })
 
-    DiscordSectionTitle("Image customisation")
-    DiscordNoticeCard(stringResource(R.string.discord_images_note))
-
-    DiscordSectionTitle("Buttons")
-    DiscordButtonCard(
-        title = "1st button",
-        text = button1Text,
-        onTextChange = AppSettings::setDiscordButton1Text,
-        visible = button1Visible,
-        onVisibleChange = AppSettings::setDiscordButton1Visible,
-        targetDescription = stringResource(R.string.discord_button1_target),
+    DiscordSectionTitle(stringResource(R.string.discord_section_image_customisation))
+    DiscordImageSourceCard(
+        title = stringResource(R.string.discord_small_image_source),
+        selected = settings.smallImage,
+        options = PresenceImage.ForSmall,
+        // "your own picture" with none picked yet opens the picker first, and only switches once one is chosen
+        onSelect = { image ->
+            if (image == PresenceImage.CUSTOM && settings.smallCustomImage.isBlank()) pickSmall.launch(imagesOnly)
+            else edit { copy(smallImage = image) }
+        },
+        spin = settings.spin,
+        onSpinChange = { spin -> edit { copy(spinSeconds = spin.secondsPerTurn, spinFps = spin.fps) } },
+        customPicture = settings.smallCustomImage,
+        onPickCustom = { pickSmall.launch(imagesOnly) },
+        canvasFps = settings.canvasFps,
+        canvasSize = settings.canvasSize,
+        onCanvasChange = { fps, size -> edit { copy(canvasFps = fps, canvasSize = size) } },
     )
     Spacer(gap)
-    DiscordButtonCard(
-        title = "2nd button",
-        text = button2Text,
-        onTextChange = AppSettings::setDiscordButton2Text,
-        visible = button2Visible,
-        onVisibleChange = AppSettings::setDiscordButton2Visible,
-        targetDescription = stringResource(R.string.discord_button2_target),
+    DiscordImageSourceCard(
+        title = stringResource(R.string.discord_big_image_source),
+        selected = settings.largeImage,
+        options = PresenceImage.ForLarge,
+        onSelect = { image ->
+            if (image == PresenceImage.CUSTOM && settings.largeCustomImage.isBlank()) pickLarge.launch(imagesOnly)
+            else edit { copy(largeImage = image) }
+        },
+        customPicture = settings.largeCustomImage,
+        onPickCustom = { pickLarge.launch(imagesOnly) },
+        canvasFps = settings.canvasFps,
+        canvasSize = settings.canvasSize,
+        onCanvasChange = { fps, size -> edit { copy(canvasFps = fps, canvasSize = size) } },
     )
+
+    DiscordSectionTitle(stringResource(R.string.discord_section_buttons))
+    DiscordButtonCard(stringResource(R.string.discord_first_button), settings.button1) { button -> edit { copy(button1 = button) } }
+    Spacer(gap)
+    DiscordButtonCard(stringResource(R.string.discord_second_button), settings.button2) { button -> edit { copy(button2 = button) } }
     Text(
-        text = "Discord only shows the buttons to other people, never on your own profile.",
+        text = stringResource(R.string.discord_buttons_note),
         color = DiscordColors.Secondary,
         fontSize = 12.sp,
         modifier = Modifier.padding(start = 4.dp, top = 10.dp),

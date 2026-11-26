@@ -1,9 +1,4 @@
-// the last.fm or libre.fm page: every song that counts is scrobbled
-// Ported from Mochy Music (GPL-3.0). No ViewModel: the page reads CW's AppSettings Last.fm
-// flows and LastFM directly. One honest difference from Mochy: CW keeps a SINGLE scrobble
-// account (one session key, one endpoint), so signing in here replaces an account on the
-// other service, and there is no offline pending queue — the "plays waiting" row is gone.
-// "Send likes" has no CW engine, so its row stays visible but disabled with a note.
+// the last.fm or libre.fm page: every song that counts is scrobbled, and offline plays wait for a network
 
 package com.music.bitchord.ui.mochy.screens.settings.integrations
 
@@ -13,17 +8,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.R
-import com.music.bitchord.data.scrobbling.LastFM
-import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.mochy.constants.LastFMUseNowPlaying
+import com.music.bitchord.ui.mochy.constants.LastFMUseSendLikes
+import com.music.bitchord.data.mochydata.scrobble.ScrobbleSite
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
 import com.music.bitchord.ui.mochy.component.PopupSheetHandle
@@ -31,83 +30,46 @@ import com.music.bitchord.ui.mochy.component.SettingsGroup
 import com.music.bitchord.ui.mochy.component.SettingsGroupStyle
 import com.music.bitchord.ui.mochy.component.SettingsItem
 import com.music.bitchord.ui.mochy.component.SubSettingsScaffold
-import com.music.bitchord.ui.mochy.navigation.MochyNavigator
+import com.music.bitchord.ui.mochy.utils.rememberPreference
+import com.music.bitchord.ui.mochy.viewmodels.IntegrationsViewModel
 
 const val ScrobbleServiceRoute = "integrations_settings/scrobble/{site}"
 
-fun scrobbleServiceRoute(site: ScrobbleSite) = "settings/integrations/scrobble/${site.name}"
-
-/**
- * The services ChordWave scrobbles to. Both speak Last.fm's API, so one client serves both.
- * CW stores a blank endpoint for Last.fm (the default) and the Libre.fm URL for Libre.fm;
- * [storedEndpoint] is what goes into AppSettings, [endpoint] is the URL LastFM is configured with.
- */
-enum class ScrobbleSite(
-    val label: String,
-    val endpoint: String,
-    val storedEndpoint: String,
-    private val profilePage: String,
-    /** where someone without an account makes one */
-    val signUpUrl: String,
-) {
-    LASTFM(
-        label = "Last.fm",
-        endpoint = LastFM.DEFAULT_API_ENDPOINT,
-        storedEndpoint = "",
-        profilePage = "https://www.last.fm/user/",
-        signUpUrl = "https://www.last.fm/join",
-    ),
-    LIBREFM(
-        label = "Libre.fm",
-        endpoint = LastFM.LIBREFM_API_ENDPOINT,
-        storedEndpoint = LastFM.LIBREFM_API_ENDPOINT,
-        profilePage = "https://libre.fm/user/",
-        signUpUrl = "https://libre.fm/register.php",
-    );
-
-    fun profileUrl(username: String) = profilePage + username
-}
+fun scrobbleServiceRoute(site: ScrobbleSite) = "integrations_settings/scrobble/${site.name}"
 
 @Composable
 fun ScrobbleServiceScreen(
-    navigator: MochyNavigator,
+    navigator: com.music.bitchord.ui.mochy.navigation.MochyNavigator,
     site: ScrobbleSite,
+    viewModel: IntegrationsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val overlay = LocalZoomOutOverlayState.current
-    val sessionKey by AppSettings.lastfmSessionKey.collectAsState()
-    val username by AppSettings.lastfmUsername.collectAsState()
-    val endpoint by AppSettings.lastfmEndpoint.collectAsState()
-    val apiKey by AppSettings.lastfmApiKey.collectAsState()
-    val secret by AppSettings.lastfmSecret.collectAsState()
-    val scrobbleEnabled by AppSettings.lastfmScrobbleEnabled.collectAsState()
-    val nowPlaying by AppSettings.lastfmNowPlaying.collectAsState()
+    val accounts by viewModel.accounts.collectAsState()
+    val pending by viewModel.pending.collectAsState()
+    val sendResult by viewModel.sendResult.collectAsState()
+    val (nowPlaying, onNowPlayingChange) = rememberPreference(LastFMUseNowPlaying, defaultValue = true)
+    val (sendLikes, onSendLikesChange) = rememberPreference(LastFMUseSendLikes, defaultValue = false)
 
-    val currentEndpoint = endpoint.ifBlank { LastFM.DEFAULT_API_ENDPOINT }
-    val signedInHere = sessionKey.isNotBlank() && currentEndpoint == site.endpoint
-    val signedInElsewhere = sessionKey.isNotBlank() && !signedInHere
-    val otherSite = if (site == ScrobbleSite.LASTFM) ScrobbleSite.LIBREFM else ScrobbleSite.LASTFM
-    val configured = apiKey.isNotBlank() && secret.isNotBlank()
+    LaunchedEffect(sendResult) {
+        sendResult?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearSendResult()
+        }
+    }
 
     fun signIn() {
         var sheet: PopupSheetHandle? = null
         sheet = overlay.showWithHandle {
             ScrobbleSignInContent(
                 site = site,
+                viewModel = viewModel,
                 onSignedIn = { name ->
                     sheet?.dismiss()
                     Toast.makeText(context, context.getString(R.string.scrobble_signed_in, site.label, name), Toast.LENGTH_LONG).show()
                 },
             )
         }
-    }
-
-    fun signOut() {
-        AppSettings.setLastfmSessionKey("")
-        AppSettings.setLastfmUsername("")
-        AppSettings.setLastfmScrobbleEnabled(false)
-        AppSettings.setLastfmEnabled(false)
-        LastFM.sessionKey = null
     }
 
     SubSettingsScaffold(
@@ -118,11 +80,9 @@ fun ScrobbleServiceScreen(
         IntegrationPageSubtitle(stringResource(R.string.scrobble_page_subtitle))
         ScrobbleAccountGroup(
             site = site,
-            username = username.takeIf { signedInHere },
-            signedInElsewhereTo = otherSite.takeIf { signedInElsewhere },
-            configured = configured,
+            username = accounts[site],
             onSignIn = ::signIn,
-            onSignOut = ::signOut,
+            onSignOut = { viewModel.signOut(site) },
         )
         Spacer(Modifier.height(16.dp))
 
@@ -132,7 +92,7 @@ fun ScrobbleServiceScreen(
         SettingsGroup(
             title = stringResource(R.string.scrobble_while_listening),
             style = SettingsGroupStyle.Grouped,
-            items = listOf(
+            items = listOfNotNull(
                 SettingsItem(
                     title = { Text(nowPlayingTitle) },
                     highlightKey = "Now Playing",
@@ -140,20 +100,29 @@ fun ScrobbleServiceScreen(
                     descriptionText = stringResource(R.string.scrobble_now_playing_desc),
                     icon = painterResource(R.drawable.music_note),
                     iconShape = CircleShape,
-                    enabled = signedInHere && scrobbleEnabled,
-                    onClick = { AppSettings.setLastfmNowPlaying(!nowPlaying) },
-                    trailingContent = { AppSwitch(checked = nowPlaying, onCheckedChange = AppSettings::setLastfmNowPlaying) },
+                    onClick = { onNowPlayingChange(!nowPlaying) },
+                    trailingContent = { AppSwitch(checked = nowPlaying, onCheckedChange = onNowPlayingChange) },
                 ),
                 SettingsItem(
                     title = { Text(sendLikesTitle) },
                     highlightKey = "Send likes",
                     searchText = sendLikesTitle,
-                    descriptionText = stringResource(R.string.scrobble_send_likes_na),
+                    descriptionText = stringResource(R.string.scrobble_send_likes_desc),
                     icon = painterResource(R.drawable.favorite),
                     iconShape = CircleShape,
-                    enabled = false,
-                    onClick = null,
+                    onClick = { onSendLikesChange(!sendLikes) },
+                    trailingContent = { AppSwitch(checked = sendLikes, onCheckedChange = onSendLikesChange) },
                 ),
+                if (pending > 0) {
+                    val waiting = pluralStringResource(R.plurals.scrobble_plays_waiting, pending, pending)
+                    SettingsItem(
+                        title = { Text(waiting) },
+                        descriptionText = stringResource(R.string.scrobble_plays_waiting_desc),
+                        icon = painterResource(R.drawable.cloud),
+                        iconShape = CircleShape,
+                        onClick = viewModel::sendNow,
+                    )
+                } else null,
             ),
         )
 
@@ -166,33 +135,22 @@ fun ScrobbleServiceScreen(
 private fun ScrobbleAccountGroup(
     site: ScrobbleSite,
     username: String?,
-    signedInElsewhereTo: ScrobbleSite?,
-    configured: Boolean,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
 ) {
-    val scrobbleEnabled by AppSettings.lastfmScrobbleEnabled.collectAsState()
+    val (enabled, onEnabledChange) = rememberPreference(site.enabledKey, defaultValue = true)
     val uriHandler = LocalUriHandler.current
     val items = if (username == null) {
-        listOfNotNull(
-            signedInElsewhereTo?.let { other ->
-                SettingsItem(
-                    title = { Text(stringResource(R.string.scrobble_signed_in_to_other, other.label)) },
-                    descriptionText = stringResource(R.string.scrobble_sign_in_replaces, site.label, other.label),
-                    icon = painterResource(R.drawable.music_history),
-                    iconShape = CircleShape,
-                    onClick = null,
-                )
-            },
+        listOf(
             SettingsItem(
                 title = { Text(stringResource(R.string.scrobble_sign_in_title, site.label)) },
                 highlightKey = site.label,
                 descriptionText = stringResource(
-                    if (configured) R.string.scrobble_sign_in_desc else R.string.scrobble_not_set_up,
+                    if (site.api.isConfigured) R.string.scrobble_sign_in_desc else R.string.scrobble_not_set_up,
                 ),
                 icon = painterResource(R.drawable.login),
                 iconShape = CircleShape,
-                enabled = configured,
+                enabled = site.api.isConfigured,
                 onClick = onSignIn,
             ),
         )
@@ -202,32 +160,13 @@ private fun ScrobbleAccountGroup(
                 title = { Text(stringResource(R.string.scrobble_to, site.label)) },
                 highlightKey = site.label,
                 descriptionText = stringResource(
-                    if (scrobbleEnabled) R.string.scrobble_signed_in_as else R.string.scrobble_paused_signed_in_as,
+                    if (enabled) R.string.scrobble_signed_in_as else R.string.scrobble_paused_signed_in_as,
                     username,
                 ),
                 icon = painterResource(R.drawable.music_history),
                 iconShape = CircleShape,
-                onClick = {
-                    if (scrobbleEnabled) {
-                        AppSettings.setLastfmScrobbleEnabled(false)
-                    } else {
-                        AppSettings.setLastfmEnabled(true)
-                        AppSettings.setLastfmScrobbleEnabled(true)
-                    }
-                },
-                trailingContent = {
-                    AppSwitch(
-                        checked = scrobbleEnabled,
-                        onCheckedChange = { on ->
-                            if (on) {
-                                AppSettings.setLastfmEnabled(true)
-                                AppSettings.setLastfmScrobbleEnabled(true)
-                            } else {
-                                AppSettings.setLastfmScrobbleEnabled(false)
-                            }
-                        },
-                    )
-                },
+                onClick = { onEnabledChange(!enabled) },
+                trailingContent = { AppSwitch(checked = enabled, onCheckedChange = onEnabledChange) },
             ),
             SettingsItem(
                 title = { Text(stringResource(R.string.scrobble_open_profile)) },

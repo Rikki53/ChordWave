@@ -303,6 +303,8 @@ private val SettingsIndex = listOf(
     SettingsEntry("Libre.fm", "Integrations", "integrations_settings/scrobble/LIBREFM", "librefm scrobble scrobbling history stats account sign in"),
     SettingsEntry("Now Playing", "Integrations", "integrations_settings/scrobble/LASTFM", "scrobble now playing status profile lastfm librefm"),
     SettingsEntry("Send likes", "Integrations", "integrations_settings/scrobble/LASTFM", "love loved songs lastfm librefm scrobble"),
+    SettingsEntry("Backup", "Integrations", "integrations_settings/backup", "backup cloud dropbox onedrive webdav restore schedule"),
+    SettingsEntry("Spotify Canvas", "Integrations", "integrations_settings/spotify", "spotify canvas animated artwork sign in"),
     SettingsEntry("YouTube Music", "Integrations", "youtube_sync", "youtube ytm sync account sign in likes library playlists history"),
     SettingsEntry("YouTube account", "Integrations", "youtube_sync", "account sign in login google youtube profile sync"),
     SettingsEntry("Device integration", "Integrations", "device_integration", "tv television phone tablet car head unit pair link sync stream remote control devices wifi"),

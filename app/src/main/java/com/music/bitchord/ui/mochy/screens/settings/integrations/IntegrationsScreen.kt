@@ -1,8 +1,4 @@
-// settings → integrations: a row per service, always all of them, tapping one opens its own page
-// Ported from Mochy Music (GPL-3.0). Navigation is MochyNavigator route strings; the YouTube
-// Music row points at the import-sync route ("youtube_sync"), whose screen belongs to the
-// settings/import-sync port — the route string is literal here so this file does not depend
-// on that port's constant.
+// mochy → settings → integrations: a row per service, always all of them, tapping one opens its own page
 
 package com.music.bitchord.ui.mochy.screens.settings.integrations
 
@@ -16,11 +12,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.R
+import com.music.bitchord.data.mochydata.scrobble.ScrobbleSite
 import com.music.bitchord.ui.mochy.component.SubSettingsScaffold
-import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
-import com.music.bitchord.ui.mochy.screens.devices.rememberDevicesLink
-import com.music.bitchord.ui.mochy.screens.devices.showDeviceIntegration
-import com.music.bitchord.ui.mochy.navigation.MochyNavigator
+import com.music.bitchord.ui.mochy.screens.settings.importsync.YouTubeSyncRoute
+import com.music.bitchord.ui.mochy.screens.settings.integrations.backup.BackupRoute
 import com.music.bitchord.ui.mochy.screens.settings.integrations.discord.DiscordRoute
 
 const val IntegrationsRoute = "integrations_settings"
@@ -28,10 +23,11 @@ const val IntegrationsRoute = "integrations_settings"
 // the youtube music logo is a red disc, this fills its corners so it sits as a tile like the others
 private val YouTubeMusicRed = Color(0xFFFF0000)
 
+// backup has no brand of its own, so its white cloud sits on a plain blue tile
+private val BackupBlue = Color(0xFF2F7CF6)
+
 @Composable
-fun IntegrationsScreen(navigator: MochyNavigator) {
-    val sheets = LocalZoomOutOverlayState.current
-    val devicesLink = rememberDevicesLink()
+fun IntegrationsScreen(navigator: com.music.bitchord.ui.mochy.navigation.MochyNavigator) {
     SubSettingsScaffold(
         title = stringResource(R.string.integrations),
         onBack = { navigator.popBackStack() },
@@ -60,13 +56,15 @@ fun IntegrationsScreen(navigator: MochyNavigator) {
                 description = stringResource(R.string.module_youtube_desc),
                 icon = R.drawable.provider_youtube_music,
                 iconBackground = YouTubeMusicRed,
-                onClick = { navigator.navigate("youtube_sync") },
+                onClick = { navigator.navigate(YouTubeSyncRoute) },
             )
             IntegrationRow(
-                name = stringResource(R.string.devices_title),
-                description = stringResource(R.string.devices_row_detail),
-                icon = R.drawable.cast_connected,
-                onClick = { sheets.showDeviceIntegration(devicesLink) },
+                name = stringResource(R.string.integration_backup_name),
+                description = stringResource(R.string.integration_backup_desc),
+                icon = R.drawable.backup,
+                iconBackground = BackupBlue,
+                iconPadding = 7.dp,
+                onClick = { navigator.navigate(BackupRoute) },
             )
         }
 

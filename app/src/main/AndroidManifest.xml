@@ -1307,6 +1307,43 @@
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="com.music.bitchord.playback.cast.CastOptionsProvider" />
+        <!-- Discord's login page sends the browser back here once the user says yes (batch 55a, Mochy original) -->
+        <activity
+            android:name="com.music.bitchord.data.mochydata.discord.DiscordLoginActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="${discordRedirectScheme}" />
+            </intent-filter>
+        </activity>
+
+        <!-- Dropbox's and OneDrive's sign-in pages send the browser back here for cloud backups (batch 55a) -->
+        <activity
+            android:name="com.music.bitchord.data.mochydata.backup.CloudLoginActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="chordwave-backup" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

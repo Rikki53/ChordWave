@@ -37,6 +37,27 @@ val lastfmSecret: String = (
         ?: System.getenv("LASTFM_SECRET")
         ?: ""
     ).trim()
+// Batch 55a (Integrations, Mochy original): the Discord app the Modern
+// Discord page signs in through (Developer Portal -> your app ->
+// Application ID). Discord sends the login back to
+// discord-<id>:/authorize/callback, so the manifest needs it too. Without
+// one, the Discord page says so instead of opening a login that can't
+// come back. Blank until Riki registers the apps; nothing is invented.
+val discordClientId: String = (
+    localProps.getProperty("DISCORD_CLIENT_ID")
+        ?: System.getenv("DISCORD_CLIENT_ID")
+        ?: ""
+    ).trim()
+val dropboxAppKey: String = (
+    localProps.getProperty("DROPBOX_APP_KEY")
+        ?: System.getenv("DROPBOX_APP_KEY")
+        ?: ""
+    ).trim()
+val oneDriveClientId: String = (
+    localProps.getProperty("ONEDRIVE_CLIENT_ID")
+        ?: System.getenv("ONEDRIVE_CLIENT_ID")
+        ?: ""
+    ).trim()
 
 /*
  * Where Listen Together's party server lives. Not a credential — it is a public
@@ -98,6 +119,11 @@ android {
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "DISCORD_CLIENT_ID", "\"${discordClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        manifestPlaceholders["discordRedirectScheme"] =
+            if (discordClientId.isNotBlank()) "discord-$discordClientId" else "chordwave-discord-unset"
+        buildConfigField("String", "DROPBOX_APP_KEY", "\"${dropboxAppKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "ONEDRIVE_CLIENT_ID", "\"${oneDriveClientId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField(
             "String",
             "LISTEN_TOGETHER_SERVER",

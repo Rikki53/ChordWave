@@ -1,4 +1,3 @@
-// Ported from Mochy Music (GPL-3.0) — package only; the row is verbatim.
 package com.music.bitchord.ui.mochy.screens.settings.integrations
 
 import androidx.annotation.DrawableRes
@@ -22,6 +21,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -50,6 +50,8 @@ internal fun IntegrationRow(
     onClick: () -> Unit,
     // the colour behind the icon, for a round logo that should still read as a square tile
     iconBackground: Color = Color.Transparent,
+    // room around a plain glyph, so it sits inside its tile instead of filling it like a logo does
+    iconPadding: Dp = 0.dp,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -68,7 +70,8 @@ internal fun IntegrationRow(
             modifier = Modifier
                 .size(34.dp)
                 .clip(IconShape)
-                .background(iconBackground),
+                .background(iconBackground)
+                .padding(iconPadding),
         )
         Column(Modifier.padding(start = 12.dp)) {
             Text(

@@ -1,8 +1,4 @@
 // the pieces the discord page is built from, drawn to the user's mock: dark pill-shaped cards, pickers, a switch and a slider
-// Ported from Mochy Music (GPL-3.0). The image-source card and custom-picture row are gone:
-// ChordWave has no custom-presence-image engine, so DiscordScreen shows one disabled notice
-// card instead. The button card is rewritten for CW's two fixed targets (YouTube Music song
-// URL, ChordWave GitHub), and the placeholder card lists CW's variables.
 
 package com.music.bitchord.ui.mochy.screens.settings.integrations.discord
 
@@ -59,8 +55,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -69,7 +68,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.data.mochydata.discord.PresenceButton
+import com.music.bitchord.data.mochydata.discord.PresenceButtonTarget
+import com.music.bitchord.data.mochydata.discord.PresenceImage
+import com.music.bitchord.data.mochydata.discord.PresenceSettings
+import com.music.bitchord.data.mochydata.discord.SpinStyle
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import kotlinx.coroutines.delay
@@ -99,7 +104,10 @@ private val FieldHeight = 38.dp
 private const val UnfoldMs = 280
 
 @Composable
-internal fun DiscordSectionTitle(text: String, modifier: Modifier = Modifier) {
+internal fun DiscordSectionTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text = text,
         color = Color.White.copy(alpha = 0.5f),
@@ -116,11 +124,12 @@ internal fun DiscordCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(CardShape)
-            .background(color)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(CardShape)
+                .background(color)
+                .padding(horizontal = 14.dp, vertical = 13.dp),
         content = content,
     )
 }
@@ -137,9 +146,6 @@ internal fun DiscordSwitchCard(
     description: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-    /** an extra honest line, used by the controls ChordWave has no engine for */
-    note: String? = null,
 ) {
     DiscordCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -156,17 +162,8 @@ internal fun DiscordSwitchCard(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(top = 2.dp),
                 )
-                note?.let {
-                    Text(
-                        text = it,
-                        color = DiscordColors.Secondary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-                }
             }
-            AppSwitch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+            AppSwitch(checked = checked, onCheckedChange = onCheckedChange)
         }
     }
 }
@@ -190,30 +187,30 @@ internal fun DiscordTextField(
     onValueChange: (String) -> Unit,
     hint: String,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
 ) {
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        enabled = enabled,
-        textStyle = TextStyle(
-            fontFamily = InterFontFamily,
-            fontWeight = FontWeight.Medium,
-            fontSize = 13.sp,
-            color = if (enabled) DiscordColors.Primary else DiscordColors.Primary.copy(alpha = 0.4f),
-        ),
+        textStyle =
+            TextStyle(
+                fontFamily = InterFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                color = DiscordColors.Primary,
+            ),
         cursorBrush = SolidColor(Color.White),
         modifier = modifier.fillMaxWidth(),
         decorationBox = { inner ->
             Box(
                 contentAlignment = Alignment.CenterStart,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(FieldHeight)
-                    .clip(CircleShape)
-                    .background(DiscordColors.Field)
-                    .padding(horizontal = 16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(FieldHeight)
+                        .clip(CircleShape)
+                        .background(DiscordColors.Field)
+                        .padding(horizontal = 16.dp),
             ) {
                 if (value.isEmpty()) {
                     Text(hint, color = DiscordColors.Hint, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
@@ -230,13 +227,12 @@ internal fun DiscordTextCard(
     title: String,
     value: String,
     onValueChange: (String) -> Unit,
-    hint: String = "Hidden",
-    enabled: Boolean = true,
+    hint: String = stringResource(R.string.discord_field_hint_hidden),
 ) {
     DiscordCard {
         DiscordCardTitle(title)
         Spacer(Modifier.height(10.dp))
-        DiscordTextField(value = value, onValueChange = onValueChange, hint = hint, enabled = enabled)
+        DiscordTextField(value = value, onValueChange = onValueChange, hint = hint)
     }
 }
 
@@ -261,11 +257,12 @@ internal fun <T> DiscordDropdown(
         }
     }
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .bringIntoViewRequester(bringIntoView)
-            .clip(RoundedCornerShape(FieldHeight / 2))
-            .background(DiscordColors.Field),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .bringIntoViewRequester(bringIntoView)
+                .clip(RoundedCornerShape(FieldHeight / 2))
+                .background(DiscordColors.Field),
     ) {
         DropdownRow(
             text = label(selected),
@@ -275,17 +272,19 @@ internal fun <T> DiscordDropdown(
         ) {
             Icon(
                 painter = painterResource(R.drawable.expand_more),
-                contentDescription = if (open) "Close" else "Open",
+                contentDescription = if (open) stringResource(R.string.discord_cd_close) else stringResource(R.string.discord_cd_open),
                 tint = Color.White,
-                modifier = Modifier
-                    .size(22.dp)
-                    .graphicsLayer { rotationZ = chevronTurn },
+                modifier =
+                    Modifier
+                        .size(22.dp)
+                        .graphicsLayer { rotationZ = chevronTurn },
             )
         }
         AnimatedVisibility(
             visible = open,
-            enter = expandVertically(spring(dampingRatio = 0.86f, stiffness = 520f), expandFrom = Alignment.Top) +
-                fadeIn(tween(180, delayMillis = 60)),
+            enter =
+                expandVertically(spring(dampingRatio = 0.86f, stiffness = 520f), expandFrom = Alignment.Top) +
+                    fadeIn(tween(180, delayMillis = 60)),
             exit = shrinkVertically(tween(UnfoldMs), shrinkTowards = Alignment.Top) + fadeOut(tween(140)),
         ) {
             // every choice, the current one included, so picking doesn't reshuffle the list mid-fold
@@ -319,23 +318,25 @@ private fun DropdownRow(
 ) {
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(FieldHeight)
-            .padding(horizontal = 4.dp, vertical = 2.dp)
-            .clip(CircleShape)
-            .background(if (highlighted) DiscordColors.FieldSelected else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(FieldHeight)
+                .padding(horizontal = 4.dp, vertical = 2.dp)
+                .clip(CircleShape)
+                .background(if (highlighted) DiscordColors.FieldSelected else Color.Transparent)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 24.dp)) {
             if (icon != null) {
                 Image(
                     painter = painterResource(icon),
                     contentDescription = null,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(RoundedCornerShape(5.dp)),
+                    modifier =
+                        Modifier
+                            .size(18.dp)
+                            .clip(RoundedCornerShape(5.dp)),
                 )
                 Spacer(Modifier.width(8.dp))
             }
@@ -352,38 +353,176 @@ private fun DropdownRow(
     }
 }
 
-/**
- * One of the two buttons under the status. ChordWave's targets are FIXED — button 1 opens the
- * song on YouTube Music, button 2 opens ChordWave on GitHub — so there is no target picker,
- * only the label and whether the button shows at all.
- */
+@Composable
+internal fun DiscordImageSourceCard(
+    title: String,
+    selected: PresenceImage,
+    options: List<PresenceImage>,
+    onSelect: (PresenceImage) -> Unit,
+    spin: SpinStyle? = null,
+    onSpinChange: (SpinStyle) -> Unit = {},
+    // the picture behind "your own picture", and a way to pick another
+    customPicture: String = "",
+    onPickCustom: () -> Unit = {},
+    // fps and pixels of the canvas gif, shown once a canvas or apple music animated cover is picked
+    canvasFps: Int = PresenceSettings.DefaultCanvasFps,
+    canvasSize: Int = PresenceSettings.DefaultCanvasSize,
+    onCanvasChange: (fps: Int, size: Int) -> Unit = { _, _ -> },
+) {
+    val context = LocalContext.current
+    DiscordCard {
+        DiscordCardTitle(title)
+        Spacer(Modifier.height(10.dp))
+        DiscordDropdown(
+            selected = selected,
+            options = options,
+            label = { image ->
+                when (image) {
+                    PresenceImage.OFF -> context.getString(R.string.discord_image_turn_off)
+                    PresenceImage.ARTWORK -> context.getString(R.string.discord_image_artwork)
+                    PresenceImage.ARTIST -> context.getString(R.string.discord_image_artist)
+                    PresenceImage.PLAYBACK_STATUS -> context.getString(R.string.discord_image_playback_status)
+                    PresenceImage.APP_LOGO -> context.getString(R.string.discord_image_app_logo)
+                    PresenceImage.SPINNING_ARTIST -> context.getString(R.string.discord_image_spinning_artist)
+                    PresenceImage.SPINNING_ARTWORK -> context.getString(R.string.discord_image_spinning_artwork)
+                    PresenceImage.CUSTOM -> context.getString(R.string.discord_image_custom)
+                    PresenceImage.SPOTIFY_CANVAS -> context.getString(R.string.discord_image_spotify_canvas)
+                    PresenceImage.APPLE_COVER -> context.getString(R.string.discord_image_apple_cover)
+                    PresenceImage.CANVAS_OR_APPLE -> context.getString(R.string.discord_image_canvas_or_apple)
+                }
+            },
+            onSelect = onSelect,
+        )
+        if (selected == PresenceImage.CUSTOM) CustomPictureRow(customPicture, onPickCustom)
+        if (selected.isCanvas) {
+            FieldLabel(stringResource(R.string.discord_canvas_smoothness))
+            DiscordStepSlider(
+                value = canvasFps,
+                values = PresenceSettings.CanvasFpsSteps,
+                label = { "$it fps" },
+                onValueChange = { onCanvasChange(it, canvasSize) },
+            )
+            FieldLabel(stringResource(R.string.discord_canvas_size))
+            DiscordStepSlider(
+                value = canvasSize,
+                values = PresenceSettings.CanvasSizeSteps,
+                label = { "$it px" },
+                onValueChange = { onCanvasChange(canvasFps, it) },
+            )
+            // live progress of the gif for the song that is playing
+            CanvasGifProgressRow()
+            Text(
+                text = stringResource(R.string.discord_canvas_note),
+                color = DiscordColors.Secondary,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(start = 4.dp, top = 10.dp),
+            )
+        }
+        if (selected.isRotating && spin != null) {
+            FieldLabel(stringResource(R.string.discord_spin_full_turn))
+            DiscordStepSlider(
+                value = spin.secondsPerTurn,
+                values = (PresenceSettings.MinSpinSeconds..PresenceSettings.MaxSpinSeconds).toList(),
+                label = { "${it}s" },
+                onValueChange = { onSpinChange(spin.copy(secondsPerTurn = it)) },
+            )
+            FieldLabel(stringResource(R.string.discord_spin_smoothness))
+            DiscordStepSlider(
+                value = spin.fps,
+                values = PresenceSettings.SpinFpsSteps,
+                label = { "$it fps" },
+                onValueChange = { onSpinChange(spin.copy(fps = it)) },
+            )
+            Text(
+                text = stringResource(R.string.discord_spin_note),
+                color = DiscordColors.Secondary,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(start = 4.dp, top = 10.dp),
+            )
+        }
+    }
+}
+
+// the picked picture beside a button to choose another, and why it goes through a file host
+@Composable
+private fun CustomPictureRow(
+    picture: String,
+    onPick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 12.dp),
+    ) {
+        AsyncImage(
+            model = picture.takeIf { it.isNotBlank() },
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(DiscordColors.Field),
+        )
+        Spacer(Modifier.width(12.dp))
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clip(CircleShape)
+                    .background(DiscordColors.Field)
+                    .clickable(onClick = onPick),
+        ) {
+            Text(
+                text = stringResource(if (picture.isBlank()) R.string.discord_custom_pick else R.string.discord_custom_change),
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+    Text(
+        text = stringResource(R.string.discord_custom_note),
+        color = DiscordColors.Secondary,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp),
+    )
+}
+
 @Composable
 internal fun DiscordButtonCard(
     title: String,
-    text: String,
-    onTextChange: (String) -> Unit,
-    visible: Boolean,
-    onVisibleChange: (Boolean) -> Unit,
-    targetDescription: String,
+    button: PresenceButton,
+    onChange: (PresenceButton) -> Unit,
 ) {
+    val context = LocalContext.current
     DiscordCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            DiscordCardTitle(title)
-            Spacer(Modifier.weight(1f))
-            AppSwitch(checked = visible, onCheckedChange = onVisibleChange)
-        }
-        FieldLabel("Label")
+        DiscordCardTitle(title)
+        FieldLabel(stringResource(R.string.discord_field_label))
         DiscordTextField(
-            value = text,
-            onValueChange = onTextChange,
-            hint = "No button",
+            value = button.text,
+            onValueChange = { onChange(button.copy(text = it)) },
+            hint = stringResource(R.string.discord_field_hint_no_button),
         )
-        FieldLabel("Opens")
-        Text(
-            text = targetDescription,
-            color = DiscordColors.Secondary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
+        FieldLabel(stringResource(R.string.discord_field_opens))
+        DiscordDropdown(
+            selected = button.target,
+            options = PresenceButtonTarget.entries,
+            label = { target ->
+                when (target) {
+                    PresenceButtonTarget.YOUTUBE_MUSIC -> context.getString(R.string.discord_target_youtube_music)
+                    PresenceButtonTarget.SPOTIFY -> context.getString(R.string.discord_target_spotify)
+                    PresenceButtonTarget.APPLE_MUSIC -> context.getString(R.string.discord_target_apple_music)
+                    PresenceButtonTarget.TIDAL -> context.getString(R.string.discord_target_tidal)
+                    PresenceButtonTarget.MOCHY -> context.getString(R.string.discord_target_mochy)
+                }
+            },
+            onSelect = { onChange(button.copy(target = it)) },
+            optionIcon = { it.icon },
         )
     }
 }
@@ -398,11 +537,12 @@ internal fun <T> DiscordSegmented(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .height(36.dp)
-            .clip(CircleShape)
-            .background(DiscordColors.Field)
-            .padding(4.dp),
+        modifier =
+            Modifier
+                .height(36.dp)
+                .clip(CircleShape)
+                .background(DiscordColors.Field)
+                .padding(4.dp),
     ) {
         options.forEachIndexed { index, option ->
             if (index > 0) {
@@ -416,12 +556,13 @@ internal fun <T> DiscordSegmented(
             val isSelected = option == selected
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .width(110.dp)
-                    .fillMaxHeight()
-                    .clip(CircleShape)
-                    .background(if (isSelected) DiscordColors.FieldSelected else Color.Transparent)
-                    .clickable { onSelect(option) },
+                modifier =
+                    Modifier
+                        .width(110.dp)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(if (isSelected) DiscordColors.FieldSelected else Color.Transparent)
+                        .clickable { onSelect(option) },
             ) {
                 Text(
                     text = label(option),
@@ -441,18 +582,18 @@ internal fun DiscordStepSlider(
     values: List<Int>,
     label: (Int) -> String,
     onValueChange: (Int) -> Unit,
-    enabled: Boolean = true,
 ) {
     val latest by rememberUpdatedState(onValueChange)
-    val enabledNow by rememberUpdatedState(enabled)
     val density = LocalDensity.current
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(40.dp),
     ) {
         val widthPx = constraints.maxWidth.toFloat()
         val lastIndex = values.lastIndex.coerceAtLeast(1)
+
         fun valueAt(x: Float): Int {
             val fraction = (x / widthPx).coerceIn(0f, 1f)
             return values[(fraction * lastIndex).roundToInt().coerceIn(0, values.lastIndex)]
@@ -464,8 +605,8 @@ internal fun DiscordStepSlider(
             Modifier
                 .fillMaxWidth()
                 .height(40.dp)
-                .pointerInput(widthPx, values) { detectTapGestures { if (enabledNow) latest(valueAt(it.x)) } }
-                .pointerInput(widthPx, values) { detectHorizontalDragGestures { change, _ -> if (enabledNow) latest(valueAt(change.position.x)) } }
+                .pointerInput(widthPx, values) { detectTapGestures { latest(valueAt(it.x)) } }
+                .pointerInput(widthPx, values) { detectHorizontalDragGestures { change, _ -> latest(valueAt(change.position.x)) } }
                 .drawBehind {
                     val y = size.height - 6.dp.toPx()
                     val thickness = 3.dp.toPx()
@@ -477,7 +618,7 @@ internal fun DiscordStepSlider(
                         cornerRadius = radius,
                     )
                     drawRoundRect(
-                        color = Color.White.copy(alpha = if (enabled) 1f else 0.35f),
+                        color = Color.White,
                         topLeft = Offset(0f, y - thickness / 2),
                         size = Size(size.width * fraction.coerceAtLeast(0.02f), thickness),
                         cornerRadius = radius,
@@ -489,11 +630,12 @@ internal fun DiscordStepSlider(
         val labelX = (widthPx * fraction - labelWidth / 2).coerceIn(0f, (widthPx - labelWidth * 2).coerceAtLeast(0f))
         Text(
             text = label(value),
-            style = mono.copy(color = if (enabled) DiscordColors.Primary else DiscordColors.Secondary),
+            style = mono.copy(color = DiscordColors.Primary),
             textAlign = TextAlign.Center,
-            modifier = Modifier
-                .offset { IntOffset(labelX.roundToInt(), 0) }
-                .width(SliderLabelWidth),
+            modifier =
+                Modifier
+                    .offset { IntOffset(labelX.roundToInt(), 0) }
+                    .width(SliderLabelWidth),
         )
         Text(
             text = label(values.last()),
@@ -513,37 +655,47 @@ internal fun DiscordNoticeCard(text: String) {
     }
 }
 
-/** what each placeholder means, with a worked example. CW's variables come from DiscordRPC.resolveVariables. */
+/** what each placeholder means, with a worked example */
 @Composable
 internal fun DiscordPlaceholderCard() {
-    val body = TextStyle(
-        fontFamily = InterFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        color = Color.White.copy(alpha = 0.85f),
-    )
-    val placeholders = listOf(
-        "{song_name}" to "the song's title",
-        "{artist_name}" to "the song's artist",
-        "{album_name}" to "the song's album",
-    )
+    val body =
+        TextStyle(
+            fontFamily = InterFontFamily,
+            fontWeight = FontWeight.Normal,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+    val placeholders =
+        listOf(
+            "{name}" to stringResource(R.string.discord_ph_name),
+            "{artist}" to stringResource(R.string.discord_ph_artist),
+            "{album}" to stringResource(R.string.discord_ph_album),
+            "{app}" to stringResource(R.string.discord_ph_app),
+            "{quality}" to stringResource(R.string.discord_ph_quality),
+            "{apple}" to stringResource(R.string.discord_ph_apple),
+        )
     DiscordCard {
-        Text("Placeholder list", color = DiscordColors.Primary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(
+            stringResource(R.string.discord_placeholder_list_title),
+            color = DiscordColors.Primary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+        )
         Spacer(Modifier.height(4.dp))
         placeholders.forEach { (placeholder, meaning) ->
             Text("$placeholder = $meaning", style = body)
         }
         Spacer(Modifier.height(12.dp))
-        Text("For example, this activity name", style = body)
-        Text("{song_name} by {artist_name} on {album_name}", style = body.copy(color = DiscordColors.Primary, fontWeight = FontWeight.Medium))
+        Text(stringResource(R.string.discord_placeholder_example_title), style = body)
+        Text("{name} by {artist} on {album}", style = body.copy(color = DiscordColors.Primary, fontWeight = FontWeight.Medium))
         Spacer(Modifier.height(12.dp))
-        Text("shows up as", style = body)
+        Text(stringResource(R.string.discord_placeholder_shows_up_as), style = body)
         Text(
-            "Listening to Fake Plastic Trees by Radiohead on The Bends",
+            stringResource(R.string.discord_placeholder_example_result),
             style = body.copy(color = DiscordColors.Primary, fontWeight = FontWeight.Medium),
         )
         Spacer(Modifier.height(12.dp))
-        Text("They work in the activity name and the button labels.", style = body)
+        Text(stringResource(R.string.discord_placeholder_footer_note), style = body)
     }
 }

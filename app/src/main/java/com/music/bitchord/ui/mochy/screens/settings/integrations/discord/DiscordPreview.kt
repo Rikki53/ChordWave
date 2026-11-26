@@ -1,19 +1,19 @@
-// the top of the discord page: the switch and a preview of the status, built by
-// buildCwPresenceActivity, which mirrors DiscordRPC.updateSong line for line so the preview
-// shows what Discord actually receives.
-// Ported from Mochy Music (GPL-3.0). Mochy's Presence* engine types are replaced by local
-// Cw* types over CW's own Song and AppSettings; the status badge and spinning disc are gone
-// (CW sends no small image and no rotating artwork), and the banner is a flat colour because
-// CW stores no banner data.
+// the top of the discord page: the switch and a preview of the status, built by PresenceActivity, the same code that sends it
 
 package com.music.bitchord.ui.mochy.screens.settings.integrations.discord
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,10 +39,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,140 +57,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
-import com.music.bitchord.data.discord.DiscordRPC
-import com.music.bitchord.data.model.ArtistRef
-import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.mochydata.discord.DiscordProfile
+import com.music.bitchord.data.mochydata.discord.NowPlaying
+import com.music.bitchord.data.mochydata.discord.PresenceActivity
+import com.music.bitchord.data.mochydata.discord.PresenceImages
+import com.music.bitchord.data.mochydata.discord.PresenceKind
+import com.music.bitchord.data.mochydata.discord.PresencePicture
+import com.music.bitchord.data.mochydata.discord.PresenceSettings
 import com.music.bitchord.ui.mochy.component.AppSwitch
-import com.music.bitchord.ui.screens.DiscordActivityKind
-import java.util.Locale
 import kotlinx.coroutines.delay
 
 private val BannerHeight = 104.dp
 private val AvatarSize = 72.dp
 private val AvatarRing = 5.dp
-
-/** what CW stores about the connected Discord account (AppSettings discordUsername/Name/Avatar) */
-data class CwDiscordProfile(
-    val displayName: String,
-    val username: String,
-    val avatarUrl: String?,
-)
-
-/** the track the preview renders, from the live player or from [sample] when nothing is playing */
-data class CwNowPlaying(
-    val song: Song,
-    val positionMs: Long,
-    val durationMs: Long,
-    val isPlaying: Boolean,
-    val speed: Float,
-    /** the measured-quality line, or null for an ordinary lossy stream */
-    val qualityLine: String?,
-) {
-    companion object {
-        /** the stand-in track, so the page still shows a full card with the player idle */
-        fun sample() = CwNowPlaying(
-            song = Song(
-                videoId = "sample",
-                title = "Fake Plastic Trees",
-                artist = "Radiohead",
-                thumbnailUrl = null,
-                durationText = "4:12",
-                artists = listOf(ArtistRef("Radiohead")),
-                albumName = "The Bends",
-            ),
-            positionMs = 64_000L,
-            durationMs = 252_000L,
-            isPlaying = true,
-            speed = 1f,
-            qualityLine = null,
-        )
-    }
-}
-
-/** the presence settings as the preview needs them, read off AppSettings by DiscordScreen */
-data class CwPresenceSettings(
-    val enabled: Boolean,
-    val activityType: String,
-    val activityName: String,
-    val useDetails: Boolean,
-    val showAudioQuality: Boolean,
-    val button1Text: String,
-    val button1Visible: Boolean,
-    val button2Text: String,
-    val button2Visible: Boolean,
-)
-
-/** one picture as discord shows it: the track artwork, or the app mark when there is none */
-sealed interface CwPresencePicture {
-    data class Web(val url: String) : CwPresencePicture
-    data object Logo : CwPresencePicture
-}
-
-data class CwPresenceButton(val label: String)
-
-/** the presence Discord renders, built the way DiscordRPC.updateSong builds it */
-data class CwPresenceActivity(
-    val name: String,
-    val kind: DiscordActivityKind,
-    val details: String?,
-    val state: String?,
-    val largeText: String?,
-    val largeImage: CwPresencePicture?,
-    val smallImage: CwPresencePicture?,
-    val startMs: Long?,
-    val endMs: Long?,
-    val buttons: List<CwPresenceButton>,
-)
-
-/**
- * Mirrors [DiscordRPC.updateSong]: the name, the speed suffix on the title, the artwork rule,
- * the button labels (resolved variables, defaults when empty) and the start/end timestamps
- * with the playback speed divided out. One preview-only guard: with no known duration the
- * end timestamp is null, so the card counts up instead of counting down to a nonsense instant.
- */
-fun buildCwPresenceActivity(
-    track: CwNowPlaying,
-    settings: CwPresenceSettings,
-    nowMs: Long,
-    appName: String,
-): CwPresenceActivity {
-    val song = track.song
-    val speed = track.speed.takeIf { it > 0f } ?: 1f
-    val details = if (speed != 1f) {
-        "${song.title} [${String.format(Locale.ROOT, "%.2fx", speed)}]"
-    } else {
-        song.title
-    }
-    val buttons = buildList {
-        if (settings.button1Visible) {
-            add(CwPresenceButton(DiscordRPC.resolveVariables(settings.button1Text.ifEmpty { DiscordRPC.DEFAULT_BUTTON_1 }, song)))
-        }
-        if (settings.button2Visible) {
-            add(CwPresenceButton(DiscordRPC.resolveVariables(settings.button2Text.ifEmpty { DiscordRPC.DEFAULT_BUTTON_2 }, song)))
-        }
-    }
-    val adjustedPosition = (track.positionMs / speed).toLong()
-    return CwPresenceActivity(
-        name = settings.activityName.ifEmpty { appName },
-        kind = DiscordActivityKind.entries.find { it.value == settings.activityType } ?: DiscordActivityKind.LISTENING,
-        details = details,
-        state = song.artist,
-        largeText = track.qualityLine.takeIf { settings.showAudioQuality },
-        largeImage = song.artworkAt(480)
-            ?.takeIf { it.startsWith("http") }
-            ?.let(CwPresencePicture::Web)
-            ?: CwPresencePicture.Logo,
-        smallImage = null,
-        startMs = nowMs - adjustedPosition,
-        endMs = if (track.durationMs > 0) {
-            nowMs + ((track.durationMs - track.positionMs) / speed).toLong()
-        } else {
-            null
-        },
-        buttons = buttons,
-    )
-}
 
 @Composable
 internal fun DiscordToggleCard(
@@ -194,25 +80,32 @@ internal fun DiscordToggleCard(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(DiscordColors.ToggleCard)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(DiscordColors.ToggleCard)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Image(
             painter = painterResource(R.drawable.integration_discord),
             contentDescription = null,
-            modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape),
+            modifier =
+                Modifier
+                    .size(22.dp)
+                    .clip(CircleShape),
         )
         Column(
             Modifier
                 .weight(1f)
                 .padding(horizontal = 12.dp),
         ) {
-            Text("Enable rich presence", color = DiscordColors.Primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                stringResource(R.string.discord_enable_rich_presence),
+                color = DiscordColors.Primary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
             Text(status, color = DiscordColors.Secondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
         }
         AppSwitch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
@@ -222,34 +115,35 @@ internal fun DiscordToggleCard(
 /** the user's discord profile card, banner to bio, with the status underneath */
 @Composable
 internal fun DiscordProfileCard(
-    profile: CwDiscordProfile?,
-    track: CwNowPlaying,
-    settings: CwPresenceSettings,
-    appName: String,
+    profile: DiscordProfile?,
+    track: NowPlaying,
+    settings: PresenceSettings,
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(DiscordColors.Profile),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(DiscordColors.Profile),
     ) {
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(BannerHeight + AvatarSize / 2),
         ) {
-            Banner()
+            Banner(profile)
             Avatar(
                 url = profile?.avatarUrl,
-                modifier = Modifier
-                    .padding(start = 22.dp)
-                    .align(Alignment.BottomStart),
+                modifier =
+                    Modifier
+                        .padding(start = 22.dp)
+                        .align(Alignment.BottomStart),
             )
         }
         Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 10.dp)) {
             Text(
-                text = profile?.displayName?.takeIf { it.isNotBlank() } ?: "Not connected",
+                text = profile?.displayName ?: stringResource(R.string.discord_not_connected),
                 color = DiscordColors.Primary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -257,47 +151,73 @@ internal fun DiscordProfileCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = profile?.username?.takeIf { it.isNotBlank() } ?: "Log in to show your profile here",
+                text =
+                    profile?.let { listOfNotNull(it.username, it.pronouns).joinToString(" · ") }
+                        ?: stringResource(R.string.discord_login_to_show_profile),
                 color = DiscordColors.Secondary,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            profile?.bio?.let { bio ->
+                Text(
+                    text = bio,
+                    color = DiscordColors.Secondary,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
         }
         DiscordActivityPreview(
             track = track,
             settings = settings,
-            appName = appName,
             modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp),
         )
     }
 }
 
-/** CW stores no banner, so the profile card's banner is always the flat mock colour */
 @Composable
-private fun Banner() {
+private fun Banner(profile: DiscordProfile?) {
+    val color = profile?.bannerColor?.let { Color(0xFF000000 or it.toLong()) } ?: DiscordColors.Banner
     Box(
         Modifier
             .fillMaxWidth()
             .height(BannerHeight)
-            .background(DiscordColors.Banner),
-    )
+            .background(color),
+    ) {
+        profile?.bannerUrl?.let { url ->
+            AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        }
+    }
 }
 
 @Composable
-private fun Avatar(url: String?, modifier: Modifier) {
+private fun Avatar(
+    url: String?,
+    modifier: Modifier,
+) {
     Box(
-        modifier = modifier
-            .size(AvatarSize)
-            .clip(CircleShape)
-            .background(DiscordColors.Banner)
-            .padding(AvatarRing)
-            .clip(CircleShape)
-            .background(Color(0xFFD9D9D9)),
+        modifier =
+            modifier
+                .size(AvatarSize)
+                .clip(CircleShape)
+                .background(DiscordColors.Banner)
+                .padding(AvatarRing)
+                .clip(CircleShape)
+                .background(Color(0xFFD9D9D9)),
     ) {
         if (url != null) {
-            AsyncImage(model = url, contentDescription = "Your Discord picture", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            AsyncImage(
+                model = url,
+                contentDescription = stringResource(R.string.discord_cd_avatar),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }
@@ -305,9 +225,8 @@ private fun Avatar(url: String?, modifier: Modifier) {
 /** the status card itself: listening to ..., the pictures, the lines, the bar and the buttons */
 @Composable
 internal fun DiscordActivityPreview(
-    track: CwNowPlaying,
-    settings: CwPresenceSettings,
-    appName: String,
+    track: NowPlaying,
+    settings: PresenceSettings,
     modifier: Modifier = Modifier,
 ) {
     // a once-a-second clock moves the bar and the ring, like discord's own card
@@ -317,17 +236,26 @@ internal fun DiscordActivityPreview(
             value = System.currentTimeMillis()
         }
     }
-    val activity = remember(track, settings, now, appName) { buildCwPresenceActivity(track, settings, now, appName) }
+    val activity = remember(track, settings, now) { PresenceActivity.build(track, settings, now) }
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(DiscordColors.Activity)
-            .padding(14.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(DiscordColors.Activity)
+                .padding(14.dp),
     ) {
+        val prefix =
+            if (activity.kind ==
+                PresenceKind.LISTENING
+            ) {
+                stringResource(R.string.discord_listening_prefix)
+            } else {
+                stringResource(R.string.discord_playing_prefix)
+            }
         Text(
-            text = activity.kind.verb + " " + activity.name,
+            text = prefix + activity.name,
             color = DiscordColors.Primary,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
@@ -354,11 +282,12 @@ internal fun DiscordActivityPreview(
                 activity.buttons.forEach { button ->
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(30.dp)
-                            .clip(CircleShape)
-                            .background(DiscordColors.Profile),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(30.dp)
+                                .clip(CircleShape)
+                                .background(DiscordColors.Profile),
                     ) {
                         Text(button.label, color = DiscordColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                     }
@@ -369,22 +298,36 @@ internal fun DiscordActivityPreview(
 }
 
 @Composable
-private fun Line(text: String, size: Int = 11, weight: FontWeight = FontWeight.Normal, color: Color = DiscordColors.Secondary) {
+private fun Line(
+    text: String,
+    size: Int = 11,
+    weight: FontWeight = FontWeight.Normal,
+    color: Color = DiscordColors.Secondary,
+) {
     Text(text, color = color, fontSize = size.sp, fontWeight = weight, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 /** listening shows a bar from start to end, playing counts up, a paused song shows neither */
 @Composable
-private fun Times(activity: CwPresenceActivity, now: Long) {
+private fun Times(
+    activity: PresenceActivity,
+    now: Long,
+) {
     val start = activity.startMs ?: return
     val mono = Modifier.padding(top = 6.dp)
     val end = activity.endMs
     if (end == null) {
-        Text("${clock(now - start)} elapsed", color = DiscordColors.Secondary, fontSize = 10.sp, fontFamily = FontFamily.Monospace, modifier = mono)
+        Text(
+            stringResource(R.string.discord_time_elapsed, clock(now - start)),
+            color = DiscordColors.Secondary,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            modifier = mono,
+        )
         return
     }
-    val total = (end - start).coerceAtLeast(1)
-    val elapsed = (now - start).coerceIn(0, total)
+    val total = (end - start).coerceAtLeast(1L)
+    val elapsed = (now - start).coerceIn(0L, total)
     Row(verticalAlignment = Alignment.CenterVertically, modifier = mono) {
         Text(clock(elapsed), color = DiscordColors.Secondary, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
         Box(
@@ -413,7 +356,10 @@ private fun clock(ms: Long): String {
 
 /** the big picture with the small round one tucked into its corner, as discord lays them out */
 @Composable
-private fun Pictures(large: CwPresencePicture?, small: CwPresencePicture?) {
+private fun Pictures(
+    large: PresencePicture?,
+    small: PresencePicture?,
+) {
     Box(Modifier.size(66.dp)) {
         Box(
             Modifier
@@ -440,30 +386,125 @@ private fun Pictures(large: CwPresencePicture?, small: CwPresencePicture?) {
     }
 }
 
-/** one picture as discord shows it: the track artwork, or the ChordWave mark when there is none */
+/** one picture as discord shows it, the badge and the spinning disc are drawn here so the preview works before the pictures are uploaded */
 @Composable
-private fun PictureView(picture: CwPresencePicture) {
+private fun PictureView(picture: PresencePicture) {
     val fill = Modifier.fillMaxSize()
     when (picture) {
-        is CwPresencePicture.Web -> AsyncImage(model = picture.url, contentDescription = null, contentScale = ContentScale.Crop, modifier = fill)
-        CwPresencePicture.Logo -> Box(fill.background(Color(0xFF1A1A1A))) {
-            Image(
-                painter = painterResource(R.drawable.ic_chordwave_mark),
-                contentDescription = "ChordWave",
-                contentScale = ContentScale.Fit,
-                modifier = fill,
-            )
+        is PresencePicture.Web -> {
+            AsyncImage(model = picture.url, contentDescription = null, contentScale = ContentScale.Crop, modifier = fill)
+        }
+
+        is PresencePicture.Local -> {
+            AsyncImage(model = picture.sourceUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = fill)
+        }
+
+        PresencePicture.Logo -> {
+            Box(fill.background(Color(0xFF1A1A1A))) {
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_mark),
+                    contentDescription = "Mochy",
+                    contentScale = ContentScale.Crop,
+                    // the launcher picture has a safe margin around it, the github copy is cropped the same
+                    modifier =
+                        fill.graphicsLayer {
+                            scaleX = 1.5f
+                            scaleY = 1.5f
+                        },
+                )
+            }
+        }
+
+        is PresencePicture.Status -> {
+            StatusBadge(picture, fill)
+        }
+
+        is PresencePicture.Spinning -> {
+            SpinningPicture(picture.sourceUrl, picture.style.secondsPerTurn, fill)
+        }
+
+        is PresencePicture.Canvas -> {
+            CanvasPreview(picture, fill)
         }
     }
+}
+
+/** the same badge scripts/discord_presence_images.py draws, at preview size */
+@Composable
+private fun StatusBadge(
+    status: PresencePicture.Status,
+    modifier: Modifier,
+) {
+    Canvas(modifier) {
+        val s = size.minDimension
+        drawCircle(Color(0xFF1E1F22))
+        val stroke = s * 0.085f
+        val inset = s * 0.16f + stroke / 2
+        val arcSize = Size(s - inset * 2, s - inset * 2)
+        drawArc(Color.White.copy(alpha = 0.22f), 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
+        val sweep = 360f * status.step / PresenceImages.StatusSteps
+        if (sweep > 0f) {
+            drawArc(Color.White, -90f, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        }
+        val glyph = s * 0.30f
+        val cx = s / 2
+        val cy = s / 2
+        if (status.playing) {
+            val left = cx - glyph * 0.38f
+            val triangle =
+                Path().apply {
+                    moveTo(left, cy - glyph / 2)
+                    lineTo(left, cy + glyph / 2)
+                    lineTo(left + glyph * 0.9f, cy)
+                    close()
+                }
+            drawPath(triangle, Color.White)
+        } else {
+            val bar = glyph * 0.3f
+            val gap = glyph * 0.26f
+            listOf(cx - gap / 2 - bar, cx + gap / 2).forEach { x ->
+                drawRoundRect(
+                    Color.White,
+                    topLeft = Offset(x, cy - glyph / 2),
+                    size = Size(bar, glyph),
+                    cornerRadius = CornerRadius(bar / 2),
+                )
+            }
+        }
+    }
+}
+
+/** the rotating disc, turning at the user's speed like the gif */
+@Composable
+private fun SpinningPicture(
+    url: String,
+    secondsPerTurn: Int,
+    modifier: Modifier,
+) {
+    val turn = rememberInfiniteTransition(label = "spin")
+    val degrees by turn.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(secondsPerTurn * 1_000, easing = LinearEasing), RepeatMode.Restart),
+        label = "spin",
+    )
+    AsyncImage(
+        model = url,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier =
+            modifier
+                .graphicsLayer { rotationZ = degrees }
+                .clip(CircleShape),
+    )
 }
 
 /** the status again, floating at the bottom while the user edits further down the page */
 @Composable
 internal fun DiscordFloatingPreview(
     visible: Boolean,
-    track: CwNowPlaying,
-    settings: CwPresenceSettings,
-    appName: String,
+    track: NowPlaying,
+    settings: PresenceSettings,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -475,10 +516,34 @@ internal fun DiscordFloatingPreview(
         DiscordActivityPreview(
             track = track,
             settings = settings,
-            appName = appName,
-            modifier = Modifier
-                .shadow(elevation = 18.dp, shape = RoundedCornerShape(14.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(14.dp)),
+            modifier =
+                Modifier
+                    .shadow(elevation = 18.dp, shape = RoundedCornerShape(14.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(14.dp)),
         )
+    }
+}
+
+// the cover first, the canvas video plays over it once it was found (same video the status turns into a gif)
+@Composable
+private fun CanvasPreview(picture: PresencePicture.Canvas, modifier: Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val video = androidx.compose.runtime.produceState<String?>(null, picture.title, picture.artist, picture.source) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                com.music.bitchord.data.mochydata.discord.CanvasVideo.find(context, picture.title, picture.artist, picture.durationSec, picture.source)
+            }.getOrNull()
+        }
+    }.value
+    Box(modifier) {
+        AsyncImage(model = picture.fallback, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        if (video != null) {
+            com.music.bitchord.ui.mochy.player.CanvasArtworkPlayer(
+                primaryUrl = video,
+                fallbackUrl = null,
+                isPlaying = true,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }

@@ -170,7 +170,9 @@ import com.music.bitchord.ui.mochy.screens.settings.importsync.YouTubeLoginScree
 import com.music.bitchord.ui.mochy.screens.settings.importsync.YouTubeSyncScreen
 import com.music.bitchord.ui.mochy.screens.settings.integrations.IntegrationsScreen
 import com.music.bitchord.ui.mochy.screens.settings.integrations.ScrobbleServiceScreen
-import com.music.bitchord.ui.mochy.screens.settings.integrations.ScrobbleSite
+import com.music.bitchord.data.mochydata.scrobble.ScrobbleSite
+import com.music.bitchord.ui.mochy.screens.settings.integrations.backup.BackupScreen
+import com.music.bitchord.ui.mochy.screens.settings.integrations.spotify.SpotifyScreen
 import com.music.bitchord.ui.mochy.screens.settings.integrations.discord.DiscordScreen
 import com.music.bitchord.ui.mochy.screens.settings.storage.StorageScreen
 import com.music.bitchord.ui.mochy.screens.audiolab.AudioFxScreen
@@ -991,12 +993,6 @@ private fun DetailContent(
         route == "storage_settings" -> StorageScreen(navigator = navigator)
         route == "integrations_settings" -> IntegrationsScreen(navigator = navigator)
         route == "integrations_settings/discord" -> DiscordScreen(navigator = navigator)
-        route == "integrations_settings/discord/login" -> DiscordLoginScreen(
-            onTokenCaptured = {
-                AppSettings.setDiscordToken(it)
-                navigator.popBackStack()
-            },
-        )
         route.startsWith("integrations_settings/scrobble/") -> {
             val site = ScrobbleSite.entries.firstOrNull {
                 it.name == route.removePrefix("integrations_settings/scrobble/")
@@ -1004,6 +1000,8 @@ private fun DetailContent(
             } ?: ScrobbleSite.LASTFM
             ScrobbleServiceScreen(navigator = navigator, site = site)
         }
+        route == "integrations_settings/backup" -> BackupScreen(navigator = navigator)
+        route == "integrations_settings/spotify" -> SpotifyScreen(navigator = navigator)
         route == "import_sync" -> ImportSyncScreen(navigator = navigator)
         route == "import_providers" -> ImportProvidersScreen(navigator = navigator)
         route == "import_tunemymusic" -> TuneMyMusicImportScreen(navigator = navigator)

@@ -35,6 +35,8 @@ import com.music.bitchord.ui.mochy.component.SettingsHighlight
 import com.music.bitchord.ui.mochy.component.SettingsItem
 import com.music.bitchord.ui.mochy.component.SubSettingsScaffold
 import com.music.bitchord.ui.mochy.component.SubSettingsSearchBar
+import com.music.bitchord.ui.mochy.constants.SpotifyCanvasKey
+import com.music.bitchord.ui.mochy.screens.settings.integrations.spotify.SpotifyRoute
 import com.music.bitchord.ui.mochy.constants.CanvasThumbnailAnimationKey
 import com.music.bitchord.ui.mochy.constants.CanvasWifiOnlyKey
 import com.music.bitchord.ui.mochy.constants.DisableVideoAutoplayKey
@@ -73,7 +75,7 @@ fun NowPlayingSettingsScreen(navigator: MochyNavigator) {
         Section(stringResource(R.string.settings_on_the_player), badgeItems().matching(query))
         Section(stringResource(R.string.settings_section_lyrics), nowPlayingLyricsItems().matching(query))
         Section(stringResource(R.string.settings_section_videos), videoItems().matching(query))
-        Section(stringResource(R.string.settings_section_canvas), canvasItems().matching(query))
+        Section(stringResource(R.string.settings_section_canvas), canvasItems(navigator).matching(query))
         Section(stringResource(R.string.settings_related), nowPlayingRelatedItems(navigator).matching(query))
         Spacer(Modifier.height(140.dp))
     }
@@ -254,12 +256,13 @@ private fun videoQualityItem(): SettingsItem {
 }
 
 @Composable
-private fun canvasItems(): List<SettingsItem> {
+private fun canvasItems(navigator: MochyNavigator): List<SettingsItem> {
     val (canvasEnabled, onCanvasEnabledChange) = rememberPreference(CanvasThumbnailAnimationKey, defaultValue = true)
     val (canvasWifiOnly, onCanvasWifiOnlyChange) = rememberPreference(CanvasWifiOnlyKey, defaultValue = true)
     val canvasOrder by AppSettings.canvasOrder.collectAsState()
     val canvasBest by AppSettings.canvasBestQuality.collectAsState()
     val disableSpotifyCanvas by AppSettings.disableSpotifyCanvas.collectAsState()
+    val (spotifyCanvas) = rememberPreference(SpotifyCanvasKey, defaultValue = false)
     val canvasSourceNames = mapOf(
         CanvasSearchSource.APPLE to stringResource(R.string.canvas_source_apple),
         CanvasSearchSource.TIDAL to stringResource(R.string.canvas_source_tidal),
@@ -304,6 +307,15 @@ private fun canvasItems(): List<SettingsItem> {
             checked = disableSpotifyCanvas,
             onCheckedChange = AppSettings::setDisableSpotifyCanvas,
             subOptionOf = canvasEnabled,
+        ),
+        linkItem(
+            key = "Spotify canvas",
+            title = stringResource(R.string.spotify_canvas),
+            description = stringResource(if (spotifyCanvas) R.string.spotify_canvas_row_on else R.string.spotify_canvas_row_off),
+            icon = painterResource(R.drawable.sparks),
+            onClick = { navigator.navigate(SpotifyRoute) },
+            visible = canvasEnabled,
+            isSubOption = true,
         ),
         switchItem(
             key = "Canvas on Wi-Fi only",

@@ -153,6 +153,10 @@ import com.music.bitchord.playback.cast.Speakers
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.playback.toSong
 import androidx.datastore.preferences.core.edit
+import com.music.bitchord.data.mochydata.discord.DiscordPresence
+import com.music.bitchord.data.mochydata.discord.NowPlaying
+import com.music.bitchord.data.mochydata.scrobble.Scrobbler
+import com.music.bitchord.data.mochydata.scrobble.ScrobbleTimer
 import com.music.bitchord.ui.mochy.constants.AudioNormalizationKey
 import com.music.bitchord.ui.mochy.constants.AudioQuality
 import com.music.bitchord.ui.mochy.constants.AudioQualityKey
@@ -162,6 +166,9 @@ import com.music.bitchord.ui.mochy.constants.MixWithOtherAppsKey
 import com.music.bitchord.ui.mochy.constants.PauseOnMute
 import com.music.bitchord.ui.mochy.constants.PersistentShuffleAcrossQueuesKey
 import com.music.bitchord.ui.mochy.constants.PersistentQueueKey
+import com.music.bitchord.ui.mochy.constants.ScrobbleDelayPercentKey
+import com.music.bitchord.ui.mochy.constants.ScrobbleDelaySecondsKey
+import com.music.bitchord.ui.mochy.constants.ScrobbleMinSongDurationKey
 import com.music.bitchord.ui.mochy.constants.HiResOutputKey
 import com.music.bitchord.ui.mochy.constants.RepeatModeKey
 import com.music.bitchord.ui.mochy.constants.ResumeOnBluetoothConnectKey
@@ -176,6 +183,10 @@ import com.music.bitchord.ui.mochy.constants.TransportFadeMaxSeconds
 import com.music.bitchord.ui.mochy.constants.TransportFadeMinSeconds
 import com.music.bitchord.ui.mochy.constants.TransportFadeSecondsKey
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
+import com.music.bitchord.ui.mochy.di.PlayerIntegrationsEntryPoint
+import com.music.bitchord.ui.mochy.models.MediaMetadata
+import com.music.bitchord.ui.mochy.utils.dataStore
+import dagger.hilt.android.EntryPointAccessors
 import com.music.bitchord.ui.mochy.utils.dataStore
 import com.music.bitchord.wear.WearBridge
 import com.music.bitchord.widget.MediaWidget
@@ -314,6 +325,7 @@ class MochyMusicService : MediaLibraryService() {
         partySync = PartySync(scope) { player }.also { it.start() }
         watchSleepTimer()
         observeTransportPrefs()
+        observeScrobblePrefs()
 
         mediaSession = MediaLibrarySession.Builder(
             this,
@@ -512,6 +524,65 @@ class MochyMusicService : MediaLibraryService() {
 
     // ---- player events ----------------------------------------------------
 
+    // Batch 55a (Integrations, Mochy original): the Modern engine feeds the
+    // Discord presence and the scrobbler, exactly where Mochy's MusicService
+    // does. Both are Hilt singletons reached through the entry point, since
+    // this service isn't built by Hilt.
+    private val integrations: PlayerIntegrationsEntryPoint by lazy {
+        EntryPointAccessors.fromApplication(applicationContext, PlayerIntegrationsEntryPoint::class.java)
+    }
+    private val discordPresence: DiscordPresence by lazy { integrations.discordPresence() }
+    private val scrobbler: Scrobbler by lazy { integrations.scrobbler() }
+    private val scrobbleTimer by lazy { ScrobbleTimer({ scope }, scrobbler) }
+
+    /** what the player is on, in the shape the scrobble timer reads */
+    private fun currentMediaMetadata(): MediaMetadata? {
+        val item = player?.currentMediaItem ?: return null
+        val song = item.toSong()
+        val durationSec = ((player?.duration ?: 0L).takeIf { it > 0 }?.div(1000))?.toInt() ?: 0
+        return MediaMetadata(
+            id = song.videoId,
+            title = song.title,
+            artists = song.artists.map { MediaMetadata.Artist(it.browseId, it.name) }
+                .ifEmpty { listOf(MediaMetadata.Artist(song.artistId, song.artist)) },
+            duration = durationSec,
+            thumbnailUrl = song.thumbnailUrl,
+            album = song.albumId?.let { MediaMetadata.Album(it, song.albumName.orEmpty()) },
+            localUri = song.localUri,
+        )
+    }
+
+    /** Tells the Discord status what's playing; it ignores this when Discord isn't signed in or is off. */
+    private fun publishPresence() {
+        val p = player
+        val item = p?.currentMediaItem
+        if (p == null || item == null || p.playbackState == Player.STATE_IDLE || p.playbackState == Player.STATE_ENDED) {
+            discordPresence.update(null)
+            return
+        }
+        val song = item.toSong()
+        discordPresence.update(
+            NowPlaying(
+                mediaId = song.videoId,
+                title = song.title,
+                artist = song.artist,
+                album = song.albumName,
+                artworkUrl = song.thumbnailUrl,
+                // ChordWave's MediaItem carries no artist picture; Mochy
+                // resolves one from its library, which has no counterpart here.
+                artistArtworkUrl = null,
+                durationMs = p.duration.takeIf { it > 0 } ?: 0L,
+                positionMs = p.currentPosition,
+                readAtMs = System.currentTimeMillis(),
+                speed = p.playbackParameters.speed,
+                // buffering with play pressed still counts as playing, so the status doesn't flicker
+                isPlaying = p.playWhenReady,
+                quality = song.sourceQuality,
+                isYouTube = song.localUri == null,
+            ),
+        )
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             // "Sleep after this song": the queue moving on by itself is
@@ -539,6 +610,8 @@ class MochyMusicService : MediaLibraryService() {
             lastSampleAt = System.currentTimeMillis()
             playCountedForTrack = false
             speakers.onLocalTransition(mediaItem, reason)
+            scrobbleTimer.onSongStart(currentMediaMetadata(), player?.duration ?: 0L)
+            publishPresence()
             publishWidgetState()
             refreshCustomLayout()
         }
@@ -548,6 +621,8 @@ class MochyMusicService : MediaLibraryService() {
             if (playbackState == Player.STATE_ENDED) {
                 flushPlayRecord()
                 ListeningRecorder.onStopped()
+                scrobbleTimer.onSongStop()
+                publishPresence()
                 maybeAutoplayRefill()
             }
         }
@@ -561,6 +636,8 @@ class MochyMusicService : MediaLibraryService() {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             publishWidgetState()
             if (!isPlaying) ListeningRecorder.onStopped()
+            scrobbleTimer.onPlayingChanged(isPlaying, currentMediaMetadata(), player?.duration ?: 0L)
+            publishPresence()
         }
 
         override fun onRepeatModeChanged(repeatMode: Int) {
@@ -1009,6 +1086,10 @@ class MochyMusicService : MediaLibraryService() {
         val previous = LikeState.overrides.value[videoId] ?: LikeStatus.INDIFFERENT
         val target = if (previous == LikeStatus.LIKE) LikeStatus.INDIFFERENT else LikeStatus.LIKE
         LikeState.set(videoId, target)
+        // a like here becomes a love on Last.fm/Libre.fm, when the user asked for that
+        player?.currentMediaItem?.takeIf { it.mediaId == videoId }?.toSong()?.let { song ->
+            scrobbler.love(song.artist, song.title, target == LikeStatus.LIKE)
+        }
         refreshCustomLayout()
         publishWidgetState()
         favoriteActionJob = scope.launch {
@@ -1225,6 +1306,26 @@ class MochyMusicService : MediaLibraryService() {
     // not ported (see the header), so blendSkip/blendJump stay false and
     // skips fade on this player, which is Mochy's own fallback path.
 
+    // the scrobble timer's thresholds, kept in step with the settings store
+    private fun observeScrobblePrefs() {
+        scope.launch {
+            applicationContext.dataStore.data
+                .map { prefs ->
+                    Triple(
+                        prefs[ScrobbleDelayPercentKey] ?: ScrobbleTimer.DEFAULT_PLAYED_FRACTION,
+                        prefs[ScrobbleMinSongDurationKey] ?: ScrobbleTimer.DEFAULT_MIN_SONG_SECONDS,
+                        prefs[ScrobbleDelaySecondsKey] ?: ScrobbleTimer.DEFAULT_MAX_WAIT_SECONDS,
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { (playedFraction, minSongSeconds, maxWaitSeconds) ->
+                    scrobbleTimer.playedFraction = playedFraction
+                    scrobbleTimer.minSongSeconds = minSongSeconds
+                    scrobbleTimer.maxWaitSeconds = maxWaitSeconds
+                }
+        }
+    }
+
     private fun observeTransportPrefs() {
         scope.launch {
             applicationContext.dataStore.data
@@ -1298,6 +1399,8 @@ class MochyMusicService : MediaLibraryService() {
         runCatching { transport.cancel() }
         flushPlayRecord()
         ListeningRecorder.onStopped()
+        runCatching { scrobbleTimer.onSongStop() }
+        runCatching { discordPresence.update(null) }
         handler.removeCallbacksAndMessages(null)
         CastController.detach(castPlayback)
         castPlayback.release()

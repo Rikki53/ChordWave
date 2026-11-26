@@ -94,6 +94,8 @@ import com.music.bitchord.playback.ACTION_CLEAR_BOUNDED_CONTEXT
 import com.music.bitchord.playback.fromAutoplay
 import com.music.bitchord.playback.toSong
 import com.music.bitchord.ui.mochy.constants.InfiniteQueueKey
+import com.music.bitchord.ui.mochy.di.PlayerIntegrationsEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.link.LinkPlayer
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntity
@@ -1151,6 +1153,12 @@ class MochyPlayerConnection(context: Context) {
         }
         scope.toggleSongLike(meta.id, !meta.liked)
         mediaMetadata.value = meta.copy(liked = !meta.liked)
+        // a like here becomes a love on Last.fm/Libre.fm, when the user asked for that
+        runCatching {
+            EntryPointAccessors.fromApplication(context, PlayerIntegrationsEntryPoint::class.java)
+                .scrobbler()
+                .love(meta.artists.firstOrNull()?.name.orEmpty(), meta.title, !meta.liked)
+        }
     }
 
     fun toggleLibrary() {
