@@ -110,7 +110,7 @@ fun AmbientBackdrop(
 }
 
 // lays the content out a quarter the size and draws it into a small layer of its own, scaled back up to fill the space
-private fun Modifier.downscaledLayer(): Modifier = layout { measurable, constraints ->
+internal fun Modifier.downscaledLayer(): Modifier = layout { measurable, constraints ->
     val width = constraints.maxWidth
     val height = constraints.maxHeight
     val small = measurable.measure(

@@ -38,8 +38,8 @@ internal sealed interface ShareBackground {
     /** soft colour clouds taken from the cover, drifting slowly, over the cover blurred */
     data object FromMusic : ShareBackground
 
-    /** a picture from the phone; [opacity] fades it toward black so the words stay readable, [blur] softens it (0..1) */
-    data class Picture(val uri: Uri, val blur: Float = 0.6f, val opacity: Float = 0.85f) : ShareBackground
+    /** a picture from the phone; [opacity] fades it toward black so the words stay readable */
+    data class Picture(val uri: Uri, val blur: Boolean = true, val opacity: Float = 0.85f) : ShareBackground
 
     data class Solid(val color: Color) : ShareBackground
 }

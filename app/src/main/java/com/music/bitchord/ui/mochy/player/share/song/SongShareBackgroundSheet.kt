@@ -11,12 +11,17 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,12 +33,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,7 +52,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -60,19 +62,19 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.component.PopupSheetHandle
-import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
 import com.music.bitchord.ui.mochy.component.PopupSheetState
+import com.music.bitchord.ui.mochy.component.TopToaster
+import com.music.bitchord.ui.mochy.menu.songedit.showYouTubeVideoPicker
 import com.music.bitchord.ui.mochy.component.SheetPillButton
 import com.music.bitchord.ui.mochy.player.share.AddCircle
 import com.music.bitchord.ui.mochy.player.share.BackdropOf
 import com.music.bitchord.ui.mochy.player.share.ColourBackgroundControls
 import com.music.bitchord.ui.mochy.player.share.PictureBackgroundControls
 import com.music.bitchord.ui.mochy.player.share.ShareBackground
-import com.music.bitchord.ui.mochy.player.share.ShareMuted
 import com.music.bitchord.ui.mochy.player.share.ShareBasicColours
 import com.music.bitchord.ui.mochy.player.share.ShareHint
+import com.music.bitchord.ui.mochy.player.share.LiquidCoverBackdrop
 import com.music.bitchord.ui.mochy.player.share.backgroundPageCard
-import com.music.bitchord.ui.mochy.player.share.shareBackgroundBlur
 import com.music.bitchord.ui.mochy.screens.audiolab.LabCard
 import com.music.bitchord.ui.mochy.screens.audiolab.LabSlider
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
@@ -84,7 +86,10 @@ import kotlin.math.roundToInt
 
 // the video pages come first and the still ones after; a pager shows one kind or the other
 private enum class BackgroundPage(@StringRes val label: Int, @StringRes val hint: Int?, val video: Boolean) {
+    LiquidCover(R.string.song_share_bg_liquid_cover, R.string.song_share_bg_liquid_cover_hint, video = true),
+    AnimatedCover(R.string.song_share_bg_animated_cover, R.string.song_share_bg_animated_cover_hint, video = true),
     MusicVideo(R.string.song_share_bg_music_video, R.string.song_share_bg_music_video_hint, video = true),
+    YouTubeVideo(R.string.song_share_bg_youtube_video, R.string.song_share_bg_youtube_video_hint, video = true),
     OwnVideo(R.string.song_share_bg_own_video, R.string.song_share_bg_own_video_hint, video = true),
     Music(R.string.song_share_bg_music, R.string.song_share_bg_music_hint, video = false),
     Picture(R.string.song_share_bg_picture, null, video = false),
@@ -106,8 +111,11 @@ internal fun PopupSheetState.showBackgroundPager(session: SongShareSession, vide
 
 private fun pageOf(background: SongBackground): BackgroundPage = when (background) {
     is SongBackground.Video -> when (background.source) {
+        ShareVideoSource.LiquidCover -> BackgroundPage.LiquidCover
         is ShareVideoSource.Own -> BackgroundPage.OwnVideo
         ShareVideoSource.MusicVideo -> BackgroundPage.MusicVideo
+        ShareVideoSource.YouTube -> BackgroundPage.YouTubeVideo
+        ShareVideoSource.AnimatedCover -> BackgroundPage.AnimatedCover
     }
     is SongBackground.Still -> when (background.background) {
         ShareBackground.FromMusic -> BackgroundPage.Music
@@ -120,10 +128,11 @@ private fun pageOf(background: SongBackground): BackgroundPage = when (backgroun
 private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetState, video: Boolean) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pages = remember(video, session.musicVideo is Fetched.Found) {
+    val pages = remember(video, session.musicVideo is Fetched.Found, session.animatedCover is Fetched.Found) {
         BackgroundPage.entries.filter { page ->
             page.video == video && when (page) {
                 BackgroundPage.MusicVideo -> session.musicVideo is Fetched.Found
+                BackgroundPage.AnimatedCover -> session.animatedCover is Fetched.Found
                 else -> true
             }
         }
@@ -132,7 +141,6 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
     var picture by remember { mutableStateOf(session.lastStill as? ShareBackground.Picture) }
     var colour by remember { mutableStateOf((session.lastStill as? ShareBackground.Solid)?.color ?: session.palette.firstOrNull() ?: ShareBasicColours[0]) }
     var dim by remember { mutableFloatStateOf((session.background as? SongBackground.Video)?.dim ?: session.lastVideo?.dim ?: 0.85f) }
-    var blur by remember { mutableFloatStateOf((session.background as? SongBackground.Video)?.blur ?: session.lastVideo?.blur ?: 0f) }
     // opens on what's up now, or on the last of this kind that was
     val opensOn = when {
         (session.background is SongBackground.Video) == video -> session.background
@@ -144,8 +152,13 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
     // the page you land on is used straight away, the one it opens on included, so picking a kind shows it at once
     fun applyPage(page: Int) {
         when (pages.getOrNull(page) ?: return) {
-            BackgroundPage.OwnVideo -> session.lastOwnVideo?.let { session.setVideo(SongBackground.Video(it, dim, blur)) }
-            BackgroundPage.MusicVideo -> session.setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, dim, blur))
+            BackgroundPage.LiquidCover -> session.setVideo(SongBackground.Video(ShareVideoSource.LiquidCover, dim))
+            BackgroundPage.OwnVideo -> session.lastOwnVideo?.let { session.setVideo(SongBackground.Video(it, dim)) }
+            BackgroundPage.MusicVideo -> session.setVideo(SongBackground.Video(ShareVideoSource.MusicVideo, dim))
+            BackgroundPage.YouTubeVideo -> if (session.pickedYouTubeVideo is Fetched.Found) {
+                session.setVideo(SongBackground.Video(ShareVideoSource.YouTube, dim))
+            }
+            BackgroundPage.AnimatedCover -> session.setVideo(SongBackground.Video(ShareVideoSource.AnimatedCover, dim))
             BackgroundPage.Music -> session.setStill(ShareBackground.FromMusic)
             // no picture yet: keep what was there until one is picked
             BackgroundPage.Picture -> picture?.let(session::setStill)
@@ -156,7 +169,7 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
 
     val pictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         if (uri != null) {
-            val next = ShareBackground.Picture(uri, blur = picture?.blur ?: 0.6f, opacity = picture?.opacity ?: 0.85f)
+            val next = ShareBackground.Picture(uri, blur = picture?.blur ?: true, opacity = picture?.opacity ?: 0.85f)
             picture = next
             session.setStill(next)
         }
@@ -168,22 +181,34 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
             if (duration <= 0L) return@launch
             val own = ShareVideoSource.Own(uri, startMs = 0L, lengthMs = duration.coerceAtMost(OwnVideoLongestMs), durationMs = duration)
             session.lastOwnVideo = own
-            session.setVideo(SongBackground.Video(own, dim, blur))
+            session.setVideo(SongBackground.Video(own, dim))
             // a video longer than the clip asks which part to use
             if (duration > OwnVideoLongestMs) popup.showVideoPart(session)
         }
     }
     val pickPicture = { pictureLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
     val pickVideo = { videoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
+    val pickYouTubeVideo: () -> Unit = {
+        val initialQuery = "${session.song.title} ${session.share.artist}".trim()
+        popup.showYouTubeVideoPicker(
+            initialQuery = initialQuery,
+            currentVideoId = session.pickedYouTubeVideo.found?.videoId,
+            currentTitle = session.pickedYouTubeTitle,
+            subtitle = context.getString(R.string.song_share_bg_youtube_picker_subtitle),
+        ) { videoId, title ->
+            val ok = loadPickedYouTubeVideo(session, videoId, title)
+            if (ok) {
+                session.setVideo(SongBackground.Video(ShareVideoSource.YouTube, dim))
+            } else {
+                TopToaster.show(context.getString(R.string.song_share_bg_youtube_failed))
+            }
+            ok
+        }
+    }
     val setDim: (Float) -> Unit = { value ->
         dim = value
         val shown = session.background
         if (shown is SongBackground.Video) session.setVideo(shown.copy(dim = value))
-    }
-    val setBlur: (Float) -> Unit = { value ->
-        blur = value
-        val shown = session.background
-        if (shown is SongBackground.Video) session.setVideo(shown.copy(blur = value))
     }
     val cardHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
 
@@ -199,18 +224,43 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                 // only the page in the middle plays its video, so swiping never runs three decoders at once
                 val current = pager.settledPage == page
                 when (pages[page]) {
+                    BackgroundPage.LiquidCover -> {
+                        val clock = if (current) {
+                            rememberInfiniteTransition(label = "liquidPreview").animateFloat(
+                                initialValue = 0f,
+                                targetValue = 24f,
+                                animationSpec = infiniteRepeatable(tween(24_000, easing = LinearEasing), RepeatMode.Restart),
+                                label = "liquidPreviewSec",
+                            )
+                        } else {
+                            null
+                        }
+                        LiquidCoverBackdrop(
+                            coverBlur = session.art.coverBlur,
+                            palette = session.palette,
+                            dim = dim,
+                            timeSec = { clock?.value ?: 1.5f },
+                        )
+                    }
                     BackgroundPage.OwnVideo -> {
                         val own = session.lastOwnVideo
                         if (own != null) {
-                            // the card shows the video as it will sit behind the words, dim included,
-                            // so the brightness slider below answers at once (batch 26)
-                            if (current) Box(Modifier.fillMaxSize().background(Color.Black)) { ShareVideoLayer(session, playing = session.onScreen, source = own, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }.shareBackgroundBlur(blur)) } else CoverStill(session)
+                            if (current) ShareVideoLayer(session, playing = session.onScreen, source = own) else CoverStill(session)
                         } else {
                             AddCircle(contentDescription = stringResource(R.string.song_share_bg_pick_video), onClick = pickVideo)
                         }
                     }
                     BackgroundPage.MusicVideo ->
-                        if (current) Box(Modifier.fillMaxSize().background(Color.Black)) { ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.MusicVideo, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = dim }.shareBackgroundBlur(blur)) } else CoverStill(session)
+                        if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.MusicVideo) else CoverStill(session)
+                    BackgroundPage.YouTubeVideo -> {
+                        if (session.pickedYouTubeVideo is Fetched.Found) {
+                            if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.YouTube) else CoverStill(session)
+                        } else {
+                            AddCircle(contentDescription = stringResource(R.string.song_share_bg_youtube_video), onClick = pickYouTubeVideo)
+                        }
+                    }
+                    BackgroundPage.AnimatedCover ->
+                        if (current) ShareVideoLayer(session, playing = session.onScreen, source = ShareVideoSource.AnimatedCover) else CoverStill(session)
                     BackgroundPage.Music -> BackdropOf(ShareBackground.FromMusic, session.song.thumbnailUrl, session.palette, animate = true)
                     BackgroundPage.Colour -> BackdropOf(ShareBackground.Solid(colour), null, session.palette, animate = false)
                     BackgroundPage.Picture -> {
@@ -246,17 +296,30 @@ private fun SongBackgroundContent(session: SongShareSession, popup: PopupSheetSt
                     BackgroundPage.OwnVideo -> if (session.lastOwnVideo == null) {
                         ShareHint(stringResource(R.string.song_share_bg_own_video_hint))
                     } else {
-                        DimCard(dim, blur, setDim, setBlur) {
+                        DimCard(dim, setDim) {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
                                 TextAction(stringResource(R.string.song_share_bg_which_part)) { popup.showVideoPart(session) }
                                 TextAction(stringResource(R.string.song_share_bg_change_video), onClick = pickVideo)
                             }
                         }
                     }
-                    BackgroundPage.MusicVideo -> {
+                    BackgroundPage.YouTubeVideo -> if (session.pickedYouTubeVideo !is Fetched.Found) {
+                        ShareHint(stringResource(R.string.song_share_bg_youtube_video_hint))
+                    } else {
+                        session.pickedYouTubeTitle?.takeIf { it.isNotBlank() }?.let { pickedTitle ->
+                            ShareHint(pickedTitle)
+                            Spacer(Modifier.height(12.dp))
+                        }
+                        DimCard(dim, setDim) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                                TextAction(stringResource(R.string.song_share_bg_change_video), onClick = pickYouTubeVideo)
+                            }
+                        }
+                    }
+                    BackgroundPage.LiquidCover, BackgroundPage.MusicVideo, BackgroundPage.AnimatedCover -> {
                         page.hint?.let { ShareHint(stringResource(it)) }
                         Spacer(Modifier.height(12.dp))
-                        DimCard(dim, blur, setDim, setBlur) {}
+                        DimCard(dim, setDim) {}
                     }
                     BackgroundPage.Music -> page.hint?.let { ShareHint(stringResource(it)) }
                     BackgroundPage.Picture -> {
@@ -294,9 +357,9 @@ internal fun CoverStill(session: SongShareSession) {
     )
 }
 
-// how bright and how soft the video shows under the card
+// how bright the video shows under the card
 @Composable
-private fun DimCard(dim: Float, blur: Float, onDim: (Float) -> Unit, onBlur: (Float) -> Unit, extra: @Composable () -> Unit) {
+private fun DimCard(dim: Float, onDim: (Float) -> Unit, extra: @Composable () -> Unit) {
     LabCard(padding = 10.dp) {
         LabSlider(
             label = stringResource(R.string.song_share_bg_brightness),
@@ -304,14 +367,6 @@ private fun DimCard(dim: Float, blur: Float, onDim: (Float) -> Unit, onBlur: (Fl
             value = dim,
             onValueChange = onDim,
             valueRange = 0.2f..1f,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-        )
-        LabSlider(
-            label = stringResource(R.string.mochy_share_blur),
-            valueText = "${(blur * 100).roundToInt()}%",
-            value = blur,
-            onValueChange = onBlur,
-            valueRange = 0f..1f,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
         )
         extra()
@@ -331,37 +386,6 @@ private fun TextAction(text: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
     )
-}
-
-// one provider's row: its name, what it offers or why it can't, and a filled dot when it is the one playing
-@Composable
-internal fun CanvasSourceRow(label: String, hint: String, enabled: Boolean, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer { alpha = if (enabled) 1f else 0.45f }
-            .clip(RoundedCornerShape(16.dp))
-            .background(MenuRowSurface)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(label, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color.White)
-            Text(hint, fontFamily = InterFontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, color = ShareMuted)
-        }
-        Box(
-            modifier = Modifier
-                .size(20.dp)
-                .clip(CircleShape)
-                .border(2.dp, Color.White.copy(alpha = if (selected) 1f else 0.5f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White))
-            }
-        }
-    }
 }
 
 internal suspend fun videoDurationMs(context: Context, uri: Uri): Long = withContext(Dispatchers.IO) {

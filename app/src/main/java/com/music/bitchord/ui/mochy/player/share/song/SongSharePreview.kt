@@ -25,6 +25,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -55,6 +57,7 @@ import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.damageBoundary
+import com.music.bitchord.ui.mochy.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.mochy.player.share.ShareHeight
 import com.music.bitchord.ui.mochy.player.share.ShareRegions
 import com.music.bitchord.ui.mochy.player.share.ShareWidth
@@ -85,6 +88,46 @@ internal fun SharePictureFit(modifier: Modifier, corner: Dp = 26.dp, fill: Boole
     }
 }
 
+// fits the card-only view into the available box by adjusting density (not post-scale) so text and shaders stay razor sharp
+@Composable
+internal fun ShareCardOnlyFit(
+    session: SongShareSession,
+    positionMs: () -> Long,
+    moving: Boolean,
+    playing: Boolean,
+    modifier: Modifier = Modifier,
+    maxScale: Float = 1.3f,
+    onCardTap: (() -> Unit)? = null,
+) {
+    val cardWidth = cardWidthOf(session.kind)
+    // Remember measured height/width ratio so tall lyrics cards scale smoothly to fit inside the preview box
+    var aspect by remember(session.kind) {
+        mutableFloatStateOf(if (session.kind == SongShareKind.MusicOnly) 1.55f else 0.9f)
+    }
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        val k = min(maxWidth / cardWidth, maxHeight / (cardWidth * aspect)).coerceIn(0.35f, maxScale)
+        val density = LocalDensity.current
+        Box(Modifier.damageBoundary()) {
+            CompositionLocalProvider(LocalDensity provides Density(density.density * k, fontScale = 1f)) {
+                SongShareCardOnly(
+                    session = session,
+                    positionMs = positionMs,
+                    layers = ShareLayers.Everything,
+                    moving = moving,
+                    onCardTap = onCardTap,
+                    video = { ShareVideoLayer(session, playing = playing, source = session.activeVideoSource) },
+                    modifier = Modifier.onSizeChanged { sz ->
+                        if (sz.width > 0 && sz.height > 0) {
+                            val measured = sz.height.toFloat() / sz.width.toFloat()
+                            if (kotlin.math.abs(measured - aspect) > 0.01f) aspect = measured
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
 // the editor's live picture: drag or pinch to move the background, tap the card to style it; only the front page's picture moves
 @Composable
 internal fun SongSharePreview(
@@ -97,6 +140,17 @@ internal fun SongSharePreview(
     overlay: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val resting = remember(session) { { session.windowStartMs } }
+    if (session.isCardOnly) {
+        ShareCardOnlyFit(
+            session = session,
+            positionMs = if (live) session.playheadMs else resting,
+            moving = live && session.isVideo,
+            playing = live && session.previewPlays,
+            modifier = modifier,
+            onCardTap = onCardTap,
+        )
+        return
+    }
     SharePictureFit(modifier) {
         Box {
             SongSharePicture(
@@ -129,11 +183,14 @@ internal fun ShareVideoLayer(
     session: SongShareSession,
     playing: Boolean,
     modifier: Modifier = Modifier.fillMaxSize(),
-    source: ShareVideoSource? = (session.background as? SongBackground.Video)?.source,
+    source: ShareVideoSource? = session.activeVideoSource,
 ) {
     val loops = session.preview?.loops ?: 0
     when (source) {
-        null -> Unit
+        null, ShareVideoSource.LiquidCover -> Unit
+        ShareVideoSource.AnimatedCover -> session.animatedCover.found?.let { url ->
+            CanvasArtworkPlayer(primaryUrl = url, fallbackUrl = null, isPlaying = playing, modifier = modifier)
+        }
         ShareVideoSource.MusicVideo -> session.musicVideo.found?.let { music ->
             val track = music.trackFor(PreviewVideoShortSide)
             if (track == null) {
@@ -142,10 +199,24 @@ internal fun ShareVideoLayer(
                 CoverStill(session)
             } else {
                 val start = music.videoMsAt(session.windowStartMs).coerceAtLeast(0L)
+                val mime = track.mimeType.substringBefore(';').ifBlank { MimeTypes.VIDEO_MP4 }
                 val item = remember(track.url, start, session.windowLengthMs) {
-                    clippedItem(MediaItem.Builder().setUri(track.url).setMimeType(MimeTypes.VIDEO_MP4), start, session.windowLengthMs)
+                    clippedItem(MediaItem.Builder().setUri(track.url).setMimeType(mime), start, session.windowLengthMs)
                 }
                 LoopingVideo(item, music.streams.headers, playing, restartKey = loops, modifier = modifier) { CoverStill(session) }
+            }
+        }
+        ShareVideoSource.YouTube -> session.pickedYouTubeVideo.found?.let { yt ->
+            val track = yt.trackFor(PreviewVideoShortSide)
+            if (track == null) {
+                CoverStill(session)
+            } else {
+                val (start, length) = youtubeClipWindow(yt, session.windowStartMs, session.windowLengthMs)
+                val mime = track.mimeType.substringBefore(';').ifBlank { MimeTypes.VIDEO_MP4 }
+                val item = remember(track.url, start, length) {
+                    clippedItem(MediaItem.Builder().setUri(track.url).setMimeType(mime), start, length)
+                }
+                LoopingVideo(item, yt.streams.headers, playing, restartKey = loops, modifier = modifier) { CoverStill(session) }
             }
         }
         is ShareVideoSource.Own -> {

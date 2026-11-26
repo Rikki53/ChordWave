@@ -3,10 +3,6 @@
 
 package com.music.bitchord.ui.mochy.player.share.song
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
-import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
 import com.music.bitchord.ui.mochy.component.AppSwitch
 import com.music.bitchord.ui.mochy.component.PopupSheetHandle
@@ -67,7 +62,6 @@ import com.music.bitchord.ui.mochy.player.share.song.export.copySongLink
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.resize
 import com.music.bitchord.ui.mochy.component.RemoteFocus
-import kotlinx.coroutines.launch
 
 // from a menu: the song on a card, its lyrics, or just the link
 internal fun PopupSheetState.showKindPage(session: SongShareSession): PopupSheetHandle {
@@ -142,8 +136,7 @@ private fun SongShareSession.startLyrics(popup: PopupSheetState) {
 // after the lines: on a card, or the cinematic words straight on the picture; a style that can't hold that many words shakes
 internal fun PopupSheetState.showStylePage(session: SongShareSession) {
     val popup = this
-    // forward, not back (batch 36): the tiles pick, Next carries on
-    show(buttonBar = { SheetPillButton(text = stringResource(R.string.song_share_next), onClick = { popup.showEditor(session) }) }) {
+    show(buttonBar = { GoBackButton(popup::dismiss) }) {
         val pick = session.pick ?: return@show
         ShareTitle(stringResource(R.string.song_share_style_title), stringResource(R.string.song_share_style_subtitle))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 20.dp)) {
@@ -154,77 +147,14 @@ internal fun PopupSheetState.showStylePage(session: SongShareSession) {
                     subtitle = if (fits) stringResource(R.string.song_share_style_fits, style.maxWords) else stringResource(R.string.song_share_style_too_many),
                     enabled = fits,
                     selected = pick.style == style,
-                    onClick = { pick.style = style },
+                    onClick = {
+                        pick.style = style
+                        popup.showEditor(session)
+                    },
                 ) { TilePicture(session, SongShareKind.Lyrics, style) }
             }
         }
-        // a video from the phone, picked the same way the background sheet picks it
-        val ownVideoContext = LocalContext.current
-        val ownVideoScope = rememberCoroutineScope()
-        val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
-            if (uri == null) return@rememberLauncherForActivityResult
-            ownVideoScope.launch {
-                val duration = videoDurationMs(ownVideoContext, uri)
-                if (duration <= 0L) return@launch
-                val own = ShareVideoSource.Own(uri, startMs = 0L, lengthMs = duration.coerceAtMost(OwnVideoLongestMs), durationMs = duration)
-                session.lastOwnVideo = own
-                val current = (session.background as? SongBackground.Video) ?: session.lastVideo
-                session.setVideo(SongBackground.Video(own, current?.dim ?: 0.85f, current?.blur ?: 0f))
-                // a video longer than the clip asks which part to use
-                if (duration > OwnVideoLongestMs) popup.showVideoPart(session)
-            }
-        }
-        val pickVideo = { videoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
-        // the video choice, here on the share page itself: the song's own
-        // music video or a video from the phone behind the words — no
-        // detour through Edit background (batch 12; that path still works
-        // unchanged). The animated-cover providers were removed in batch 28.
-        SectionLabel(stringResource(R.string.song_share_type_video))
-        Spacer(Modifier.height(10.dp))
-        val musicVideoState = session.musicVideo
-        CanvasSourceRow(
-            label = stringResource(R.string.song_share_bg_music_video),
-            hint = stringResource(
-                when (musicVideoState) {
-                    is Fetched.Found -> R.string.song_share_bg_music_video_hint
-                    Fetched.Looking -> R.string.song_share_bg_music_video_looking
-                    Fetched.Missing -> R.string.song_share_bg_music_video_missing
-                },
-            ),
-            enabled = musicVideoState is Fetched.Found,
-            selected = (session.background as? SongBackground.Video)?.source == ShareVideoSource.MusicVideo,
-            onClick = { session.useMusicVideo() },
-        )
-        Spacer(Modifier.height(8.dp))
-        CanvasSourceRow(
-            label = stringResource(R.string.song_share_bg_own_video),
-            hint = stringResource(R.string.song_share_bg_own_video_row_hint),
-            enabled = true,
-            selected = (session.background as? SongBackground.Video)?.source is ShareVideoSource.Own,
-            onClick = { pickVideo() },
-        )
-        Spacer(Modifier.height(20.dp))
         ReadingSwitches(session)
-        // how the words move as they're sung — the player settings' own
-        // choices (batch 28); only synced lyrics have anything to animate
-        if (session.lyricsSynced) {
-            SectionLabel(stringResource(R.string.appearance_lyrics_animation))
-            Spacer(Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 20.dp)) {
-                LyricsMotionStyle.entries.forEach { style ->
-                    CanvasSourceRow(
-                        label = style.displayName,
-                        hint = style.description,
-                        enabled = true,
-                        selected = session.lyricsLook.motionStyle == style,
-                        onClick = {
-                            session.motionPickedInEditor = true
-                            session.lyricsLook = session.lyricsLook.copy(motionStyle = style)
-                        },
-                    )
-                }
-            }
-        }
     }
 }
 

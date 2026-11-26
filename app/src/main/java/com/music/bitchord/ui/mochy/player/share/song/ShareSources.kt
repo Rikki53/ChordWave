@@ -12,9 +12,11 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.request.transformations
 import coil3.toBitmap
+import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
+import com.music.bitchord.data.model.Song as CwSong
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
 import com.music.bitchord.ui.mochy.lyrics.serializeLyricLines
@@ -114,6 +116,23 @@ internal suspend fun loadLyricsOffset(session: SongShareSession) {
         ?: AppSettings.lyricsOffsetMs.value).toLong()
 }
 
+// the album's looping cover from the same places the player finds it
+internal suspend fun loadAnimatedCover(session: SongShareSession) {
+    val song = session.song
+    val found = runCatching {
+        CanvasRepository.canvasFor(
+            CwSong(
+                videoId = song.id,
+                title = song.title,
+                artist = session.share.artist,
+                thumbnailUrl = song.thumbnailUrl,
+                albumName = song.album?.title,
+            ),
+        )
+    }.getOrNull()
+    session.animatedCover = found?.url?.takeIf { it.isNotBlank() }?.let { Fetched.Found(it) } ?: Fetched.Missing
+}
+
 // the song's music video, its own picture when the song is a video; lined up as-is until matchMusicVideo has listened to both
 internal suspend fun findMusicVideo(session: SongShareSession) {
     val song = session.song
@@ -136,6 +155,39 @@ internal suspend fun matchMusicVideo(session: SongShareSession) {
     val video = session.musicVideo.found ?: return
     val map = matchSongToVideo(session.song.id, video.videoId) ?: return
     session.musicVideo = Fetched.Found(ShareMusicVideo(video.videoId, video.streams, map::videoMsAt))
+}
+
+// resolves streams for a YouTube video picked from search inside Song Share; returns false if no playable video stream was found
+internal suspend fun loadPickedYouTubeVideo(session: SongShareSession, videoId: String, title: String): Boolean {
+    val streams = resolveVideoStreams(videoId).getOrNull() ?: return false
+    if (streams.tracks.isEmpty()) return false
+    session.pickedYouTubeTitle = title
+    session.pickedYouTubeVideo = Fetched.Found(ShareMusicVideo(videoId, streams) { it })
+    return true
+}
+
+// aligns a picked YouTube video with the song if its audio matches; unrelated videos stay on their fallback position
+internal suspend fun matchPickedYouTubeVideo(session: SongShareSession, videoId: String) {
+    if (videoId == session.song.id) return
+    val map = matchSongToVideo(session.song.id, videoId) ?: return
+    val current = session.pickedYouTubeVideo.found?.takeIf { it.videoId == videoId } ?: return
+    session.pickedYouTubeVideo = Fetched.Found(ShareMusicVideo(current.videoId, current.streams, map::videoMsAt))
+}
+
+// keeps a YouTube clip window inside the video's real duration so short loops and arbitrary videos never clip past EOF
+internal fun youtubeClipWindow(video: ShareMusicVideo, songStartMs: Long, windowLengthMs: Long): Pair<Long, Long> {
+    val safeWindow = windowLengthMs.coerceAtLeast(1L)
+    val rawStart = video.videoMsAt(songStartMs).coerceAtLeast(0L)
+    val duration = video.streams.durationMs
+    if (duration <= 0L) return rawStart to safeWindow
+    val clipLength = safeWindow.coerceAtMost(duration).coerceAtLeast(1L)
+    val maxStart = (duration - clipLength).coerceAtLeast(0L)
+    val start = when {
+        rawStart <= maxStart -> rawStart
+        maxStart == 0L -> 0L
+        else -> rawStart % maxStart
+    }
+    return start to clipLength
 }
 
 // links run out after a few hours; an export fetches fresh ones first if they have

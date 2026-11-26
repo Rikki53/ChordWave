@@ -133,6 +133,7 @@ private fun SongShareDialog(
         }
         LaunchedEffect(session) {
             launch { loadShareArt(context, session) }
+            launch { loadAnimatedCover(session) }
             launch { findMusicVideo(session) }
             if (heldLyrics == null) {
                 loadShareLyrics(context, session)
@@ -153,10 +154,20 @@ private fun SongShareDialog(
             snapshotFlow { ((session.background as? SongBackground.Still)?.background as? ShareBackground.Picture)?.uri }
                 .collect { uri -> if (uri != null) loadPictureArt(context, session, uri) }
         }
-        // lining the music video up means listening to both; it only happens once the music video is picked
+        // lining the music video up means listening to both; it only happens once the music video is picked (full canvas or card only)
         LaunchedEffect(session) {
-            snapshotFlow { (session.background as? SongBackground.Video)?.source == ShareVideoSource.MusicVideo }.first { it }
+            snapshotFlow { session.activeVideoSource == ShareVideoSource.MusicVideo }.first { it }
             matchMusicVideo(session)
+        }
+        // if the user picks a YouTube video from search that happens to match the song's audio, line it up automatically too
+        LaunchedEffect(session) {
+            var matchedId: String? = null
+            snapshotFlow { session.pickedYouTubeVideo.found?.videoId }.collectLatest { videoId ->
+                if (videoId != null && videoId != matchedId) {
+                    matchedId = videoId
+                    matchPickedYouTubeVideo(session, videoId)
+                }
+            }
         }
         MovesThePlayhead(session)
         SongPreviewAudio(session)
@@ -194,12 +205,7 @@ private fun ReadLyricsLook(session: SongShareSession) {
     val (highBloom) = rememberPreference(LyricsHighBloomKey, defaultValue = true)
     val (lineBlur) = rememberPreference(ElementBlurKey, defaultValue = true)
     LaunchedEffect(motionStyle, highBloom, lineBlur) {
-        // the editor's own animation pick (batch 28) wins over the player setting
-        session.lyricsLook = ShareLyricsLook(
-            if (session.motionPickedInEditor) session.lyricsLook.motionStyle else motionStyle,
-            highBloom,
-            lineBlur,
-        )
+        session.lyricsLook = ShareLyricsLook(motionStyle, highBloom, lineBlur)
     }
 }
 

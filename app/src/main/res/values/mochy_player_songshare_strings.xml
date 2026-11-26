@@ -115,4 +115,20 @@
     <string name="mochy_share_romanisation">Romanisation</string>
     <string name="mochy_share_romanize_as_main">Romanisation as the main line</string>
     <string name="mochy_share_translation">Translation</string>
+    <!-- Card only + flowing/YouTube backgrounds (batch 47: Mochy's share restored whole) -->
+    <string name="song_share_bg_liquid_cover">Flowing cover</string>
+    <string name="song_share_bg_liquid_cover_hint">The cover swirling and warping softly in motion</string>
+    <string name="song_share_bg_youtube_failed">Couldn\'t load that video. Try another one.</string>
+    <string name="song_share_bg_youtube_picker_subtitle">Search YouTube for a background video</string>
+    <string name="song_share_bg_youtube_video">Find YouTube video</string>
+    <string name="song_share_bg_youtube_video_hint">Tap the circle to search YouTube for a video</string>
+    <string name="song_share_card_bg">Card background</string>
+    <string name="song_share_card_bg_blurred">Blurred cover</string>
+    <string name="song_share_card_bg_liquid">Flowing cover</string>
+    <string name="song_share_card_bg_music_video">Music video</string>
+    <string name="song_share_card_bg_own_video">Your video</string>
+    <string name="song_share_card_bg_youtube">YouTube</string>
+    <string name="song_share_card_only">Card only</string>
+    <string name="song_share_card_only_hint">Remove the background and share just the card</string>
+    <string name="song_share_editor_hint_card_only">Tap the card to style its look or background</string>
 </resources>

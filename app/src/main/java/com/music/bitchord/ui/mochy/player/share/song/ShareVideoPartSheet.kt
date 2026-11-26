@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,8 +28,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.graphicsLayer
-import com.music.bitchord.ui.mochy.player.share.shareBackgroundBlur
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -77,9 +74,7 @@ private fun VideoPartContent(session: SongShareSession) {
                 .clip(RoundedCornerShape(28.dp))
                 .background(Color(0xFF2C2C2E)),
         ) {
-            // shown at the background's brightness and blur, like every other preview of it (batches 26, 36)
-            val video = session.background as? SongBackground.Video
-            ShareVideoLayer(session, playing = session.onScreen, source = own, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = video?.dim ?: 0.85f }.shareBackgroundBlur(video?.blur ?: 0f))
+            ShareVideoLayer(session, playing = session.onScreen, source = own)
         }
         Spacer(Modifier.height(14.dp))
         Text(

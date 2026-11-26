@@ -90,9 +90,8 @@ private val ShareRequest.cardMoves: Boolean
 
 internal suspend fun ShareRequest.sendTo(app: ShareApp) {
     val target = app.installedPackage(context) ?: return
-    // ChordWave's port has no "Card only" mode, so Mochy's !isCardOnly guard
-    // is always true here and drops out
-    if (app.takesSticker(context) && openStory(app, target)) return
+    // a card-only share is the card itself, so there is no sticker to lay on a background
+    if (!session.isCardOnly && app.takesSticker(context) && openStory(app, target)) return
     val baked = export(ShareLayers.Everything)
     val send = Intent(Intent.ACTION_SEND).apply {
         type = baked.mimeType
@@ -152,12 +151,10 @@ internal fun copySongLink(context: Context, session: SongShareSession): Boolean 
     return true
 }
 
-// what travels with the picture or video: the song's name, then an
-// invitation to hear it together in ChordWave — the link opens the song in
-// the app when it is installed and the song's page when it is not
+// what travels with the picture or video: the song's name, and its link under it when there is one
 private fun caption(context: Context, session: SongShareSession): String {
     val line = context.getString(R.string.song_share_caption, session.share.title, session.share.artist)
-    return session.link?.let { link -> "$line\n${context.getString(R.string.song_share_caption_invite, link)}" } ?: line
+    return session.link?.let { "$line\n$it" } ?: line
 }
 
 private fun uriOf(context: Context, file: File): Uri =

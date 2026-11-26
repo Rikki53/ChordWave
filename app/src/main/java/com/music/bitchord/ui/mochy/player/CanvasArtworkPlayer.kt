@@ -25,8 +25,10 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.ui.mochy.player.flagship.ambientTones
 import com.music.bitchord.ui.player.CanvasArtworkPlayer as SharedCanvasArtworkPlayer
+import androidx.media3.common.MimeTypes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 // the frame capture's longest edge, and how often a playing clip's colours are re-read
 private const val CanvasSamplePx = 64
@@ -76,4 +78,17 @@ fun CanvasArtworkPlayer(
         refreshFrameEveryMs = if (onFrameColors != null) CanvasFrameRefreshMs else null,
         frameCapturePx = if (onFrameColors != null) CanvasSamplePx else 0,
     )
+}
+
+// what a canvas loop's link actually is, for the share export's media item
+internal fun canvasMimeType(url: String, isFallback: Boolean = false): String {
+    val lower = url.lowercase(Locale.ROOT)
+    return when {
+        lower.contains(".m3u8") || lower.split('?').first().endsWith(".m3u8") -> MimeTypes.APPLICATION_M3U8
+        lower.contains(".mp4") -> MimeTypes.VIDEO_MP4
+        // a module's own loop can be webm, which isn't a playlist either
+        lower.contains(".webm") -> MimeTypes.VIDEO_WEBM
+        isFallback -> MimeTypes.VIDEO_MP4
+        else -> MimeTypes.APPLICATION_M3U8
+    }
 }
