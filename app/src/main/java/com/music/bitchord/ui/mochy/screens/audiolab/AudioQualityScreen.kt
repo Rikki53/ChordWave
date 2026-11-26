@@ -1,24 +1,20 @@
-// audio quality: what streams on wi-fi and on mobile data, and what downloads keep
+// audio lab's quality page: streaming tiers per provider, download quality, and the orders songs play and download in
 //
-// Ported from Mochy Music (GPL-3.0): ui/screens/audiolab/AudioQualityScreen.kt,
-// reworked for ChordWave's quality model (see NEEDS.md):
-// - ChordWave has no provider modules, so the per-provider sections are
-//   gone, with ProviderOrder (no provider reorder exists in ChordWave).
-// - QualityRow, ProviderLogo and Footnote are kept from Mochy's screen.
-//
-// Batch 53: the rows now write Mochy's own DataStore keys — streaming
-// quality to AudioQualityKey (the YouTube rungs, as in Mochy's screen)
-// and download quality to DownloadQualityKey — because those are what
-// the Mochy engine reads. The previous wiring wrote ChordWave's
-// AppSettings (Wi-Fi/cellular groups + CW download tiers), which only
-// the Classic engine reads, so this screen changed nothing in Modern.
+// Ported from Mochy Music (GPL-3.0): ui/screens/audiolab/AudioQualityScreen.kt.
+// Batch 55b: restored whole (the earlier ChordWave cut had no providers to
+// show). Adapted: MochyNavigator for NavController, MochyDownloadQuality for
+// DownloadQuality, packages per the two-engine layout.
+
 package com.music.bitchord.ui.mochy.screens.audiolab
 
+import android.content.Context
+import android.net.ConnectivityManager
+import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,102 +22,296 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.collectAsState
+import com.mochyy.mochymusic.module.AccountState
+import com.mochyy.mochymusic.module.ModuleFeature
+import com.mochyy.mochymusic.module.jiosaavn.JioSaavnModule
+import com.mochyy.mochymusic.module.applemusic.AppleMusicModule
+import com.mochyy.mochymusic.module.monochrome.MonochromeModule
+import com.music.bitchord.data.mochydata.modules.SourceModules
+import com.music.bitchord.ui.mochy.viewmodels.ModulesViewModel
 import com.music.bitchord.R
 import com.music.bitchord.ui.mochy.constants.AudioQuality
 import com.music.bitchord.ui.mochy.constants.AudioQualityKey
-import com.music.bitchord.ui.mochy.constants.DownloadQualityKey
-import com.music.bitchord.ui.mochy.constants.MochyDownloadQuality
-import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
+import kotlin.math.exp
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
-private data class YouTubeQualityOption(val quality: AudioQuality, val title: Int, val description: Int)
-
-// Mochy's YouTube rungs, in Mochy's order.
-private val YouTubeOptions = listOf(
-    YouTubeQualityOption(AudioQuality.AUTO, R.string.aq_quality_auto, R.string.aq_desc_auto),
-    YouTubeQualityOption(AudioQuality.HIGH, R.string.aq_quality_high, R.string.aq_desc_high),
-    YouTubeQualityOption(AudioQuality.MEDIUM, R.string.aq_quality_medium, R.string.aq_desc_medium),
-    YouTubeQualityOption(AudioQuality.LOW, R.string.aq_quality_low, R.string.aq_desc_low),
+private class QualityOption(
+    val quality: AudioQuality,
+    @StringRes val title: Int,
+    @StringRes val description: Int,
+    @StringRes val format: Int,
 )
 
+private val YouTubeOptions = listOf(
+    QualityOption(AudioQuality.AUTO, R.string.aq_quality_auto, R.string.aq_desc_auto, R.string.aq_fmt_adaptive),
+    QualityOption(AudioQuality.HIGH, R.string.aq_quality_high, R.string.aq_desc_high, R.string.aq_fmt_high),
+    QualityOption(AudioQuality.MEDIUM, R.string.aq_quality_medium, R.string.aq_desc_medium, R.string.aq_fmt_medium),
+    QualityOption(AudioQuality.LOW, R.string.aq_quality_low, R.string.aq_desc_low, R.string.aq_fmt_low),
+)
+
+/** what the picture shows: the quality of whichever provider plays first */
+private class Effective(val quality: AudioQuality, val title: String, val format: String)
+
 @Composable
-fun AudioQualityScreen(navigator: MochyNavigator) {
+fun AudioQualityScreen(navigator: com.music.bitchord.ui.mochy.navigation.MochyNavigator, modules: ModulesViewModel = hiltViewModel()) {
     val (stored, onQuality) = rememberEnumPreference(AudioQualityKey, defaultValue = AudioQuality.AUTO)
     val (downloadQuality, onDownloadQuality) = rememberEnumPreference(
-        DownloadQualityKey,
-        defaultValue = MochyDownloadQuality.HIGH,
+        com.music.bitchord.ui.mochy.constants.DownloadQualityKey,
+        defaultValue = com.music.bitchord.ui.mochy.constants.MochyDownloadQuality.HIGH,
     )
-    // The tiers Monochrome used to serve belong to its module (not in
-    // ChordWave); a stored one falls back to HIGH, as in Mochy's screen.
+    // the tiers Monochrome used to serve from here belong to its module now
     val quality = if (stored.usesMonochrome) AudioQuality.HIGH else stored
+    val entries by modules.entries.collectAsState()
+    val order by modules.order.collectAsState()
+    val downloadOrder by modules.downloadOrder.collectAsState()
+    val youTubeOn by modules.youTubeEnabled.collectAsState()
+    val context = LocalContext.current
+    val statusSignIn = stringResource(R.string.aq_status_sign_in)
+    val statusSignInAgain = stringResource(R.string.aq_status_sign_in_again)
+    val statusOn = stringResource(R.string.aq_status_on)
+    val statusOffTap = stringResource(R.string.aq_status_off_tap)
+    val statusNotInstalled = stringResource(R.string.aq_status_not_installed)
+    val moduleStatus = { entry: com.music.bitchord.data.mochydata.modules.ModuleEntry ->
+        when {
+            entry.account is AccountState.SignedOut -> statusSignIn
+            entry.account is AccountState.Expired -> statusSignInAgain
+            entry.enabled -> statusOn
+            else -> statusOffTap
+        }
+    }
+    val metered = remember { (context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.isActiveNetworkMetered == true }
+
+    val usable = { id: String ->
+        if (id == SourceModules.YouTubeId) youTubeOn
+        else entries.any { it.module.info.id == id && it.enabled && it.account is AccountState.SignedIn }
+    }
+    // a module that's switched off isn't part of this page at all, only youtube and the modules that are on show up
+    val shownModules = entries.filter { it.enabled && it.adds(ModuleFeature.AudioSource) }
+    val shownOrder = order.filter { id -> id == SourceModules.YouTubeId || shownModules.any { it.id == id } }
+    val shownDownloadOrder = downloadOrder.filter { id -> id == SourceModules.YouTubeId || shownModules.any { it.id == id } }
+    // the first provider in the order that's on plays everything it has
+    val first = order.firstOrNull(usable)
+    val effective = when (first) {
+        null -> Effective(AudioQuality.LOW, stringResource(R.string.aq_nothing_on), stringResource(R.string.aq_turn_provider_on))
+        MonochromeModule.Id -> Effective(AudioQuality.LOSSLESS, "Monochrome", "FLAC · lossless")
+        AppleMusicModule.Id -> {
+            val pick = entries.firstOrNull { it.module.info.id == first }?.picks?.get(AppleMusicModule.ChoiceQuality)
+            if (pick == AppleMusicModule.OptionHe64) Effective(AudioQuality.MEDIUM, "Apple Music", "HE-AAC 64")
+            else Effective(AudioQuality.HIGH, "Apple Music", "AAC 256")
+        }
+        JioSaavnModule.Id -> {
+            val pick = entries.firstOrNull { it.id == first }?.picks?.get(JioSaavnModule.ChoiceQuality) ?: JioSaavnModule.Option320
+            Effective(if (pick == JioSaavnModule.Option96) AudioQuality.MEDIUM else AudioQuality.HIGH, "JioSaavn", "AAC $pick")
+        }
+        SourceModules.YouTubeId -> {
+            val tier = if (quality == AudioQuality.AUTO) (if (metered) AudioQuality.MEDIUM else AudioQuality.HIGH) else quality
+            val option = YouTubeOptions.first { it.quality == tier }
+            Effective(tier, stringResource(R.string.aq_youtube_tier, stringResource(option.title)), stringResource(option.format))
+        }
+        // a module added from a link: its name, and the stream it picked when it offers a choice
+        else -> {
+            val entry = entries.firstOrNull { it.id == first }
+            val choice = entry?.module?.choices?.firstOrNull { it.id == "quality" }
+            val picked = choice?.options?.firstOrNull { it.id == entry.picks[choice.id] } ?: choice?.options?.firstOrNull()
+            Effective(AudioQuality.HIGH, entry?.module?.info?.name ?: first, picked?.label ?: stringResource(R.string.quality_module_stream))
+        }
+    }
 
     AudioLabPage(
-        title = LabTitle("Audio", "Quality"),
+        title = LabTitle(stringResource(R.string.aq_title_first), stringResource(R.string.aq_title_second), firstSize = 40.sp, secondSize = 64.sp),
         onBack = { navigator.popBackStack() },
+        subtitle = "${effective.title} · ${effective.format}",
     ) {
         LabSheetTitle(stringResource(R.string.aq_section_streaming))
         LabGroup {
+            ProviderCaption(
+                logo = R.drawable.provider_youtube_music,
+                name = "YouTube Music",
+                status = when {
+                    youTubeOn -> stringResource(R.string.aq_youtube_status_on)
+                    order.none(usable) -> stringResource(R.string.aq_youtube_status_off_none)
+                    else -> stringResource(R.string.aq_youtube_status_off)
+                },
+                on = youTubeOn,
+            )
             YouTubeOptions.forEach { option ->
-                QualityRow(
-                    title = stringResource(option.title),
-                    description = stringResource(option.description),
-                    selected = quality == option.quality,
-                    enabled = true,
-                    onClick = { onQuality(option.quality) },
-                )
+                QualityRow(stringResource(option.title), stringResource(option.description), selected = quality == option.quality, enabled = youTubeOn) { onQuality(option.quality) }
+            }
+
+            // each module's own qualities, under its name
+            shownModules.forEach { entry ->
+                val id = entry.module.info.id
+                val active = entry.enabled && entry.account is AccountState.SignedIn
+                Spacer(Modifier.height(6.dp))
+                ProviderCaption(logo = providerLogo(id), name = entry.module.info.name, status = moduleStatus(entry), on = active)
+                val qualityChoice = entry.module.choices.firstOrNull { it.id == "quality" }
+                if (qualityChoice != null) {
+                    val picked = entry.picks[qualityChoice.id]?.takeIf { p -> qualityChoice.options.any { it.id == p } }
+                        ?: qualityChoice.options.first().id
+                    qualityChoice.options.forEach { option ->
+                        QualityRow(option.label, option.description, selected = picked == option.id, enabled = active) {
+                            modules.setPick(id, qualityChoice.id, option.id)
+                        }
+                    }
+                } else if (id == MonochromeModule.Id) {
+                    QualityRow(stringResource(R.string.aq_quality_lossless), stringResource(R.string.aq_desc_monochrome_lossless), selected = true, enabled = active) {}
+                }
+                LabTextAction(stringResource(R.string.aq_module_settings, entry.module.info.name), R.drawable.navigate_next) {
+                    navigator.navigate(com.music.bitchord.ui.mochy.screens.settings.modules.moduleRoute(id))
+                }
             }
         }
-        Spacer(Modifier.height(20.dp))
+
+        // what a download from youtube is saved as; the download order below picks where each download comes from
+        Spacer(Modifier.height(24.dp))
         LabSheetTitle(stringResource(R.string.aq_section_download))
         LabGroup {
-            MochyDownloadQuality.entries.forEach { option ->
+            com.music.bitchord.ui.mochy.constants.MochyDownloadQuality.entries.forEach { option ->
                 val (titleRes, descRes) = when (option) {
-                    MochyDownloadQuality.HIGH -> R.string.aq_quality_high to R.string.aq_dl_desc_high
-                    MochyDownloadQuality.MEDIUM -> R.string.aq_quality_medium to R.string.aq_dl_desc_medium
-                    MochyDownloadQuality.LOW -> R.string.aq_quality_low to R.string.aq_dl_desc_low
+                    com.music.bitchord.ui.mochy.constants.MochyDownloadQuality.HIGH -> R.string.aq_quality_high to R.string.aq_dl_desc_high
+                    com.music.bitchord.ui.mochy.constants.MochyDownloadQuality.MEDIUM -> R.string.aq_quality_medium to R.string.aq_dl_desc_medium
+                    com.music.bitchord.ui.mochy.constants.MochyDownloadQuality.LOW -> R.string.aq_quality_low to R.string.aq_dl_desc_low
                 }
-                QualityRow(
-                    title = stringResource(titleRes),
-                    description = stringResource(descRes),
-                    selected = downloadQuality == option,
-                    enabled = true,
-                    onClick = { onDownloadQuality(option) },
-                )
+                QualityRow(stringResource(titleRes), stringResource(descRes), selected = downloadQuality == option, enabled = true) {
+                    onDownloadQuality(option)
+                }
             }
         }
         Footnote(stringResource(R.string.quality_download_footnote))
+
+        Spacer(Modifier.height(24.dp))
+        LabSheetTitle(stringResource(R.string.aq_section_provider))
+        ProviderOrder(
+            order = shownOrder,
+            name = modules::nameOf,
+            logo = ::providerLogo,
+            usable = usable,
+            status = { id ->
+                if (id == SourceModules.YouTubeId) {
+                    if (youTubeOn) statusOn else statusOffTap
+                } else {
+                    entries.firstOrNull { it.module.info.id == id }?.let(moduleStatus) ?: statusNotInstalled
+                }
+            },
+            onTap = { id ->
+                // youtube switches right here; a module's switch is on its own page, switching it off here would make it vanish under the finger
+                if (id == SourceModules.YouTubeId) {
+                    modules.setEnabled(id, !youTubeOn)
+                } else {
+                    navigator.navigate(com.music.bitchord.ui.mochy.screens.settings.modules.moduleRoute(id))
+                }
+            },
+            onReorder = modules::setVisibleOrder,
+        )
+        Footnote(stringResource(R.string.quality_provider_footnote))
+
+        Spacer(Modifier.height(24.dp))
+        LabSheetTitle(stringResource(R.string.quality_download_order))
+        val youTubeForDownloads = stringResource(R.string.quality_download_order_youtube)
+        ProviderOrder(
+            order = shownDownloadOrder,
+            name = modules::nameOf,
+            logo = ::providerLogo,
+            usable = { id -> id == SourceModules.YouTubeId || usable(id) },
+            status = { id ->
+                if (id == SourceModules.YouTubeId) {
+                    youTubeForDownloads
+                } else {
+                    entries.firstOrNull { it.module.info.id == id }?.let(moduleStatus) ?: statusNotInstalled
+                }
+            },
+            // youtube is always there for downloads, so only a module's row has somewhere to go
+            onTap = { id ->
+                if (id != SourceModules.YouTubeId) navigator.navigate(com.music.bitchord.ui.mochy.screens.settings.modules.moduleRoute(id))
+            },
+            onReorder = modules::setVisibleDownloadOrder,
+        )
+        Footnote(stringResource(R.string.quality_download_order_footnote))
     }
 }
 
-/**
- * One quality rung: name, what it costs, and a tick when it's the pick.
- * Mochy's single QualityRow, shared with AudioPassScreen's mode list —
- * the background, dimming and check all animate.
- */
+@Composable
+private fun Footnote(text: String) {
+    Text(
+        text,
+        fontFamily = InterFontFamily, fontSize = 12.sp, lineHeight = 16.sp, color = LabColors.Secondary,
+        modifier = Modifier.padding(top = 10.dp, start = 6.dp, end = 6.dp),
+    )
+}
+
+internal fun providerLogo(id: String): Int? = when (id) {
+    AppleMusicModule.Id -> R.drawable.provider_apple_music
+    MonochromeModule.Id -> R.drawable.provider_monochrome
+    SourceModules.YouTubeId -> R.drawable.provider_youtube_music
+    else -> null
+}
+
+/** a provider's name over its qualities in the streaming group, dimmed while it's off */
+@Composable
+private fun ProviderCaption(logo: Int?, name: String, status: String, on: Boolean) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.graphicsLayer { alpha = if (on) 1f else 0.45f }) { ProviderLogo(logo, size = 24, name = name) }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+            Text(status, fontFamily = InterFontFamily, fontSize = 11.sp, lineHeight = 14.sp, color = LabColors.Secondary)
+        }
+    }
+}
+
+// a provider with no logo of its own (jiosaavn, a module from a link) shows its first letter instead of a blank tile
+@Composable
+internal fun ProviderLogo(logo: Int?, size: Int, name: String? = null) {
+    Box(
+        modifier = Modifier.size(size.dp).clip(RoundedCornerShape((size * 0.26f).dp)).background(Color(0xFFD9D9D9)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (logo != null) {
+            androidx.compose.foundation.Image(
+                painterResource(logo), null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.size(size.dp),
+            )
+        } else if (name != null) {
+            Text(name.take(1).uppercase(), fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = (size * 0.44f).sp, color = Color.Black.copy(alpha = 0.7f))
+        }
+    }
+}
+
 @Composable
 internal fun QualityRow(title: String, description: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val bg by animateColorAsState(if (selected) Color(0xFF2A2A2E) else Color(0xFF111113), tween(200), label = "row")
@@ -151,35 +341,3 @@ internal fun QualityRow(title: String, description: String, selected: Boolean, e
         }
     }
 }
-
-/** the round provider logo, from the drawable or a monochrome tile as a fallback */
-@Composable
-internal fun ProviderLogo(logo: Painter?, provider: String, modifier: Modifier = Modifier) {
-    if (logo != null) {
-        Image(
-            logo, contentDescription = provider, contentScale = ContentScale.Crop,
-            modifier = modifier.size(28.dp).clip(CircleShape),
-        )
-    } else {
-        Box(modifier.size(28.dp).clip(CircleShape).background(Color(0xFF2C2C2E)), contentAlignment = Alignment.Center) {
-            Text(
-                provider.firstOrNull()?.toString().orEmpty(),
-                fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White,
-            )
-        }
-    }
-}
-
-/** a small grey note under a group */
-@Composable
-internal fun Footnote(text: String) {
-    Text(
-        text,
-        fontFamily = InterFontFamily, fontSize = 12.sp, lineHeight = 16.sp, color = LabColors.Secondary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
-    )
-}
-
-/** ChordWave streams from YouTube only, so this is the one provider logo */
-@Composable
-internal fun youtubeLogo(): Painter = painterResource(R.drawable.provider_youtube_music)

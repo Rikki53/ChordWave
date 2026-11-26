@@ -8,7 +8,7 @@
 //    asks for; gluing the two together made songs that played for a
 //    few seconds, then went silent;
 //  - the resolver: a source module's whole file first (here ChordWave's
-//    Sources, through SourceResolver.forDownload — the module system
+//    the modules system, through SourceModules.downloadRoute (batch 55b)
 //    the Mochy service already resolves source tracks through), then
 //    YouTube through the Mochy innertube (MochyStreamResolver), with
 //    the itag guard that fails a resumed download whose stream changed
@@ -73,13 +73,10 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceRegistry
-import com.music.bitchord.data.sources.SourceResolver
-import com.music.bitchord.data.sources.SourceStream
-import com.music.bitchord.data.sources.TrackMatcher
+import com.mochyy.mochymusic.module.TrackQuery
+import com.music.bitchord.ui.mochy.utils.youtubeIdOrNull
 import com.music.bitchord.download.DownloadSession
 import com.music.bitchord.download.Downloads
-import com.music.bitchord.download.Downloader
-import com.music.bitchord.download.downloadBadge
 import com.music.bitchord.ui.mochy.constants.AudioQuality
 import com.music.bitchord.ui.mochy.constants.DownloadQualityKey
 import com.music.bitchord.ui.mochy.constants.MochyDownloadQuality
@@ -350,44 +347,38 @@ object MochyDownloadUtil {
     }
 
     /**
-     * A configured source's whole file for [mediaId], or null when
-     * YouTube's turn comes — Mochy's moduleDownload, through
-     * ChordWave's Sources. Only progressive files qualify: a manifest
-     * candidate is passed over (see the file header). A row picked
-     * from a source is fetched from that source as the row it is, and
-     * never from YouTube: its id is not a video id.
+     * A provider's whole file for [mediaId], or null when YouTube's turn
+     * comes — Mochy's moduleDownload, through SourceModules.downloadRoute
+     * (batch 55b). The walk itself only keeps progressive, DRM-free files
+     * this phone can decode. A row picked from a source is fetched from a
+     * provider as the row it is, and never from YouTube: its id is not a
+     * video id.
      */
     private fun sourceDownload(context: Context, mediaId: String): SourceDownload? {
         sourceDownloads[mediaId]?.let { return it }
         val song = askedSongs[mediaId] ?: runBlocking(Dispatchers.IO) { songFromRoom(context, mediaId) }
             ?: return null
-        val request = SourceResolver.requestForDownload(downloadQuality(context).toChordWaveQuality())
 
         val row = SourceRegistry.parseTrackKey(mediaId)
-        val stream: SourceStream? = runBlocking(Dispatchers.IO) {
-            if (row != null) {
-                val rowStream = withTimeoutOrNull(SOURCE_LOOKUP_MS) {
-                    SourceResolver.forDownloadOfRow(row.first, row.second, song.sourceQuality, request)
-                }
-                if (rowStream != null && isWholeFile(rowStream)) {
-                    rowStream
-                } else {
-                    throw IOException("Couldn't download this song from its source — check that it's still connected")
-                }
-            } else {
-                withTimeoutOrNull(SOURCE_LOOKUP_MS) {
-                    SourceResolver.forDownload(
-                        TrackMatcher.targetOf(song),
-                        request,
-                        keep = { candidate -> if (isWholeFile(candidate)) candidate else null },
-                        budgetMs = SOURCE_LOOKUP_MS,
-                    )
-                }
+        val stream = runBlocking(Dispatchers.IO) {
+            val track = ModulePlaybackBridge.trackQueryOf(context, mediaId) ?: TrackQuery(
+                title = song.title,
+                artists = song.artists.map { it.name }.ifEmpty { listOf(song.artist) },
+                album = song.albumName,
+                videoId = youtubeIdOrNull(mediaId),
+            )
+            withTimeoutOrNull(SOURCE_LOOKUP_MS) {
+                ModulePlaybackBridge.downloadStream(context, mediaId, track)
             }
         }
-        stream ?: return null
+        if (stream == null) {
+            if (row != null) {
+                throw IOException("Couldn't download this song from its providers — check that they're still connected")
+            }
+            return null
+        }
 
-        val (mimeType, codecs) = savedFormatOf(stream.format.codec)
+        val (mimeType, codecs) = savedFormatOf(stream.codec)
         runBlocking(Dispatchers.IO) {
             val db = MochyDatabaseHolder.get(context)
             db.upsertFormat(
@@ -396,8 +387,8 @@ object MochyDownloadUtil {
                     itag = -1,
                     mimeType = mimeType,
                     codecs = codecs,
-                    bitrate = (stream.format.kbps ?: 0) * 1000,
-                    sampleRate = stream.format.sampleRateHz,
+                    bitrate = 0,
+                    sampleRate = stream.sampleRateHz,
                     // Filled in when the download finishes (Mochy).
                     contentLength = 0L,
                     loudnessDb = null,
@@ -407,14 +398,10 @@ object MochyDownloadUtil {
             )
             ensureSongRow(context, mediaId)
         }
-        val badge = stream.format.downloadBadge()
+        val badge = stream.qualityLabel.takeIf { it.isNotBlank() }
         if (badge != null) badges[mediaId] = badge
         return SourceDownload(stream.url, stream.headers, badge).also { sourceDownloads[mediaId] = it }
     }
-
-    /** Whether [stream] is a whole file a download can keep (the Classic path's probe). */
-    private suspend fun isWholeFile(stream: SourceStream): Boolean =
-        Downloader.probe(stream.url, stream.headers, stream.format.codec) is Downloader.Probe.File
 
     // The saved file as the format badges read it, from the codec the source named (Mochy).
     private fun savedFormatOf(codec: String?): Pair<String, String> = when (codec?.uppercase()) {
@@ -679,13 +666,4 @@ object MochyDownloadUtil {
         MochyDownloadQuality.LOW -> AudioQuality.LOW
     }
 
-    /**
-     * The download rung as ChordWave's own, for source downloads only:
-     * Sources are ChordWave's feature and their request speaks CW tiers.
-     */
-    private fun MochyDownloadQuality.toChordWaveQuality(): DownloadQuality = when (this) {
-        MochyDownloadQuality.HIGH -> DownloadQuality.HIGH
-        MochyDownloadQuality.MEDIUM -> DownloadQuality.STANDARD
-        MochyDownloadQuality.LOW -> DownloadQuality.STANDARD
-    }
 }

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Batch 55b: Audio Lab provider strings from Mochy Music (GPL-3.0), branding ChordWave. -->
+<resources>
+    <string name="aq_fmt_adaptive">Adaptive</string>
+    <string name="aq_fmt_high">~160 kbps · Opus</string>
+    <string name="aq_status_sign_in">Sign in to play from it</string>
+    <string name="aq_status_sign_in_again">Sign in again</string>
+    <string name="aq_status_on">On</string>
+    <string name="aq_status_off_tap">Off, tap to turn on</string>
+    <string name="aq_status_not_installed">Not installed</string>
+    <string name="aq_nothing_on">Nothing is on</string>
+    <string name="aq_turn_provider_on">Turn a provider on</string>
+    <string name="aq_youtube_tier">YouTube · %1$s</string>
+    <string name="aq_title_first">Audio</string>
+    <string name="aq_title_second">Quality</string>
+    <string name="aq_youtube_status_on">Plays what the others don\'t have</string>
+    <string name="aq_youtube_status_off_none">Off, and nothing else is on, so songs won\'t play</string>
+    <string name="aq_youtube_status_off">Off: songs the others don\'t have are skipped</string>
+    <string name="aq_quality_lossless">Lossless</string>
+    <string name="aq_desc_monochrome_lossless">FLAC, as Monochrome has it: CD quality or better</string>
+    <string name="aq_module_settings">%1$s settings</string>
+    <string name="aq_section_provider">Provider</string>
+    <string name="quality_provider_footnote">Tap YouTube Music to turn it on or off, or a module to open its page. Drag a handle to change the order: each song plays from the first one that\'s on and has it. Modules you\'ve switched off aren\'t listed here.</string>
+    <string name="quality_download_order">Download order</string>
+    <string name="quality_download_order_youtube">Downloads what the others can\'t</string>
+    <string name="quality_download_order_footnote">Each download comes from the first provider here that has the song as one whole file. Streams that come in pieces, or that need a license, are skipped. YouTube is always here for downloads, even when it\'s off for playing.</string>
+</resources>

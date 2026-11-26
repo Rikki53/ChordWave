@@ -45,7 +45,6 @@ import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.music.bitchord.data.Http
-import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.ui.mochy.constants.AudioQuality
 import com.music.bitchord.ui.mochy.constants.AudioQualityKey
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
@@ -101,11 +100,12 @@ object MochyDataSourceFactory {
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
     /**
-     * The resolver: bitchord://watch?v=… through the Mochy innertube,
-     * bitchord://source through ChordWave's Sources, everything else
-     * (files, content, radio streams) as it arrived. Moved here from
-     * MochyMusicService (Tahap 4) so the player and the share resolve
-     * identically.
+     * The resolver: bitchord://watch?v=… through the modules walk first
+     * (batch 55b — a module earlier in the provider order serves it, else
+     * the Mochy innertube), bitchord://source through the modules walk on
+     * the row's own metadata, everything else (files, content, radio
+     * streams) as it arrived. Moved here from MochyMusicService (Tahap 4)
+     * so the player and the share resolve identically.
      */
     private fun resolveDataSpec(
         context: Context,
@@ -115,14 +115,27 @@ object MochyDataSourceFactory {
         val uri = dataSpec.uri
         if (uri.authority == "source") {
             val stream = runBlocking {
-                withTimeout(RESOLVE_TIMEOUT_MS) { SourceResolver.resolve(uri) }
-            } ?: throw IOException("No enabled source could serve ${uri.getQueryParameter("n")}")
+                withTimeout(RESOLVE_TIMEOUT_MS) { ModulePlaybackBridge.resolveSourceUri(context, uri) }
+            } ?: throw IOException("No provider could serve ${uri.getQueryParameter("n")}")
             return dataSpec.buildUpon()
                 .setUri(Uri.parse(stream.url))
                 .setHttpRequestHeaders(stream.headers)
                 .build()
         }
         val videoId = uri.getQueryParameter("v") ?: return dataSpec
+        // the modules walk (Mochy's routeStream): a module earlier in the
+        // provider order serves the song; null hands it to YouTube below
+        val moduleStream = runBlocking {
+            withTimeout(RESOLVE_TIMEOUT_MS) {
+                ModulePlaybackBridge.resolveWatch(context, dataSpec.key ?: videoId)
+            }
+        }
+        if (moduleStream != null) {
+            return dataSpec.buildUpon()
+                .setUri(Uri.parse(moduleStream.url))
+                .setHttpRequestHeaders(moduleStream.headers)
+                .build()
+        }
         val resolved = runBlocking {
             withTimeout(RESOLVE_TIMEOUT_MS) {
                 MochyStreamResolver.resolve(videoId, currentAudioQuality(context), isMetered(context))

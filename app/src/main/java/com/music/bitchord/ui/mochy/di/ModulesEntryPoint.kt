@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.mochy.di
 
 import com.music.bitchord.data.mochydata.modules.ModuleRegistry
+import com.music.bitchord.data.mochydata.modules.SourceModules
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -10,4 +11,5 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 interface ModulesEntryPoint {
     fun moduleRegistry(): ModuleRegistry
+    fun sourceModules(): SourceModules
 }

@@ -20,7 +20,7 @@
 // What stays ChordWave's, deliberately: the MediaItem shape the Modern
 // builders produce (bitchord://watch URIs + extras, so the queue, lyrics,
 // share and menus keep working unchanged), module/source tracks
-// (bitchord://source resolves through SourceResolver, ChordWave's own
+// (bitchord://source resolves through the modules walk, batch 55b;
 // Sources system), Cast (CastPlayback/CastController, shared with the
 // Classic engine), the widget snapshot, and the equaliser settings (applied
 // through the platform Equalizer on this player's audio session).
@@ -120,7 +120,6 @@ import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.mochydata.MochyDatabaseHolder
-import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.stats.ListeningRecorder
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.OutputPcmMode
@@ -480,13 +479,28 @@ class MochyMusicService : MediaLibraryService() {
         val uri = item.localConfiguration?.uri ?: return@withContext null
         when {
             uri.authority == "source" -> {
+                // batch 55b: source rows resolve through the modules walk
                 val stream = runCatching {
-                    withTimeout(RESOLVE_TIMEOUT_MS) { SourceResolver.resolve(uri) }
+                    withTimeout(RESOLVE_TIMEOUT_MS) {
+                        ModulePlaybackBridge.resolveSourceUri(applicationContext, uri)
+                    }
                 }.getOrNull() ?: return@withContext null
                 CastStream(stream.url, CastPlayback.mimeTypeOf(Uri.parse(stream.url)))
             }
             uri.getQueryParameter("v") != null -> {
                 val videoId = uri.getQueryParameter("v")!!
+                // the modules walk first (batch 55b), as playback resolves it
+                val moduleStream = runCatching {
+                    withTimeout(RESOLVE_TIMEOUT_MS) {
+                        ModulePlaybackBridge.resolveWatch(applicationContext, item.mediaId)
+                    }
+                }.getOrNull()
+                if (moduleStream != null) {
+                    return@withContext CastStream(
+                        moduleStream.url,
+                        CastPlayback.mimeTypeOf(Uri.parse(moduleStream.url)),
+                    )
+                }
                 val resolved = runCatching {
                     withTimeout(RESOLVE_TIMEOUT_MS) {
                         MochyStreamResolver.resolve(videoId, currentAudioQuality(), isMetered())
@@ -611,6 +625,22 @@ class MochyMusicService : MediaLibraryService() {
                 partySync?.onLocalIntent()
             }
             clearStreamFailure()
+            // batch 55b: the modules walk looks a song up by its saved row or
+            // the queue's own copy; hand the bridge the copy, and let the new
+            // song start with no failures or forced provider from the last one
+            ModulePlaybackBridge.onMediaItemChanged(mediaItem?.mediaId)
+            mediaItem?.toSong()?.let { song ->
+                ModulePlaybackBridge.noteQueuedTrack(
+                    song.id,
+                    com.mochyy.mochymusic.module.TrackQuery(
+                        title = song.title,
+                        artists = song.artists.map { it.name },
+                        album = song.album?.title,
+                        durationMs = song.duration?.takeIf { it > 0 }?.times(1000L),
+                        videoId = com.music.bitchord.ui.mochy.utils.youtubeIdOrNull(song.id),
+                    ),
+                )
+            }
             setupLoudness(mediaItem?.mediaId)
             flushPlayRecord()
             sampledMediaId = mediaItem?.mediaId
@@ -697,6 +727,15 @@ class MochyMusicService : MediaLibraryService() {
         override fun onPlayerError(error: PlaybackException) {
             Timber.tag(TAG).w(error, "Playback error")
             ListeningRecorder.onStopped()
+            // batch 55b: when a module's stream is what failed, the retry
+            // walks past that provider to the next one in the order
+            val mediaId = player?.currentMediaItem?.mediaId
+            val from = ModulePlaybackBridge.playingFrom(mediaId)
+            if (mediaId != null && from != null &&
+                from.providerId != com.music.bitchord.data.mochydata.modules.SourceModules.YouTubeId
+            ) {
+                ModulePlaybackBridge.markFailed(mediaId, from.providerId)
+            }
             failStream()
         }
     }

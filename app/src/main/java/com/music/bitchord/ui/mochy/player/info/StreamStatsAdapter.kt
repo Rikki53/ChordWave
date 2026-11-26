@@ -3,7 +3,7 @@
 // can actually supply. Mochy read all of this off its MusicService (the
 // stream inspector, audio outputs, the audio lab, cast, audio pass);
 // ChordWave's measurements live in NerdStats (published by PlaybackService
-// from the decoder's own Format) and its providers in SourceRegistry.
+// from the decoder's own Format) and its providers in SourceModules.
 //
 // WIRED (real values):
 // - StreamFacts (codec + sample rate) and the measurable half of
@@ -14,10 +14,9 @@
 //   device file is "On this device", anything else is the source that
 //   served it (YouTube Music, or the addon's own display name + the quality
 //   it claimed).
-// - Provider list for ForceProviderSheet from SourceRegistry
-//   (activeForPlayback), with each addon's quality options; YouTube's id
-//   is mapped to "youtube" (its config id is a per-install UUID, and the
-//   sheet keys its YouTube quality chips off the "youtube" id).
+// - Provider list for ForceProviderSheet from SourceModules (batch 55b:
+//   the modules system's provider order, usable ones only), with each
+//   module's quality options; YouTube's id is "youtube" on both sides.
 // - The active output device from AudioRouting (the same resolver the
 //   playback service uses), with its sample rates / bit depths from
 //   AudioDeviceInfo.
@@ -36,10 +35,10 @@
 //   NEEDS.md §(b) B2, unlanded).
 // - Provider switching (ProviderSwitchHost.force): WIRED (batch 37) —
 //   Mochy's ProviderSwitch engine (stop, resolve, reload at the same
-//   spot) ported in ui/mochy/playback/ProviderSwitch.kt, resolving
-//   through SourceResolver.forcedTrack and reloading with a
-//   source-pinned bitchord://source URI (or the song's own watch URI
-//   for YouTube).
+//   spot) ported in ui/mochy/playback/ProviderSwitch.kt. Since batch 55b
+//   it resolves through SourceModules (the named module's own resolve)
+//   and reloads the song's current URI with the forced route registered
+//   in ModulePlaybackBridge, so the factory serves the picked provider.
 //
 // The sheet itself (StreamInfoSheet.kt, another chunk's file) is NOT edited
 // here: NEEDS.md §(merge) gives the exact lines that swap its null inputs
@@ -56,11 +55,10 @@ import androidx.compose.runtime.collectAsState
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.OutputPcmMode
-import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.mochydata.modules.SourceModules
 import com.music.bitchord.data.sources.SourceRegistry
-import com.music.bitchord.data.sources.SourceResolver
+import com.music.bitchord.playback.mochy.ModulePlaybackBridge
 import com.music.bitchord.data.sources.StreamFormat
-import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.ui.mochy.models.MediaMetadata
@@ -114,6 +112,10 @@ object StreamStatsAdapter {
         if (song.localUri != null || song.id.startsWith("LOCAL_")) {
             return PlayingFrom(PlayingFrom.Device, "On this device")
         }
+        // batch 55b: the modules walk notes who served each song
+        ModulePlaybackBridge.playingFrom(song.id)?.let { from ->
+            return PlayingFrom(from.providerId, from.name, from.qualityLabel)
+        }
         // PlaybackService.currentSourceName's own words: "YouTube" for a
         // YouTube video id, "Local Storage" for a local file, an addon's
         // display name, or "Unknown".
@@ -124,27 +126,31 @@ object StreamStatsAdapter {
         if (name == "Local Storage") {
             return PlayingFrom(PlayingFrom.Device, "On this device")
         }
-        val config = SourceRegistry.configs.value.firstOrNull { it.displayName == name }
         return PlayingFrom(
-            providerId = config?.id ?: name,
+            providerId = name,
             name = name,
             quality = qualityLabel(snapshot?.claimed),
         )
     }
 
-    /** The providers the force-change sheet can offer, with their quality options. */
-    fun providerEntries(): List<ForceProviderEntry> {
-        val configs = SourceRegistry.configs.value.associateBy { it.id }
-        return SourceRegistry.activeForPlayback().map { source ->
-            val config = configs[source.configId]
-            ForceProviderEntry(
-                // The sheet keys its YouTube quality chips off the "youtube"
-                // id; the YouTube config's own id is a per-install UUID.
-                id = if (source.kind == SourceKind.YOUTUBE) YouTubeProviderId else source.configId,
-                name = source.displayName,
-                options = config?.qualityOptions.orEmpty().map { StreamOption(it.value, it.label, "") },
-                selectedOption = config?.pickedQuality,
-            )
+    /** The providers the force-change sheet can offer, with their quality options (batch 55b: SourceModules' order, usable ones). */
+    fun providerEntries(context: Context): List<ForceProviderEntry> {
+        val modules = ModulePlaybackBridge.sourceModules(context)
+        return modules.order.value.filter { modules.isUsable(it) }.map { id ->
+            if (id == SourceModules.YouTubeId) {
+                ForceProviderEntry(id = YouTubeProviderId, name = "YouTube Music")
+            } else {
+                val quality = modules.module(id)?.choices
+                    ?.firstOrNull { it.id == SourceModules.QualityChoice }
+                ForceProviderEntry(
+                    id = id,
+                    name = modules.nameOf(id),
+                    options = quality?.options.orEmpty().map {
+                        StreamOption(it.id, it.label, it.description)
+                    },
+                    selectedOption = modules.picks(id)[SourceModules.QualityChoice],
+                )
+            }
         }
     }
 
@@ -212,11 +218,11 @@ fun rememberNerdSnapshot(): State<NerdStats.Snapshot?> = NerdStats.current.colle
 /**
  * The force-change sheet's switch: Mochy's ProviderSwitch engine
  * (ui/mochy/playback/ProviderSwitch.kt) with this host over the player
- * connection (batch 37). Resolving goes through SourceResolver — a
- * source-pinned bitchord://source URI for addons, the song's own
- * bitchord://watch URI for YouTube — and the reload replaces the
- * current media item at the held position, so the song carries on
- * where it was, from the picked provider.
+ * connection (batch 37). Since batch 55b resolving goes through
+ * SourceModules: the named module resolves the song itself, the forced
+ * route is registered in ModulePlaybackBridge, and the reload replaces
+ * the current media item (same URI) at the held position, so the song
+ * carries on where it was, from the picked provider.
  */
 class ProviderSwitchHost(private val connection: MochyPlayerConnection) : ProviderSwitch.Host {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -227,12 +233,11 @@ class ProviderSwitchHost(private val connection: MochyPlayerConnection) : Provid
 
     fun force(providerId: String, optionId: String?) {
         // a picked quality applies before the switch resolves: YouTube's
-        // is written by the sheet itself; an addon's goes to its config,
-        // which is what its client reads when the stream is asked for
+        // is written by the sheet itself; a module's goes to its picks,
+        // which is what its resolve reads when the stream is asked for
         if (optionId != null && providerId != YouTubeProviderId) {
-            SourceRegistry.configs.value.firstOrNull { it.id == providerId }?.let { config ->
-                if (config.pickedQuality != optionId) SourceRegistry.update(config.copy(pickedQuality = optionId))
-            }
+            ModulePlaybackBridge.sourceModules(connection.context)
+                .setPick(providerId, SourceModules.QualityChoice, optionId)
         }
         switch.force(providerId)
     }
@@ -258,27 +263,28 @@ class ProviderSwitchHost(private val connection: MochyPlayerConnection) : Provid
         if (song.id != mediaId) return null
         // a device file has no other provider to move to
         if (song.localUri != null || mediaId.startsWith("LOCAL_")) return null
-        val target = TrackMatcher.Target(
-            title = song.title,
-            artist = song.artists.joinToString { it.name },
-            durationSec = song.duration.takeIf { it > 0 },
-            album = song.album?.title,
-            isExplicit = song.explicit,
-            isVideo = song.isVideoSong,
-        )
+        val context = connection.context
+        val currentUri = connection.player?.currentMediaItem?.localConfiguration?.uri?.toString()
+            ?: return null
         return if (providerId == YouTubeProviderId) {
-            // already a YouTube song: its own id is the route
+            // already a YouTube song: its own id is the route. A source row
+            // has no video id and the modules walk can't invent one, so
+            // forcing it to YouTube isn't offered a route.
             if (SourceRegistry.parseTrackKey(mediaId) == null) {
+                ModulePlaybackBridge.forceRoute(mediaId, SourceModules.YouTubeId)
                 ForcedRoute(providerId, "bitchord://watch?v=$mediaId")
             } else {
-                val youTube = SourceRegistry.activeForPlayback().firstOrNull { it.kind == SourceKind.YOUTUBE }
-                    ?: return null
-                val trackId = SourceResolver.forcedTrack(youTube.configId, target) ?: return null
-                ForcedRoute(providerId, "bitchord://watch?v=$trackId")
+                null
             }
         } else {
-            val trackId = SourceResolver.forcedTrack(providerId, target) ?: return null
-            ForcedRoute(providerId, SourceRegistry.trackUri(providerId, trackId))
+            val modules = ModulePlaybackBridge.sourceModules(context)
+            // the named module has to actually have the song before we switch
+            ModulePlaybackBridge.forcedStream(context, modules, mediaId, providerId)
+                ?: return null
+            ModulePlaybackBridge.forceRoute(mediaId, providerId)
+            // a source row's factory key is its URI; register under both
+            ModulePlaybackBridge.forceRoute(currentUri, providerId)
+            ForcedRoute(providerId, currentUri)
         }
     }
 
