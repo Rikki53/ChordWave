@@ -12,8 +12,8 @@
 // - LyricsMenuViewModel + the lyricsMetadata/lyricsEntity collections are
 //   DROPPED: dead in Mochy (collected but never read in this file's body);
 //   the lyrics sheets read the stubs themselves.
-// - Share is a plain ACTION_SEND intent with the watch link (Mochy's
-//   SongShare sheet is not ported) — same as SongMenu.
+// - Share opens Mochy's SongShare sheet (the "Share music" kind page:
+//   music card, flowing lyrics, copy YouTube Music link), as in Mochy.
 // - "Wrong video? / Find video": hasFoundVideo (ui.mochy.player) reads
 //   the video-lookup cache + SongEdits, so the row reads "Wrong video?"
 //   once a video was found for the song.
@@ -75,7 +75,6 @@ import coil3.request.ImageRequest
 import com.music.bitchord.R
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.download.Downloads
-import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.playback.SleepTimer
 import com.music.bitchord.karaoke.KaraokeFeature
 import com.music.bitchord.ui.mochy.component.AppSwitch
@@ -318,9 +317,7 @@ fun PlayerActionMenu(
                         onClick = {
                             currentMetadata?.let { metadata ->
                                 onDismiss()
-                                // Mochy's SongShare sheet is not ported; a plain
-                                // share intent with the ChordWave song link.
-                                context.shareText(MusicLink.songLink(metadata.id))
+                                com.music.bitchord.ui.mochy.player.share.song.SongShare.open(metadata)
                             }
                         },
                         modifier = Modifier.weight(1f),

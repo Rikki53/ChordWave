@@ -17,7 +17,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.luminance
-import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntry
 import com.music.bitchord.ui.mochy.models.MediaMetadata
@@ -119,8 +118,8 @@ internal data class ShareLyricsLook(
 internal class SongShareSession(val song: MediaMetadata) {
     val share = ShareSong(song.title, song.artists.joinToString { it.name }, song.thumbnailUrl)
 
-    // ChordWave song link by default; a song that only lives on this phone has no link to give
-    val link: String? = if (song.localUri != null || song.id.startsWith("LOCAL_")) null else MusicLink.songLink(song.id)
+    // the YouTube Music link, as in Mochy; a song that only lives on this phone has no link to give
+    val link: String? = if (song.localUri != null || song.id.startsWith("LOCAL_")) null else "https://music.youtube.com/watch?v=${song.id}"
 
     val durationMs: Long = song.duration.coerceAtLeast(0) * 1000L
 

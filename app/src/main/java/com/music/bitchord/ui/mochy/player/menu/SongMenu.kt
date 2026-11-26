@@ -37,8 +37,8 @@
 // - DROPPED: the "Choose different version" row (importer does not exist
 //   in CW), the orderedArtists lookup (dead in Mochy — never read), the
 //   isPortrait/configuration dead reads.
-// - Share is a plain ACTION_SEND intent with the watch link (Mochy's
-//   SongShare sheet is not ported).
+// - Share opens Mochy's SongShare sheet (the "Share music" kind page:
+//   music card, flowing lyrics, copy YouTube Music link), as in Mochy.
 // - `playlistSong` uses the plain ported type PlaylistSong
 //   (ui.mochy.models — no Room, no store behind it); removal runs through
 //   the onRemoveFromPlaylist callback the playlist screen supplies.
@@ -84,7 +84,6 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.download.Downloads
-import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.ui.components.SongInfoDialog
 import com.music.bitchord.ui.mochy.component.ListDialog
 import com.music.bitchord.ui.mochy.component.Material3MenuGroup
@@ -298,7 +297,7 @@ fun SongMenu(
                         },
                         onClick = {
                             onDismiss()
-                            context.shareText(MusicLink.songLink(song.id))
+                            com.music.bitchord.ui.mochy.player.share.song.SongShare.open(song.toMediaMetadata())
                         }
                     ),
                     if (song.song.albumId != null) {

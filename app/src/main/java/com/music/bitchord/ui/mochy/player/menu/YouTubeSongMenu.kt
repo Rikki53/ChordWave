@@ -27,8 +27,8 @@
 //   needs Mochy's innertube fork (getMediaInfo) and a Room database CW
 //   doesn't have.
 // - DROPPED: the isPortrait/configuration dead reads.
-// - Share is a plain ACTION_SEND intent with the item's share link
-//   (Mochy's SongShare sheet is not ported).
+// - Share opens Mochy's SongShare sheet (the "Share music" kind page:
+//   music card, flowing lyrics, copy YouTube Music link), as in Mochy.
 
 package com.music.bitchord.ui.mochy.player.menu
 
@@ -276,7 +276,7 @@ fun YouTubeSongMenu(
                         },
                         onClick = {
                             onDismiss()
-                            context.shareText(song.shareLink)
+                            com.music.bitchord.ui.mochy.player.share.song.SongShare.open(song.toMediaMetadata())
                         }
                     ),
                     song.album?.let { album ->

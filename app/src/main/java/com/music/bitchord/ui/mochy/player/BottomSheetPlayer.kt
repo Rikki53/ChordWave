@@ -325,10 +325,6 @@ private fun PlayerSheet(
     var showPlaybackSpeed by remember { mutableStateOf(false) }
     var showDeviceOutput by remember { mutableStateOf(false) }
     var showLyricsSource by remember { mutableStateOf(false) }
-    // Incremented when the lyrics menu's Share lyrics button is tapped; LyricsScreen
-    // consumes it (opens the share, then resets it through onShareRequestHandled).
-    var lyricsShareRequest by remember { mutableStateOf(0) }
-
     var showExpandMenu by remember { mutableStateOf(false) }
     var seeVideo by remember { mutableStateOf(false) }
     // a youtube video is playing on the cover, so the chevron offers the full video mode
@@ -929,7 +925,12 @@ private fun PlayerSheet(
                 com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.OUTPUT -> showDeviceOutput = true
                 com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.FULL_VIDEO -> enterVideoMode()
                 com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.ROTATE -> styleTurn.toggle()
-                com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.SHARE_LYRICS -> lyricsShareRequest++
+                com.music.bitchord.ui.mochy.player.studio.PlayerMenuAction.SHARE_LYRICS ->
+                    // the kept ChordWave share-lyrics button opens Mochy's song share
+                    // (the "Share music" kind page: music card, flowing lyrics, link)
+                    playerConnection.mediaMetadata.value?.let {
+                        com.music.bitchord.ui.mochy.player.share.song.SongShare.open(it)
+                    }
                 else -> menuExtras.run(action)
             }
         }
@@ -1297,8 +1298,6 @@ private fun PlayerSheet(
             if (lyricsPageMounted && sheetShowing) {
                 LyricsScreen(
                     onClose = { transition.close() },
-                    shareRequest = lyricsShareRequest,
-                    onShareRequestHandled = { lyricsShareRequest = 0 },
                     screenHeight = screenHeight,
 
                     contentBottomInset = lyricsBottomInset,
