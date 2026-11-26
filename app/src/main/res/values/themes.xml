@@ -6,8 +6,8 @@
     </style>
 
     <!-- the launch splash (batch 38, icon restored in batch 46): the mint
-         ribbon of the launcher icon on black -- the look the splash had
-         before batch 38 -- handed off to the in-app launch intro that
+         ribbon of the launcher icon on black, the look the splash had
+         before batch 38, handed off to the in-app launch intro that
          flies it into Home's logo. Batch 38 pointed this at
          ic_chordwave_mark, which is the white in-app mark, so the splash
          showed a big white ribbon instead of the mint one. -->
