@@ -308,6 +308,11 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 dependencies {
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
+    // The shared app sources now reference the Mochy engine database
+    // (data/mochydata); TV compiles those sources too, so the module must
+    // be on this classpath as well. TV itself stays on the ChordWave
+    // engine — nothing here calls into it at runtime.
+    implementation(project(":mochyengine"))
 
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
