@@ -143,7 +143,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             SearchHistory.init(this)
             LastPlayed.init(this)
             BoundedContextPersistence.init(this)
-            PartyPersonalQueueStash.init(this)
+            com.music.bitchord.playback.PartyPersonalQueueStash.init(this)
             OriginalVersion.init(this)
             com.music.bitchord.ui.mochy.songedit.SongEdits.init(this)
             com.music.bitchord.ui.mochy.speeddial.SpeedDialStore.init(this)
