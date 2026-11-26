@@ -56,7 +56,7 @@ import androidx.media3.common.Player
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.R
-import com.music.bitchord.ui.mochy.extensions.toggleRepeatMode
+import com.music.bitchord.ui.mochy.playback.toggleRepeatMode
 import com.music.bitchord.ui.mochy.modules.skin.SkinMenuLayout
 import com.music.bitchord.ui.mochy.modules.skin.SkinMenuStyle
 import com.music.bitchord.ui.mochy.component.GlassPillBackground
@@ -234,7 +234,7 @@ private fun rememberBubbleEntries(
         if (connection != null && transport != null) {
             add(
                 BubbleEntry(shuffleLabel, R.drawable.shuffle, active = transport.shuffleModeEnabled) {
-                    connection.player.shuffleModeEnabled = !connection.player.shuffleModeEnabled
+                    connection.player?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
                 },
             )
             add(
@@ -242,7 +242,7 @@ private fun rememberBubbleEntries(
                     repeatLabel,
                     if (transport.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.repeat_one else R.drawable.repeat,
                     active = transport.repeatMode != Player.REPEAT_MODE_OFF,
-                ) { connection.player.toggleRepeatMode() },
+                ) { connection.player?.toggleRepeatMode() },
             )
         }
     }

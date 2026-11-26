@@ -12,6 +12,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RoomWarnings
 import androidx.room.Transaction
 import com.mochyy.mochymusic.db.entities.Album
 import com.mochyy.mochymusic.db.entities.AlbumArtistMap
@@ -71,6 +72,14 @@ interface DatabaseDao {
 
     @Query("SELECT * FROM artist ORDER BY name")
     fun artists(): Flow<List<ArtistEntity>>
+
+    // Batch 55b: Mochy's create-date orderings (rowId = insertion order),
+    // used by the module pages' library blocks via the app-side sorted
+    // extensions in ui/mochy/models/DatabaseSorted.kt.
+    @Transaction
+    @SuppressWarnings(RoomWarnings.QUERY_MISMATCH)
+    @Query("SELECT *, (SELECT COUNT(1) FROM song_artist_map JOIN song ON song_artist_map.songId = song.id WHERE artistId = artist.id AND song.inLibrary IS NOT NULL) AS songCount FROM artist WHERE songCount > 0 ORDER BY rowId")
+    fun artistsByCreateDateAsc(): Flow<List<Artist>>
 
     // Batch 55b: the module pages' reads (Mochy's DAO, same queries).
     @SuppressWarnings(androidx.room.RoomWarnings.QUERY_MISMATCH)
@@ -139,11 +148,20 @@ interface DatabaseDao {
     fun albums(): Flow<List<Album>>
 
     @Transaction
+    @SuppressWarnings(RoomWarnings.QUERY_MISMATCH)
+    @Query("SELECT * FROM album WHERE EXISTS(SELECT * FROM song WHERE song.albumId = album.id AND song.inLibrary IS NOT NULL) ORDER BY rowId")
+    fun albumsByCreateDateAsc(): Flow<List<Album>>
+
+    @Transaction
     @Query(
         "SELECT *, (SELECT COUNT(*) FROM playlist_song_map WHERE playlistId = playlist.id) AS songCount " +
             "FROM playlist ORDER BY createdAt",
     )
     fun playlists(): Flow<List<Playlist>>
+
+    @Transaction
+    @Query("SELECT *, (SELECT COUNT(*) FROM playlist_song_map WHERE playlistId = playlist.id) AS songCount FROM playlist WHERE bookmarkedAt IS NOT NULL ORDER BY rowId")
+    fun playlistsByCreateDateAsc(): Flow<List<Playlist>>
 
     @Transaction
     @Query("SELECT * FROM playlist_song_map WHERE playlistId = :playlistId ORDER BY position")

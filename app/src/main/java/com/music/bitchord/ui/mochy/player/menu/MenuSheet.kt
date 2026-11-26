@@ -75,8 +75,6 @@ import com.music.bitchord.ui.mochy.component.rememberSheetGrabberBend
 import com.music.bitchord.ui.mochy.component.underSheetHandle
 import com.music.bitchord.ui.mochy.modules.skin.ActiveSkin
 
-val MenuSurface = Color(0xFF0B0B0C)
-val MenuRowSurface = Color(0xFF161619)
 
 /** resolved sheet surface/row/dim/corner colours from an active look module, clamped so sheets always stay readable */
 @Composable

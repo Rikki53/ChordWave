@@ -81,6 +81,10 @@ import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
+import com.music.bitchord.ui.mochy.models.toUiModel
+import com.music.bitchord.ui.mochy.models.albums
+import com.music.bitchord.ui.mochy.models.artists
+import com.music.bitchord.ui.mochy.models.playlists
 import com.music.bitchord.ui.mochy.modules.skin.MediaListLayout
 import com.music.bitchord.ui.mochy.modules.skin.MediaSource
 import com.music.bitchord.ui.mochy.modules.skin.PageBlock
@@ -118,10 +122,10 @@ import com.music.bitchord.ui.mochy.utils.ArtistHeader
 import com.music.bitchord.ui.mochy.utils.makeTimeString
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.innertube.YouTube
-import com.music.innertube.models.AlbumItem
-import com.music.innertube.models.ArtistItem
-import com.music.innertube.models.PlaylistItem
-import com.music.innertube.models.SongItem
+import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
+import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
+import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
+import com.music.bitchord.ui.mochy.models.innertube.SongItem
 import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -414,7 +418,7 @@ internal fun PageSongsBlock(block: PageBlock.Songs, page: PageContext, glass: Gl
         val playAt: (Int) -> Unit = { idx ->
             if (block.source == SongSource.Queue && connection != null) {
                 connection.player?.seekToDefaultPosition(idx)
-                connection.player.play()
+                connection.player?.play()
             } else {
                 connection?.playQueue(ListQueue(title = page.subject.title.ifBlank { null }, items = filtered.map { it.toMediaItem() }, startIndex = idx))
             }
@@ -599,13 +603,13 @@ internal fun openSongMenuSheet(
         val dbSong = withContext(Dispatchers.IO) { database.song(song.id).firstOrNull() }
         menuState.show {
             if (dbSong != null) {
-                SongMenu(originalSong = dbSong, navigator = navigator, onDismiss = { menuState.dismiss() })
+                SongMenu(originalSong = dbSong.toUiModel(), navigator = navigator, onDismiss = { menuState.dismiss() })
             } else {
                 val ytItem = SongItem(
                     id = song.id,
                     title = song.title,
-                    artists = song.artists.map { com.music.innertube.models.Artist(name = it.name, id = it.id) },
-                    album = song.album?.let { com.music.innertube.models.Album(name = it.title, id = it.id) },
+                    artists = song.artists.map { com.music.bitchord.ui.mochy.models.innertube.Artist(name = it.name, id = it.id) },
+                    album = song.album?.let { com.music.bitchord.ui.mochy.models.innertube.Album(name = it.title, id = it.id) },
                     duration = song.duration.takeIf { it > 0 },
                     thumbnail = song.thumbnailUrl.orEmpty(),
                     explicit = song.explicit,
@@ -689,7 +693,7 @@ internal fun PagePlaylistsBlock(block: PageBlock.Playlists, page: PageContext) {
 
     val openMenu: (Playlist) -> Unit = { pl ->
         menuState.show {
-            PlaylistMenu(playlist = pl, coroutineScope = scope, onDismiss = { menuState.dismiss() }, navigator = page.navigator)
+            PlaylistMenu(playlist = pl.toUiModel(), coroutineScope = scope, onDismiss = { menuState.dismiss() }, navigator = page.navigator)
         }
     }
 
@@ -822,7 +826,7 @@ internal fun PageAlbumsBlock(block: PageBlock.Albums, page: PageContext) {
 
     val openMenu: (Album) -> Unit = { album ->
         menuState.show {
-            AlbumMenu(originalAlbum = album, navigator = page.navigator, onDismiss = { menuState.dismiss() })
+            AlbumMenu(originalAlbum = album.toUiModel(), navigator = page.navigator, onDismiss = { menuState.dismiss() })
         }
     }
 
@@ -936,7 +940,7 @@ internal fun PageArtistsBlock(block: PageBlock.Artists, page: PageContext) {
 
     val openMenu: (Artist) -> Unit = { artist ->
         menuState.show {
-            ArtistMenu(originalArtist = artist, coroutineScope = scope, onDismiss = { menuState.dismiss() })
+            ArtistMenu(originalArtist = artist.toUiModel(), coroutineScope = scope, onDismiss = { menuState.dismiss() })
         }
     }
 
