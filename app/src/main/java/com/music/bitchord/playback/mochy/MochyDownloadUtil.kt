@@ -32,9 +32,12 @@
 //    both engines' downloads live in one folder both modes can play
 //    (Riki's decision #3). Mochy exports only on request; here the
 //    export is part of finishing.
-//  - the quality setting: AppSettings.downloadQuality drives both
-//    engines (STANDARD lands on Mochy's MEDIUM rung, HIGH and LOSSLESS
-//    on its HIGH; sources still go first on the lossless rung).
+//  - the quality setting: the Mochy DataStore's DownloadQualityKey
+//    drives this engine (batch 53, as in Mochy's DownloadUtil: HIGH /
+//    MEDIUM / LOW map onto the resolver's same-named rungs; source
+//    downloads translate the rung into ChordWave's tiers, since
+//    Sources are ChordWave's feature). Classic keeps its own
+//    AppSettings.downloadQuality.
 //
 // Deviations from Mochy, recorded honestly: manifest (HLS/DASH) source
 // streams are not downloaded here — DownloadManager fetches whole
@@ -78,7 +81,10 @@ import com.music.bitchord.download.Downloads
 import com.music.bitchord.download.Downloader
 import com.music.bitchord.download.downloadBadge
 import com.music.bitchord.ui.mochy.constants.AudioQuality
+import com.music.bitchord.ui.mochy.constants.DownloadQualityKey
+import com.music.bitchord.ui.mochy.constants.MochyDownloadQuality
 import com.music.bitchord.ui.mochy.constants.OfflineModeKey
+import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.lyrics.serializeLyricLines
 import com.music.bitchord.ui.mochy.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
@@ -281,11 +287,17 @@ object MochyDownloadUtil {
                     .build()
             }
 
-            val quality = AppSettings.downloadQuality.value
+            // Batch 53: the rung comes from the Mochy DataStore
+            // (DownloadQualityKey), as in Mochy's DownloadUtil — Modern's
+            // quality screen writes it there. AppSettings.exportDownloads
+            // stays: exporting finished downloads into Music/ChordWave
+            // is ChordWave's own feature (Tahap 5), and its AAC pin has
+            // no Mochy counterpart.
+            val quality = downloadQuality(context)
             val resolved = runBlocking(Dispatchers.IO) {
                 MochyStreamResolver.resolveForDownload(
                     mediaId,
-                    quality.toMochyAudioQuality(),
+                    quality.toAudioQuality(),
                     requireM4a = AppSettings.exportDownloads.value,
                 )
             }
@@ -349,8 +361,7 @@ object MochyDownloadUtil {
         sourceDownloads[mediaId]?.let { return it }
         val song = askedSongs[mediaId] ?: runBlocking(Dispatchers.IO) { songFromRoom(context, mediaId) }
             ?: return null
-        val quality = AppSettings.downloadQuality.value
-        val request = SourceResolver.requestForDownload(quality)
+        val request = SourceResolver.requestForDownload(downloadQuality(context).toChordWaveQuality())
 
         val row = SourceRegistry.parseTrackKey(mediaId)
         val stream: SourceStream? = runBlocking(Dispatchers.IO) {
@@ -652,10 +663,29 @@ object MochyDownloadUtil {
         return message ?: "Download failed"
     }
 
-    /** The download rung as the Mochy resolver's quality (see the file header). */
-    private fun DownloadQuality.toMochyAudioQuality(): AudioQuality = when (this) {
-        DownloadQuality.STANDARD -> AudioQuality.MEDIUM
-        DownloadQuality.HIGH -> AudioQuality.HIGH
-        DownloadQuality.LOSSLESS -> AudioQuality.HIGH
+    /** The stored download rung (Mochy's DownloadQualityKey, HIGH by default). */
+    private fun downloadQuality(context: Context): MochyDownloadQuality =
+        runCatching {
+            MochyDownloadQuality.valueOf(
+                PreferencesCache.current(context.dataStore)[DownloadQualityKey]
+                    ?: MochyDownloadQuality.HIGH.name,
+            )
+        }.getOrDefault(MochyDownloadQuality.HIGH)
+
+    /** The download rung as the resolver's quality (Mochy's mapping). */
+    private fun MochyDownloadQuality.toAudioQuality(): AudioQuality = when (this) {
+        MochyDownloadQuality.HIGH -> AudioQuality.HIGH
+        MochyDownloadQuality.MEDIUM -> AudioQuality.MEDIUM
+        MochyDownloadQuality.LOW -> AudioQuality.LOW
+    }
+
+    /**
+     * The download rung as ChordWave's own, for source downloads only:
+     * Sources are ChordWave's feature and their request speaks CW tiers.
+     */
+    private fun MochyDownloadQuality.toChordWaveQuality(): DownloadQuality = when (this) {
+        MochyDownloadQuality.HIGH -> DownloadQuality.HIGH
+        MochyDownloadQuality.MEDIUM -> DownloadQuality.STANDARD
+        MochyDownloadQuality.LOW -> DownloadQuality.STANDARD
     }
 }

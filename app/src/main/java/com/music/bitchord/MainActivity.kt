@@ -509,11 +509,21 @@ class MainActivity : AppCompatActivity() {
                 }
                 if (uiMode != displayedMode) {
                     switchingEngine = true
-                    EngineSwitch.stopEngine(switchContext, EngineSwitch.engineFor(displayedMode))
-                    EngineSwitch.syncComponents(switchContext)
-                    delay(650)
-                    displayedMode = uiMode
-                    switchingEngine = false
+                    try {
+                        // Batch 53: the whole handover (stop the old engine,
+                        // wait for its service to be destroyed, sync the
+                        // component states, flip the bound engine) is one
+                        // guarded sequence that cannot throw — the old
+                        // stop-then-disable-immediately order force-closed
+                        // the app in both directions. The splash covers it;
+                        // the other host composes only afterwards, onto an
+                        // already-enabled service.
+                        EngineSwitch.switchTo(switchContext, EngineSwitch.engineFor(uiMode))
+                        delay(650)
+                    } finally {
+                        displayedMode = uiMode
+                        switchingEngine = false
+                    }
                 }
             }
             if (switchingEngine) {

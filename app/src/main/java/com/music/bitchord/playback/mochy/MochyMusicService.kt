@@ -61,6 +61,8 @@ package com.music.bitchord.playback.mochy
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.audiofx.Equalizer
@@ -113,23 +115,24 @@ import com.music.bitchord.auth.SignedIn
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.LikeStatus
+import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.mochydata.MochyDatabaseHolder
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.stats.ListeningRecorder
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.playback.ACTION_CLEAR_BOUNDED_CONTEXT
 import com.music.bitchord.playback.ACTION_QUEUE_DRAG
 import com.music.bitchord.playback.AudioOutputPolicy
 import com.music.bitchord.playback.AudioOutputStatus
-import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.playback.EXTRA_QUEUE_DRAG_ACTIVE
 import com.music.bitchord.playback.LoudnessProcessor
 import com.music.bitchord.playback.PartySync
-import com.music.bitchord.playback.SleepFade
 import com.music.bitchord.playback.SleepTimer
 import com.music.bitchord.playback.audio.DspChain
 import com.music.bitchord.playback.audio.PrecisionAudioSink
@@ -149,8 +152,22 @@ import com.music.bitchord.playback.cast.RemoteSpeaker
 import com.music.bitchord.playback.cast.Speakers
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.playback.toSong
+import androidx.datastore.preferences.core.edit
+import com.music.bitchord.ui.mochy.constants.AudioNormalizationKey
 import com.music.bitchord.ui.mochy.constants.AudioQuality
 import com.music.bitchord.ui.mochy.constants.AudioQualityKey
+import com.music.bitchord.ui.mochy.constants.DontSkipOnFailureKey
+import com.music.bitchord.ui.mochy.constants.InfiniteQueueKey
+import com.music.bitchord.ui.mochy.constants.MixWithOtherAppsKey
+import com.music.bitchord.ui.mochy.constants.PauseOnMute
+import com.music.bitchord.ui.mochy.constants.PersistentShuffleAcrossQueuesKey
+import com.music.bitchord.ui.mochy.constants.PersistentQueueKey
+import com.music.bitchord.ui.mochy.constants.HiResOutputKey
+import com.music.bitchord.ui.mochy.constants.RepeatModeKey
+import com.music.bitchord.ui.mochy.constants.ResumeOnBluetoothConnectKey
+import com.music.bitchord.ui.mochy.constants.SkipSilenceKey
+import com.music.bitchord.ui.mochy.constants.StopPlaybackOnTaskRemovedKey
+import com.music.bitchord.ui.mochy.constants.StreamFailureTimeoutKey
 import com.music.bitchord.ui.mochy.constants.TransportEffect
 import com.music.bitchord.ui.mochy.constants.TransportEffectKey
 import com.music.bitchord.ui.mochy.constants.TransportFadeDefaultSeconds
@@ -181,7 +198,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import timber.log.Timber
+import java.io.File
 import java.time.LocalDateTime
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -224,6 +244,44 @@ class MochyMusicService : MediaLibraryService() {
     /** Listen Together sync for this engine; null until onCreate starts it. */
     private var partySync: PartySync? = null
 
+    // Batch 53: the Mochy DataStore settings this engine runs on (Mochy's
+    // MusicService reads the same keys from the same store). Observed
+    // live in observePlaybackPrefs; read on the audio thread where noted.
+    @Volatile
+    private var normalizeAudio = true
+
+    // Queue persistence (batch 53): Mochy keeps the queue on disk so it
+    // survives process death; the saved key/position let timed saves skip
+    // unchanged queues the way Mochy's saveQueueToDisk does.
+    private var savedQueueKey: Int = 0
+    private var savedQueuePosition: Long = 0L
+
+    /** Stream-failure retry/skip job (Mochy's failStream), cancelled on recovery. */
+    private var failureJob: Job? = null
+
+    // Pause-on-mute bookkeeping (Mochy's onDeviceVolumeChanged).
+    private var wasPlayingBeforeVolumeMute = false
+    private var isPausedByVolumeMute = false
+
+    /** Resume-on-Bluetooth (Mochy's audio-device callback). */
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            super.onAudioDevicesAdded(addedDevices)
+            val hasBluetooth = addedDevices?.any {
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+            } == true
+            if (hasBluetooth &&
+                PreferencesCache.current(applicationContext.dataStore)[ResumeOnBluetoothConnectKey] == true
+            ) {
+                val exoPlayer = player ?: return
+                if (exoPlayer.playbackState == Player.STATE_READY && !exoPlayer.isPlaying) {
+                    exoPlayer.play()
+                }
+            }
+        }
+    }
+
     // Listening sampler state (mirrors ListeningRecorder's rule).
     private var sampledMediaId: String? = null
     private var sampledSong: Song? = null
@@ -247,7 +305,12 @@ class MochyMusicService : MediaLibraryService() {
         player = exoPlayer
         exoPlayer.addListener(playerListener)
         applySettings(exoPlayer)
+        observePlaybackPrefs(exoPlayer)
         applyEqualizer(exoPlayer)
+        runCatching {
+            getSystemService(AudioManager::class.java)
+                ?.registerAudioDeviceCallback(audioDeviceCallback, handler)
+        }
         partySync = PartySync(scope) { player }.also { it.start() }
         watchSleepTimer()
         observeTransportPrefs()
@@ -260,6 +323,9 @@ class MochyMusicService : MediaLibraryService() {
                 transport,
                 partySync,
                 onUserVolume = { userVolume = it },
+                persistentShuffle = {
+                    PreferencesCache.current(applicationContext.dataStore)[PersistentShuffleAcrossQueuesKey] ?: true
+                },
             ),
             LibraryCallback(),
         )
@@ -271,6 +337,7 @@ class MochyMusicService : MediaLibraryService() {
 
         CastController.ensureStarted(this)
         CastController.attach(castPlayback)
+        restoreQueueFromDisk(exoPlayer)
         startSampler()
         Timber.tag(TAG).i("Mochy engine service created")
     }
@@ -293,8 +360,59 @@ class MochyMusicService : MediaLibraryService() {
     }
 
     private fun applySettings(exoPlayer: ExoPlayer) {
-        exoPlayer.skipSilenceEnabled = AppSettings.skipSilence.value
-        exoPlayer.repeatMode = AppSettings.repeatMode.value
+        // Batch 53: initial values come from the Mochy DataStore, as in
+        // Mochy's MusicService (buildPlayer reads SkipSilenceKey and
+        // RepeatModeKey the same way) — not from ChordWave's AppSettings,
+        // which only Classic's settings screen writes.
+        val prefs = runCatching { PreferencesCache.current(applicationContext.dataStore) }.getOrNull()
+        exoPlayer.skipSilenceEnabled = prefs?.get(SkipSilenceKey) ?: false
+        exoPlayer.repeatMode = prefs?.get(RepeatModeKey) ?: Player.REPEAT_MODE_OFF
+        normalizeAudio = prefs?.get(AudioNormalizationKey) ?: true
+        if (prefs?.get(MixWithOtherAppsKey) == true) {
+            exoPlayer.setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ false)
+        }
+    }
+
+    /**
+     * Live Mochy playback settings (batch 53): the same DataStore
+     * observations Mochy's MusicService makes — skip silence, mix with
+     * other apps (audio-focus handling), and loudness normalisation.
+     * Modern's settings screens write these keys; before this, the
+     * engine read ChordWave's AppSettings instead and the settings did
+     * nothing.
+     */
+    private fun observePlaybackPrefs(exoPlayer: ExoPlayer) {
+        scope.launch {
+            applicationContext.dataStore.data
+                .map { prefs ->
+                    Triple(
+                        prefs[SkipSilenceKey] ?: false,
+                        prefs[MixWithOtherAppsKey] ?: false,
+                        prefs[AudioNormalizationKey] ?: true,
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { (skipSilence, mix, normalize) ->
+                    exoPlayer.skipSilenceEnabled = skipSilence
+                    exoPlayer.setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ !mix)
+                    normalizeAudio = normalize
+                    setupLoudness(exoPlayer.currentMediaItem?.mediaId)
+                }
+        }
+    }
+
+    /** Mochy's infinite queue (the Modern autoplay button's own pref). */
+    private fun infiniteQueueEnabled(): Boolean =
+        runCatching {
+            PreferencesCache.current(applicationContext.dataStore)[InfiniteQueueKey] ?: true
+        }.getOrDefault(true)
+
+    private fun setInfiniteQueueEnabled(enabled: Boolean) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                applicationContext.dataStore.edit { it[InfiniteQueueKey] = enabled }
+            }
+        }
     }
 
     private fun recordFormat(videoId: String, resolved: MochyResolvedStream) {
@@ -411,6 +529,7 @@ class MochyMusicService : MediaLibraryService() {
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
                 partySync?.onLocalIntent()
             }
+            clearStreamFailure()
             setupLoudness(mediaItem?.mediaId)
             flushPlayRecord()
             sampledMediaId = mediaItem?.mediaId
@@ -445,8 +564,37 @@ class MochyMusicService : MediaLibraryService() {
         }
 
         override fun onRepeatModeChanged(repeatMode: Int) {
-            AppSettings.setRepeatMode(repeatMode)
+            // Batch 53: persisted to the Mochy DataStore (RepeatModeKey),
+            // as in Mochy's MusicService — each engine keeps its own.
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    applicationContext.dataStore.edit { it[RepeatModeKey] = repeatMode }
+                }
+            }
             speakers.onLocalRepeatChanged(repeatMode)
+        }
+
+        override fun onDeviceVolumeChanged(volume: Int, muted: Boolean) {
+            super.onDeviceVolumeChanged(volume, muted)
+            // Pause on mute (Mochy's onDeviceVolumeChanged): muting the
+            // device pauses, unmuting resumes only what the mute paused.
+            val pauseOnMute = runCatching {
+                PreferencesCache.current(applicationContext.dataStore)[PauseOnMute] ?: false
+            }.getOrDefault(false)
+            val exoPlayer = player ?: return
+            if ((volume == 0 || muted) && pauseOnMute) {
+                if (exoPlayer.isPlaying) {
+                    wasPlayingBeforeVolumeMute = true
+                    isPausedByVolumeMute = true
+                    exoPlayer.pause()
+                }
+            } else if (volume > 0 && !muted && pauseOnMute) {
+                if (wasPlayingBeforeVolumeMute && !exoPlayer.isPlaying && !speakers.active) {
+                    wasPlayingBeforeVolumeMute = false
+                    isPausedByVolumeMute = false
+                    exoPlayer.play()
+                }
+            }
         }
 
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -456,12 +604,196 @@ class MochyMusicService : MediaLibraryService() {
         override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
             speakers.onLocalQueueChanged()
             publishWidgetState()
+            saveQueueToDisk()
         }
 
         override fun onPlayerError(error: PlaybackException) {
             Timber.tag(TAG).w(error, "Playback error")
             ListeningRecorder.onStopped()
+            failStream()
         }
+    }
+
+    /**
+     * Queue persistence, Mochy's PersistentQueueKey behavior (batch 53):
+     * the queue (songs, index, position) is kept in a JSON file so it
+     * survives process death, and restored paused on the next start.
+     * Mochy serializes its PersistQueue with Java serialization; here the
+     * same fields ride JSON because our Song/MediaItem pair already
+     * round-trips through toSong()/toMediaItem().
+     */
+    private fun queueKey(exoPlayer: ExoPlayer): Int {
+        var key = exoPlayer.mediaItemCount
+        for (i in 0 until exoPlayer.mediaItemCount) {
+            key = 31 * key + exoPlayer.getMediaItemAt(i).mediaId.hashCode()
+        }
+        return key
+    }
+
+    private fun saveQueueToDisk(onlyChanges: Boolean = false) {
+        val exoPlayer = player ?: return
+        if (exoPlayer.mediaItemCount == 0) return
+        val key = queueKey(exoPlayer)
+        val position = exoPlayer.currentPosition.coerceAtLeast(0L)
+        val queueChanged = key != savedQueueKey
+        if (onlyChanges && !queueChanged &&
+            kotlin.math.abs(position - savedQueuePosition) < POSITION_SAVE_STEP_MS
+        ) {
+            return
+        }
+        savedQueueKey = key
+        savedQueuePosition = position
+        val songs = (0 until exoPlayer.mediaItemCount).map { exoPlayer.getMediaItemAt(it).toSong() }
+        val index = exoPlayer.currentMediaItemIndex
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val root = JSONObject()
+                root.put("index", index)
+                root.put("position", position)
+                val array = JSONArray()
+                songs.forEach { song -> array.put(song.toQueueJson()) }
+                root.put("songs", array)
+                val file = File(filesDir, PERSISTENT_QUEUE_FILE)
+                val tmp = File(filesDir, "$PERSISTENT_QUEUE_FILE.tmp")
+                tmp.writeText(root.toString())
+                tmp.renameTo(file)
+            }.onFailure { Timber.tag(TAG).w(it, "Failed to save queue") }
+        }
+    }
+
+    private fun restoreQueueFromDisk(exoPlayer: ExoPlayer) {
+        val prefs = runCatching { PreferencesCache.current(applicationContext.dataStore) }.getOrNull()
+        if (prefs?.get(PersistentQueueKey) == false) return
+        if (exoPlayer.mediaItemCount > 0) return
+        val file = File(filesDir, PERSISTENT_QUEUE_FILE)
+        if (!file.exists()) return
+        runCatching {
+            val root = JSONObject(file.readText())
+            val array = root.optJSONArray("songs") ?: return
+            val songs = (0 until array.length()).mapNotNull { i ->
+                array.optJSONObject(i)?.toQueueSong()
+            }
+            if (songs.isEmpty()) return
+            val index = root.optInt("index", 0).coerceIn(0, songs.lastIndex)
+            val position = root.optLong("position", 0L).coerceAtLeast(0L)
+            exoPlayer.setMediaItems(songs.map { it.toMediaItem() }, index, position)
+            exoPlayer.prepare()
+            savedQueueKey = queueKey(exoPlayer)
+            savedQueuePosition = position
+            Timber.tag(TAG).i("Restored persisted queue (${songs.size} songs)")
+        }.onFailure {
+            Timber.tag(TAG).w(it, "Failed to restore persisted queue, clearing data")
+            runCatching { file.delete() }
+        }
+    }
+
+    private fun Song.toQueueJson(): JSONObject = JSONObject().apply {
+        put("videoId", videoId)
+        put("title", title)
+        put("artist", artist)
+        put("thumbnailUrl", thumbnailUrl ?: JSONObject.NULL)
+        put("durationText", durationText ?: JSONObject.NULL)
+        put("artistId", artistId ?: JSONObject.NULL)
+        put("albumId", albumId ?: JSONObject.NULL)
+        put("albumName", albumName ?: JSONObject.NULL)
+        put("isExplicit", isExplicit ?: JSONObject.NULL)
+        put("isVideo", isVideo)
+        put("isVideoOrigin", isVideoOrigin)
+        put("setVideoId", setVideoId ?: JSONObject.NULL)
+        put("sourceQuality", sourceQuality ?: JSONObject.NULL)
+        put("sourceHiRes", sourceHiRes)
+        put("radioName", radioName ?: JSONObject.NULL)
+        put("playbackSource", playbackSource ?: JSONObject.NULL)
+        put("playbackSourceType", playbackSourceType?.name ?: JSONObject.NULL)
+        put("playbackSourceId", playbackSourceId ?: JSONObject.NULL)
+        put("localUri", localUri ?: JSONObject.NULL)
+        put("localPath", localPath ?: JSONObject.NULL)
+        val artistsArray = JSONArray()
+        artists.forEach { ref ->
+            artistsArray.put(
+                JSONObject().apply {
+                    put("name", ref.name)
+                    put("browseId", ref.browseId ?: JSONObject.NULL)
+                },
+            )
+        }
+        put("artists", artistsArray)
+    }
+
+    private fun JSONObject.toQueueSong(): Song? {
+        val videoId = optString("videoId").takeIf { it.isNotEmpty() } ?: return null
+        val artistsArray = optJSONArray("artists")
+        val refs = if (artistsArray == null) {
+            emptyList()
+        } else {
+            (0 until artistsArray.length()).mapNotNull { i ->
+                val obj = artistsArray.optJSONObject(i) ?: return@mapNotNull null
+                val name = obj.optString("name").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                ArtistRef(name = name, browseId = obj.optString("browseId").takeIf { it.isNotEmpty() })
+            }
+        }
+        return Song(
+            videoId = videoId,
+            title = optString("title"),
+            artist = optString("artist"),
+            thumbnailUrl = optString("thumbnailUrl").takeIf { it.isNotEmpty() },
+            durationText = optString("durationText").takeIf { it.isNotEmpty() },
+            artistId = optString("artistId").takeIf { it.isNotEmpty() },
+            artists = refs,
+            albumId = optString("albumId").takeIf { it.isNotEmpty() },
+            albumName = optString("albumName").takeIf { it.isNotEmpty() },
+            isExplicit = if (has("isExplicit") && !isNull("isExplicit")) optBoolean("isExplicit") else null,
+            isVideo = optBoolean("isVideo"),
+            isVideoOrigin = optBoolean("isVideoOrigin"),
+            setVideoId = optString("setVideoId").takeIf { it.isNotEmpty() },
+            sourceQuality = optString("sourceQuality").takeIf { it.isNotEmpty() },
+            sourceHiRes = optBoolean("sourceHiRes"),
+            radioName = optString("radioName").takeIf { it.isNotEmpty() },
+            playbackSource = optString("playbackSource").takeIf { it.isNotEmpty() },
+            playbackSourceType = optString("playbackSourceType")
+                .takeIf { it.isNotEmpty() }
+                ?.let { runCatching { PlaybackSourceType.valueOf(it) }.getOrNull() },
+            playbackSourceId = optString("playbackSourceId").takeIf { it.isNotEmpty() },
+            localUri = optString("localUri").takeIf { it.isNotEmpty() },
+            localPath = optString("localPath").takeIf { it.isNotEmpty() },
+        )
+    }
+
+    /**
+     * A failed stream the player has given up on (Mochy's failStream,
+     * batch 53): pause, then either retry the same stream every few
+     * seconds (DontSkipOnFailureKey — staying on it means trying again
+     * until it plays) or skip to the next track after
+     * StreamFailureTimeoutKey seconds.
+     */
+    private fun failStream() {
+        val exoPlayer = player ?: return
+        exoPlayer.pause()
+        clearStreamFailure()
+        val prefs = runCatching { PreferencesCache.current(applicationContext.dataStore) }.getOrNull()
+        if (prefs?.get(DontSkipOnFailureKey) == true) {
+            failureJob = scope.launch {
+                delay(STREAM_RETRY_INTERVAL_MS)
+                Timber.tag(TAG).d("Retrying the failed stream")
+                player?.prepare()
+                player?.play()
+            }
+            return
+        }
+        if (exoPlayer.nextMediaItemIndex == C.INDEX_UNSET) return
+        val timeoutMs = (prefs?.get(StreamFailureTimeoutKey) ?: 6).coerceIn(5, 20) * 1000L
+        failureJob = scope.launch {
+            delay(timeoutMs)
+            Timber.tag(TAG).d("Stream failure timed out, skipping to next track")
+            player?.seekToNextMediaItem()
+            player?.prepare()
+            player?.play()
+        }
+    }
+
+    private fun clearStreamFailure() {
+        failureJob?.cancel()
+        failureJob = null
     }
 
     /**
@@ -471,7 +803,9 @@ class MochyMusicService : MediaLibraryService() {
      */
     private fun maybeAutoplayRefill() {
         val exoPlayer = player ?: return
-        if (!AppSettings.autoplay.value) return
+        // Batch 53: Mochy's infinite queue governs the refill, as in
+        // Mochy's MusicService (InfiniteQueueKey, on by default).
+        if (!infiniteQueueEnabled()) return
         val seedId = exoPlayer.currentMediaItem?.mediaId ?: return
         if (seedId.startsWith("http") || seedId.startsWith("content") || seedId.startsWith("file")) return
         autoplayJob?.cancel()
@@ -511,6 +845,7 @@ class MochyMusicService : MediaLibraryService() {
 
     private fun sampleTick() {
         val exoPlayer = player ?: return
+        saveQueueToDisk(onlyChanges = true)
         if (!exoPlayer.isPlaying) return
         val song = sampledSong ?: exoPlayer.currentMediaItem?.toSong()?.also { sampledSong = it } ?: return
         if (song.videoId != sampledMediaId) {
@@ -797,8 +1132,13 @@ class MochyMusicService : MediaLibraryService() {
             manager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
                 ?.any { it.encodings.contains(AudioFormat.ENCODING_PCM_FLOAT) } == true
         }.getOrDefault(false)
+        // Batch 53: the Modern hi-res toggle (HiResOutputKey, DataStore)
+        // drives the float output, not Classic's outputPcmMode.
+        val hiRes = runCatching {
+            PreferencesCache.current(applicationContext.dataStore)[HiResOutputKey]
+        }.getOrNull() ?: false
         return AudioOutputPolicy.shouldUseFloatOutput(
-            requestedMode = AppSettings.outputPcmMode.value,
+            requestedMode = if (hiRes) OutputPcmMode.FLOAT_32 else OutputPcmMode.PCM_16,
             routeKind = AudioOutputStatus.current.value.routeKind,
             advertisesPcmFloat = advertisesFloat,
         )
@@ -817,10 +1157,10 @@ class MochyMusicService : MediaLibraryService() {
         ?: 1f
 
     private fun loudnessGainMb(mediaId: String?): Int? {
-        if (!AppSettings.loudnessNormalization.value) return null
-        if (AppSettings.loudnessOffOnSpeaker.value &&
-            AudioOutputStatus.current.value.routeKind == AudioRouting.Kind.PHONE
-        ) return null
+        // Batch 53: gated by Mochy's AudioNormalizationKey (observed in
+        // observePlaybackPrefs), as in Mochy's MusicService — ChordWave's
+        // loudness settings and speaker exception belong to Classic.
+        if (!normalizeAudio) return null
         val id = mediaId?.takeIf { it.isNotBlank() } ?: return null
         val loudnessDb = MochyStreamResolver.loudnessDbFor(id) ?: return null
         return (-loudnessDb * 100.0).roundToInt().coerceIn(MIN_LOUDNESS_GAIN_MB, MAX_LOUDNESS_GAIN_MB)
@@ -850,75 +1190,32 @@ class MochyMusicService : MediaLibraryService() {
         }
     }
 
-    // ---- sleep timer (Tahap 6) ---------------------------------------------------
-    // The Modern sleep-timer sheet already sets the shared SleepTimer;
-    // this is the watcher that makes it fire on the Mochy engine, the
-    // same fade Classic runs (SleepFade over the player's own volume,
-    // pause at the deadline, volume handed back).
+    // ---- sleep timer (Tahap 6; Mochy semantics in batch 53) -------------------
+    // The Modern sleep-timer sheet sets the shared SleepTimer; this is
+    // the watcher that makes it fire on the Mochy engine. Mochy's own
+    // SleepTimer simply pauses when the time runs out (its scheduleJob
+    // delays, pauses, clears) — no volume fade; the fade is Classic's
+    // SleepFade and stays Classic's. "After this song" is handled in
+    // the player listener's transition callback, as in Mochy.
 
     private fun watchSleepTimer() {
         scope.launch {
             SleepTimer.deadline.collectLatest { deadline ->
                 if (deadline == null) return@collectLatest
-                runTimedSleepFade(deadline)
+                runTimedSleep(deadline)
             }
         }
     }
 
-    private suspend fun runTimedSleepFade(deadline: Long) {
-        if (!AppSettings.sleepTimerFadeOut.value) {
-            // Fade-out switched off in Settings: wait the timer out
-            // without touching the volume, then pause.
-            while (true) {
-                val remaining = deadline - SystemClock.elapsedRealtime()
-                if (remaining <= 0) break
-                delay(minOf(remaining, 1_000L))
-            }
-            player?.pause()
-            SleepTimer.cancel()
-            return
+    private suspend fun runTimedSleep(deadline: Long) {
+        while (true) {
+            val remaining = deadline - SystemClock.elapsedRealtime()
+            if (remaining <= 0) break
+            delay(minOf(remaining, 1_000L))
         }
-        var fadedPlayer: ExoPlayer? = null
-        var baseVolume = 1f
-        var windowMs = 0L
-        var fired = false
-        try {
-            while (true) {
-                val remaining = deadline - SystemClock.elapsedRealtime()
-                if (remaining <= 0) break
-                if (windowMs == 0L && remaining <= SleepFade.MAX_FADE_MS) {
-                    // The fade begins: for a timer shorter than the window
-                    // this is its whole remainder, so the ramp is
-                    // proportional to the time actually left.
-                    windowMs = SleepFade.fadeWindowMs(remaining)
-                    Timber.tag(TAG).d("sleep timer: fading out over ${windowMs}ms")
-                }
-                if (windowMs == 0L) {
-                    delay(minOf(remaining - SleepFade.MAX_FADE_MS, 1_000L).coerceAtLeast(50L))
-                    continue
-                }
-                val current = player
-                // A transport fade owns the volume for its span; a tick
-                // that finds one in flight leaves the gain alone and the
-                // next tick after it picks the fade up.
-                if (current != null && !transport.isFading) {
-                    if (fadedPlayer !== current) {
-                        fadedPlayer = current
-                        baseVolume = current.volume
-                    }
-                    val gain = SleepFade.gain(remaining, windowMs)
-                    current.volume = baseVolume * gain
-                }
-                delay(SleepFade.TICK_MS)
-            }
-            fired = true
-            player?.pause()
-            fadedPlayer?.let { it.volume = baseVolume }
-            SleepTimer.cancel()
-            Timber.tag(TAG).d("sleep timer: paused, volume restored to $baseVolume")
-        } finally {
-            if (!fired) fadedPlayer?.let { it.volume = baseVolume }
-        }
+        player?.pause()
+        SleepTimer.cancel()
+        Timber.tag(TAG).d("sleep timer: paused")
     }
 
     // ---- transport fades (Tahap 6) ------------------------------------------------
@@ -976,14 +1273,26 @@ class MochyMusicService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        val exoPlayer = player
-        if (exoPlayer == null || !exoPlayer.playWhenReady) {
+        // Mochy's rule (batch 53): swiping the app away only stops
+        // playback when StopPlaybackOnTaskRemovedKey says so (off by
+        // default) — the service otherwise keeps its session.
+        val stopOnRemoved = runCatching {
+            PreferencesCache.current(applicationContext.dataStore)[StopPlaybackOnTaskRemovedKey] ?: false
+        }.getOrDefault(false)
+        if (stopOnRemoved) {
+            player?.stop()
             stopSelf()
         }
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
+        runCatching {
+            getSystemService(AudioManager::class.java)
+                ?.unregisterAudioDeviceCallback(audioDeviceCallback)
+        }
+        clearStreamFailure()
+        saveQueueToDisk()
         partySync?.stop()
         partySync = null
         runCatching { transport.cancel() }
@@ -1058,10 +1367,9 @@ class MochyMusicService : MediaLibraryService() {
                     refreshCustomLayout()
                 }
                 ACTION_TOGGLE_AUTOPLAY -> {
-                    AppSettings.setAutoplay(!AppSettings.autoplay.value)
-                    if (AppSettings.autoplay.value &&
-                        player?.playbackState == Player.STATE_ENDED
-                    ) {
+                    val enabled = !infiniteQueueEnabled()
+                    setInfiniteQueueEnabled(enabled)
+                    if (enabled && player?.playbackState == Player.STATE_ENDED) {
                         maybeAutoplayRefill()
                     }
                 }
@@ -1257,6 +1565,9 @@ class MochyMusicService : MediaLibraryService() {
         private const val RESOLVE_TIMEOUT_MS = 30_000L
         private const val BACK_RESTARTS_AFTER_MS = 3_000L
         private const val SAMPLE_INTERVAL_MS = 1_000L
+        private const val STREAM_RETRY_INTERVAL_MS = 5_000L
+        private const val PERSISTENT_QUEUE_FILE = "mochy_persist_queue.json"
+        private const val POSITION_SAVE_STEP_MS = 5_000L
         private const val MAX_SAMPLE_STEP_MS = 5_000L
         private const val PLAY_FLOOR_MS = 30_000L
         private const val PLAY_CEILING_MS = 240_000L
@@ -1296,6 +1607,7 @@ private class MochySessionPlayer(
     private val transport: TransportTransitions,
     private val partySync: PartySync?,
     private val onUserVolume: (Float) -> Unit,
+    private val persistentShuffle: () -> Boolean = { true },
 ) : ForwardingPlayer(player), CastSink {
 
     private fun locked(): Boolean = ListenTogether.state.value.controlsLocked
@@ -1459,21 +1771,32 @@ private class MochySessionPlayer(
         if (!transport.isFading) super.setVolume(volume)
     }
 
+    // Mochy's playQueue rule: a new queue keeps shuffling only when
+    // PersistentShuffleAcrossQueuesKey allows it (on by default).
+    private fun applyPersistentShuffle() {
+        if (!persistentShuffle()) {
+            runCatching { shuffleModeEnabled = false }
+        }
+    }
+
     override fun setMediaItems(mediaItems: List<MediaItem>) {
         transport.cancel()
         super.setMediaItems(mediaItems)
+        applyPersistentShuffle()
         partySync?.onLocalIntent()
     }
 
     override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
         transport.cancel()
         super.setMediaItems(mediaItems, resetPosition)
+        applyPersistentShuffle()
         partySync?.onLocalIntent()
     }
 
     override fun setMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
         transport.cancel()
         super.setMediaItems(mediaItems, startIndex, startPositionMs)
+        applyPersistentShuffle()
         partySync?.onLocalIntent()
     }
 

@@ -140,6 +140,13 @@ interface DatabaseDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSearchHistory(entries: List<SearchHistory>)
 
+    /** Records one committed query; re-searching it moves it to the top (batch 53). */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun recordSearchHistory(entry: SearchHistory)
+
+    @Query("DELETE FROM search_history WHERE query = :query")
+    suspend fun deleteSearchHistory(query: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlayCounts(counts: List<PlayCountEntity>)
 

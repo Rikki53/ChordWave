@@ -4,12 +4,14 @@
 // reworked for ChordWave's quality model (see NEEDS.md):
 // - ChordWave has no provider modules, so the per-provider sections are
 //   gone, with ProviderOrder (no provider reorder exists in ChordWave).
-// - Streaming is two groups — on Wi-Fi and on mobile data — over CW's own
-//   AudioQuality (Low/Medium/High/Lossless), wired to
-//   AppSettings.setAudioQualityWifi/Cellular.
-// - Downloads use CW's DownloadQuality (Standard/High/Lossless) via
-//   AppSettings.setDownloadQuality.
 // - QualityRow, ProviderLogo and Footnote are kept from Mochy's screen.
+//
+// Batch 53: the rows now write Mochy's own DataStore keys — streaming
+// quality to AudioQualityKey (the YouTube rungs, as in Mochy's screen)
+// and download quality to DownloadQualityKey — because those are what
+// the Mochy engine reads. The previous wiring wrote ChordWave's
+// AppSettings (Wi-Fi/cellular groups + CW download tiers), which only
+// the Classic engine reads, so this screen changed nothing in Modern.
 package com.music.bitchord.ui.mochy.screens.audiolab
 
 import androidx.compose.animation.animateColorAsState
@@ -47,59 +49,67 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
-import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.settings.AudioQuality
-import com.music.bitchord.data.settings.DownloadQuality
+import com.music.bitchord.ui.mochy.constants.AudioQuality
+import com.music.bitchord.ui.mochy.constants.AudioQualityKey
+import com.music.bitchord.ui.mochy.constants.DownloadQualityKey
+import com.music.bitchord.ui.mochy.constants.MochyDownloadQuality
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
+import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
+
+private data class YouTubeQualityOption(val quality: AudioQuality, val title: Int, val description: Int)
+
+// Mochy's YouTube rungs, in Mochy's order.
+private val YouTubeOptions = listOf(
+    YouTubeQualityOption(AudioQuality.AUTO, R.string.aq_quality_auto, R.string.aq_desc_auto),
+    YouTubeQualityOption(AudioQuality.HIGH, R.string.aq_quality_high, R.string.aq_desc_high),
+    YouTubeQualityOption(AudioQuality.MEDIUM, R.string.aq_quality_medium, R.string.aq_desc_medium),
+    YouTubeQualityOption(AudioQuality.LOW, R.string.aq_quality_low, R.string.aq_desc_low),
+)
 
 @Composable
 fun AudioQualityScreen(navigator: MochyNavigator) {
-    val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
-    val cellularQuality by AppSettings.audioQualityCellular.collectAsStateWithLifecycle()
-    val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
+    val (stored, onQuality) = rememberEnumPreference(AudioQualityKey, defaultValue = AudioQuality.AUTO)
+    val (downloadQuality, onDownloadQuality) = rememberEnumPreference(
+        DownloadQualityKey,
+        defaultValue = MochyDownloadQuality.HIGH,
+    )
+    // The tiers Monochrome used to serve belong to its module (not in
+    // ChordWave); a stored one falls back to HIGH, as in Mochy's screen.
+    val quality = if (stored.usesMonochrome) AudioQuality.HIGH else stored
 
     AudioLabPage(
         title = LabTitle("Audio", "Quality"),
         onBack = { navigator.popBackStack() },
     ) {
-        LabSheetTitle(stringResource(R.string.audiolab_quality_wifi))
+        LabSheetTitle(stringResource(R.string.aq_section_streaming))
         LabGroup {
-            AudioQuality.entries.forEach { quality ->
+            YouTubeOptions.forEach { option ->
                 QualityRow(
-                    title = quality.label,
-                    description = stringResource(R.string.quality_hourly, quality.detail, quality.hourly),
-                    selected = wifiQuality == quality,
+                    title = stringResource(option.title),
+                    description = stringResource(option.description),
+                    selected = quality == option.quality,
                     enabled = true,
-                    onClick = { AppSettings.setAudioQualityWifi(quality) },
+                    onClick = { onQuality(option.quality) },
                 )
             }
         }
         Spacer(Modifier.height(20.dp))
-        LabSheetTitle(stringResource(R.string.audiolab_quality_cellular))
+        LabSheetTitle(stringResource(R.string.aq_section_download))
         LabGroup {
-            AudioQuality.entries.forEach { quality ->
+            MochyDownloadQuality.entries.forEach { option ->
+                val (titleRes, descRes) = when (option) {
+                    MochyDownloadQuality.HIGH -> R.string.aq_quality_high to R.string.aq_dl_desc_high
+                    MochyDownloadQuality.MEDIUM -> R.string.aq_quality_medium to R.string.aq_dl_desc_medium
+                    MochyDownloadQuality.LOW -> R.string.aq_quality_low to R.string.aq_dl_desc_low
+                }
                 QualityRow(
-                    title = quality.label,
-                    description = stringResource(R.string.quality_hourly, quality.detail, quality.hourly),
-                    selected = cellularQuality == quality,
+                    title = stringResource(titleRes),
+                    description = stringResource(descRes),
+                    selected = downloadQuality == option,
                     enabled = true,
-                    onClick = { AppSettings.setAudioQualityCellular(quality) },
-                )
-            }
-        }
-        Spacer(Modifier.height(20.dp))
-        LabSheetTitle(stringResource(R.string.audiolab_quality_downloads))
-        LabGroup {
-            DownloadQuality.entries.forEach { quality ->
-                QualityRow(
-                    title = quality.label,
-                    description = stringResource(R.string.quality_per_track, quality.detail, quality.perTrack),
-                    selected = downloadQuality == quality,
-                    enabled = true,
-                    onClick = { AppSettings.setDownloadQuality(quality) },
+                    onClick = { onDownloadQuality(option) },
                 )
             }
         }

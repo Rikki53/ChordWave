@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.os.bundleOf
@@ -31,7 +32,6 @@ import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.youTubeThumbnailFallback
 import com.music.bitchord.data.sources.SourceKind
@@ -106,21 +106,39 @@ data class PlayerState(
  * Binds to the active engine's service for the lifetime of the
  * composition: PlaybackService in Classic, MochyMusicService in Modern
  * (two-engine Tahap 4 — UiMode is the engine switch, see EngineSwitch).
- * The hosts recompose on a mode switch, so reading the mode here binds
- * each host to its own engine.
+ *
+ * Batch 53: the engine comes from [EngineSwitch.boundEngine], NOT from
+ * the mode preference. The preference flips the instant the user taps a
+ * mode, while the outgoing host is still composing and the incoming
+ * engine's component is still disabled — binding then meant a transient
+ * bind to a disabled service and a live controller released mid-
+ * recomposition, which force-closed the app in both directions.
+ * boundEngine only changes at the safe point of a switch (old service
+ * destroyed, components synced, splash showing), so each host keeps its
+ * own engine until it leaves and the incoming host only ever binds an
+ * enabled service.
  */
 @Composable
 fun rememberMediaController(): MediaController? {
     val context = LocalContext.current
-    val engine = com.music.bitchord.playback.mochy.EngineSwitch.engineFor(AppSettings.uiMode.value)
+    val engine by com.music.bitchord.playback.mochy.EngineSwitch.boundEngine(context)
+        .collectAsStateWithLifecycle()
     var controller by remember { mutableStateOf<MediaController?>(null) }
     val listener = remember(context) { QueueSnapshotRefreshListener() }
 
     DisposableEffect(context, engine) {
         val token = com.music.bitchord.playback.mochy.EngineSwitch.token(context, engine)
-        val future = MediaController.Builder(context, token)
-            .setListener(listener)
-            .buildAsync()
+        // Guarded: a synchronous throw here would crash composition; a
+        // failed bind simply leaves the host without a controller.
+        val future = runCatching {
+            MediaController.Builder(context, token)
+                .setListener(listener)
+                .buildAsync()
+        }.getOrNull()
+        if (future == null) {
+            controller = null
+            return@DisposableEffect onDispose { }
+        }
         future.addListener(
             {
                 val connected = runCatching { future.get() }.getOrNull()

@@ -22,8 +22,8 @@
 //   response for an abandoned query cannot overwrite the new page.
 // - addHistory is a REQUIRED ADDITION (not in Mochy's VM): the ported
 //   OnlineSearchResult never touches the store itself. Same shape as
-//   OnlineSearchSuggestionViewModel.addHistory (query terms filed as
-//   SearchHistoryEntity rows with id "q:<term>").
+//   OnlineSearchSuggestionViewModel.addHistory (Room search_history,
+//   batch 53).
 // - Failures log through Timber and keep the previous value; they never
 //   crash and never clear a loaded page.
 
@@ -37,9 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.music.bitchord.data.model.EntityType
-import com.music.bitchord.data.model.SearchHistoryEntity
-import com.music.bitchord.data.settings.SearchHistory as CwSearchHistory
+import com.music.bitchord.data.mochydata.MochyDatabaseHolder
 import com.music.bitchord.ui.mochy.constants.HideExplicitKey
 import com.music.bitchord.ui.mochy.constants.HideVideoSongsKey
 import com.music.bitchord.ui.mochy.constants.HideYoutubeShortsKey
@@ -60,8 +58,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-/** CW files a raw search term as a TRACK entity with this id prefix (see SearchHistoryEntity.toSong). Must match OnlineSearchSuggestionViewModel's. */
-private const val QUERY_ID_PREFIX = "q:"
 
 @HiltViewModel
 class OnlineSearchViewModel @Inject constructor(
@@ -194,14 +190,8 @@ class OnlineSearchViewModel @Inject constructor(
         if (text.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                CwSearchHistory.record(
-                    SearchHistoryEntity(
-                        id = "$QUERY_ID_PREFIX$text",
-                        title = text,
-                        subtitle = "",
-                        artworkUrl = null,
-                        entityType = EntityType.TRACK,
-                    )
+                MochyDatabaseHolder.get(context).recordSearchHistory(
+                    com.mochyy.mochymusic.db.entities.SearchHistory(query = text),
                 )
             }.onFailure { Timber.w(it, "Search: addHistory failed") }
         }

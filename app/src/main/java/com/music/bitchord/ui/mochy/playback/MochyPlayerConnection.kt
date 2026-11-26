@@ -1177,9 +1177,9 @@ class MochyPlayerConnection(context: Context) {
     }
 
     fun setInfiniteQueueEnabled(enabled: Boolean) {
-        // The player button reads the Mochy pref; the engine reads CW's
-        // autoplay. Both flip together so the two never disagree.
+        // Batch 53: the Mochy engine reads InfiniteQueueKey itself now
+        // (Mochy's MusicService does the same), so the button writes
+        // only the Mochy pref — Classic's autoplay is its own setting.
         PreferencesCache.set(context.dataStore, InfiniteQueueKey, enabled)
-        AppSettings.setAutoplay(enabled)
     }
 }

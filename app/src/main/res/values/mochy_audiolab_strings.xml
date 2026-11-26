@@ -32,6 +32,23 @@
     <string name="audiolab_quality_wifi">On Wi-Fi</string>
     <string name="audiolab_quality_cellular">On mobile data</string>
     <string name="audiolab_quality_downloads">Downloads</string>
+
+    <!-- audio quality (batch 53): Mochy's own quality rows, verbatim from
+         audiolab_quality_strings.xml — the Modern screen now writes the
+         Mochy DataStore keys the Mochy engine reads -->
+    <string name="aq_section_streaming">Streaming</string>
+    <string name="aq_section_download">Download</string>
+    <string name="aq_quality_auto">Auto</string>
+    <string name="aq_quality_high">High</string>
+    <string name="aq_quality_medium">Medium</string>
+    <string name="aq_quality_low">Low</string>
+    <string name="aq_desc_auto">High on Wi-Fi, Medium on mobile data</string>
+    <string name="aq_desc_high">The best the streamer has: less compression, more data</string>
+    <string name="aq_desc_medium">Around 128 kbps, easy on data</string>
+    <string name="aq_desc_low">The smallest streams, for slow connections</string>
+    <string name="aq_dl_desc_high">The best YouTube has: ~160 kbps Opus</string>
+    <string name="aq_dl_desc_medium">Around 128 kbps, half the space</string>
+    <string name="aq_dl_desc_low">The smallest files, ~50–70 kbps</string>
     <string name="quality_download_footnote">How songs downloaded from YouTube are saved, from now on. Downloads already made stay as they are.</string>
 
     <!-- audio pass: the page's title and the status card -->

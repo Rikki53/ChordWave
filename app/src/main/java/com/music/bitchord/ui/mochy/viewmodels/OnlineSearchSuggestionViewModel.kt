@@ -2,8 +2,8 @@
 // Search suggestions + history for the Modern Search tab. Suggestions and
 // top results come from the Mochy engine's innertube (YouTube.
 // searchSuggestions returns both, as in Mochy — two-engine Tahap 4);
-// history lives in the shared SearchHistory store (query terms filed as
-// SearchHistoryEntity rows with id "q:<term>"), and a pasted YouTube link
+// history lives in the Mochy Room database (search_history, batch 53 —
+// the same table Mochy's search reads), and a pasted YouTube link
 // resolves through trackLinks / artistPage. Mochy's init logic is kept:
 // empty query -> full history,
 // offline -> local library preview, online -> suggestions + parsed-URL item,
@@ -11,10 +11,10 @@
 // suggestion gave two rows the same key and crashed the app).
 //
 // Adaptations vs Mochy:
-// - No MusicDatabase: history is CW's SearchHistory store, observed through
-//   its `recent` StateFlow and combined with the query (Mochy read the DB
-//   inside flatMapLatest; the combine re-runs the same computation whenever
-//   the stored list changes, e.g. after addHistory/deleteHistory).
+// - History is the Room search_history flow combined with the query
+//   (batch 53; before that it was CW's SearchHistory store). The combine
+//   re-runs the same computation whenever the stored list changes, e.g.
+//   after addHistory/deleteHistory.
 // - Mochy's searchSuggestions returned text queries AND recommended items;
 //   CW's returns text only, so the top-result items come from searchTypeahead
 //   (first 6, distinct by id).
@@ -22,9 +22,8 @@
 //   previous query's work on each keystroke.
 // - addHistory/deleteHistory are REQUIRED ADDITIONS (not in Mochy's VM):
 //   the ported SearchScreen never touches the store itself.
-// - History ids are index-based (0-based position, most recent first): CW's
-//   store has no stable numeric ids. The screen keys rows by query, so the
-//   id is never used for identity — see NEEDS.md.
+// - History ids are the Room row ids (batch 53). The screen keys rows by
+//   query, so the id is never used for identity.
 // - Library filter (Nov 2026): [libraryOnly] narrows the top-result items to
 //   songs in the account library — liked + added ids from
 //   YtMusicRepository.library(), layered with LikeState.overrides so a like
@@ -39,10 +38,8 @@ import androidx.lifecycle.viewModelScope
 import com.music.bitchord.auth.SignedIn
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
-import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.LikeStatus
-import com.music.bitchord.data.model.SearchHistoryEntity
-import com.music.bitchord.data.settings.SearchHistory as CwSearchHistory
+import com.music.bitchord.data.mochydata.MochyDatabaseHolder
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.ui.mochy.constants.HideExplicitKey
@@ -75,8 +72,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-/** CW files a raw search term as a TRACK entity with this id prefix (see SearchHistoryEntity.toSong). */
-private const val QUERY_ID_PREFIX = "q:"
 
 /** How many top-result cards the typeahead contributes (Mochy's recommendedItems had no CW cap to copy). */
 private const val TopResultLimit = 6
@@ -178,8 +173,8 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             query
-                .combine(CwSearchHistory.recent) { text, entities ->
-                    text to entities.toMochyHistory()
+                .combine(MochyDatabaseHolder.get(context).searchHistory()) { text, rows ->
+                    text to rows.map { SearchHistory(id = it.id, query = it.query) }
                 }
                 .flatMapLatest { (text, history) ->
                     flow { emit(buildState(text, history)) }
@@ -373,14 +368,8 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
         if (text.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                CwSearchHistory.record(
-                    SearchHistoryEntity(
-                        id = "$QUERY_ID_PREFIX$text",
-                        title = text,
-                        subtitle = "",
-                        artworkUrl = null,
-                        entityType = EntityType.TRACK,
-                    )
+                MochyDatabaseHolder.get(context).recordSearchHistory(
+                    com.mochyy.mochymusic.db.entities.SearchHistory(query = text),
                 )
             }.onFailure { Timber.w(it, "Search: addHistory failed") }
         }
@@ -388,7 +377,7 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
 
     fun deleteHistory(entry: SearchHistory) {
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { CwSearchHistory.remove("$QUERY_ID_PREFIX${entry.query}") }
+            runCatching { MochyDatabaseHolder.get(context).deleteSearchHistory(entry.query) }
                 .onFailure { Timber.w(it, "Search: deleteHistory failed") }
         }
     }
@@ -412,16 +401,6 @@ data class SearchSuggestionViewState(
 /** how many of each kind offline search shows */
 private const val OfflinePreviewSize = 8
 
-/**
- * CW's stored recents as Mochy history rows. Only the raw query terms
- * (id "q:<term>") qualify — tapped entities (tracks/albums/artists) are CW
- * classic-UI recents with artwork and navigation of their own, not query
- * strings, so they stay out of the Modern search field. Ids are the
- * 0-based position in the most-recent-first list; CW's store has no stable
- * numeric ids (see NEEDS.md).
- */
-private fun List<SearchHistoryEntity>.toMochyHistory(): List<SearchHistory> =
-    asSequence()
-        .filter { it.id.startsWith(QUERY_ID_PREFIX) }
-        .mapIndexed { index, entity -> SearchHistory(id = index.toLong(), query = entity.title) }
-        .toList()
+// Batch 53: history rows come straight from the Mochy Room database
+// (search_history, migrated in Tahap 3) — the same table Mochy's own
+// search reads. ChordWave's SearchHistory store keeps Classic's recents.

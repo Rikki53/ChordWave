@@ -58,6 +58,9 @@ import com.music.bitchord.ui.mochy.theme.InterFontFamily
  * tapped. The choice is recorded by
  * [com.music.bitchord.data.settings.AppSettings.setUiMode], so this
  * screen never shows again, and Settings can switch modes at any time.
+ *
+ * Batch 53 (Riki): nothing is preselected. Both cards start unchosen
+ * and Continue stays disabled until the user picks one themselves.
  */
 private val PickerBackdrop = Color(0xFF0B0B0C)
 private val PickerCard = Color(0xFF1C1C1F)
@@ -69,7 +72,7 @@ fun UiModePicker(
     onChoose: (UiMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var selected by remember { mutableStateOf(UiMode.MODERN) }
+    var selected by remember { mutableStateOf<UiMode?>(null) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -103,7 +106,11 @@ fun UiModePicker(
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             label = "uiModePreview",
         ) { mode ->
-            PhonePreview(mode)
+            if (mode == null) {
+                EmptyPhonePreview()
+            } else {
+                PhonePreview(mode)
+            }
         }
         Spacer(Modifier.height(28.dp))
 
@@ -122,18 +129,25 @@ fun UiModePicker(
         )
         Spacer(Modifier.height(28.dp))
 
+        val chosen = selected
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
                 .clip(CircleShape)
-                .background(PickerMint)
-                .clickable { onChoose(selected) },
+                .background(if (chosen != null) PickerMint else PickerCard)
+                .then(
+                    if (chosen != null) {
+                        Modifier.clickable { onChoose(chosen) }
+                    } else {
+                        Modifier
+                    },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = stringResource(R.string.ui_mode_picker_continue),
-                color = Color(0xFF06231B),
+                color = if (chosen != null) Color(0xFF06231B) else PickerTextDim,
                 fontFamily = InterFontFamily,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
@@ -193,6 +207,26 @@ private fun UiModeOptionCard(
                 )
             }
         }
+    }
+}
+
+/** The phone frame before any choice: empty, so neither look is favoured. */
+@Composable
+private fun EmptyPhonePreview() {
+    Box(
+        modifier = Modifier
+            .width(190.dp)
+            .aspectRatio(9f / 19f)
+            .clip(RoundedCornerShape(30.dp))
+            .background(Color(0xFF151517))
+            .padding(6.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(25.dp))
+                .background(Color(0xFF101014)),
+        )
     }
 }
 

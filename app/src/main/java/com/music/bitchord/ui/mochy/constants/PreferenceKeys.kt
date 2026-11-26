@@ -533,6 +533,19 @@ val TransportEffectKey = stringPreferencesKey("transportEffect")
 val SkipBlendKey = booleanPreferencesKey("skipBlend")
 val SkipBlendAheadKey = intPreferencesKey("skipBlendAhead")
 val StreamFailureTimeoutKey = intPreferencesKey("streamFailureTimeout")
+// Batch 53: keys the Mochy engine itself reads (Mochy's MusicService reads
+// these from the same DataStore; the port previously read ChordWave's
+// AppSettings instead, so Modern's settings never drove the engine).
+val RepeatModeKey = intPreferencesKey("repeatMode")
+val SkipSilenceInstantKey = booleanPreferencesKey("skipSilenceInstant")
+// what a download from youtube is saved as; which provider a download comes from is the download order
+val DownloadQualityKey = stringPreferencesKey("downloadQuality")
+
+enum class MochyDownloadQuality(val title: String, val description: String) {
+    HIGH("High", "The best YouTube has: ~160 kbps Opus"),
+    MEDIUM("Medium", "Around 128 kbps, half the space"),
+    LOW("Low", "The smallest files, ~50–70 kbps"),
+}
 val AppLanguageKey = stringPreferencesKey("appLanguage")
 const val SYSTEM_DEFAULT = "SYSTEM_DEFAULT"
 const val SkipBlendAheadMax = 4
