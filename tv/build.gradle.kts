@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import java.security.MessageDigest
 
 plugins {
     id("com.android.application")
@@ -37,7 +38,7 @@ val lastfmSecret: String = (
 // (Discord / Libre.fm / cloud backup in Integrations). Same stand-in
 // fallback as the phone build for Libre.fm.
 fun libreFmStandIn(name: String): String =
-    java.security.MessageDigest.getInstance("MD5")
+    MessageDigest.getInstance("MD5")
         .digest("com.riki.chordwave.librefm.$name".toByteArray()).joinToString("") { "%02x".format(it) }
 val libreFmApiKey: String = (
     localProps.getProperty("LIBREFM_API_KEY")
