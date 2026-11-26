@@ -140,7 +140,9 @@ internal fun PopupSheetState.showYouTubeVideoPicker(
             val scope = rememberCoroutineScope()
             val picked = state.choice as? VideoChoice.Picked
             SheetPillButton(
-                text = stringResource(R.string.video_pick_next),
+                text = stringResource(
+                    if (state.busy) R.string.video_pick_loading else R.string.video_pick_next,
+                ),
                 enabled = !state.busy && picked != null,
                 onClick = {
                     val chosen = state.choice as? VideoChoice.Picked ?: return@SheetPillButton
@@ -150,13 +152,16 @@ internal fun PopupSheetState.showYouTubeVideoPicker(
                         val title = state.pickedTitle
                             ?: state.results.firstOrNull { it.id == chosen.videoId }?.title
                             ?: ""
-                        val done = runCatching { onPick(chosen.videoId, title) }.getOrDefault(false)
-                        handle[0]?.setLocked(false)
-                        if (done) {
-                            handle[0]?.dismiss()
-                        } else {
+                        // The unlock is in finally: whatever onPick does — fail, time out,
+                        // get cancelled — the sheet must never stay locked with a dead
+                        // Next button (batch 62: a stalled resolve froze the sheet).
+                        val done = try {
+                            runCatching { onPick(chosen.videoId, title) }.getOrDefault(false)
+                        } finally {
+                            handle[0]?.setLocked(false)
                             state.busy = false
                         }
+                        if (done) handle[0]?.dismiss()
                     }
                 },
             )

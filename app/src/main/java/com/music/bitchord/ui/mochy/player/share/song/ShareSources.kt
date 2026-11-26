@@ -28,6 +28,7 @@ import com.music.bitchord.ui.mochy.utils.SoftBlurTransformation
 import com.music.bitchord.ui.mochy.utils.resize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 
 // the cover's colours, the cover itself sharp for the card and blurred for the clouds
@@ -157,8 +158,17 @@ internal suspend fun matchMusicVideo(session: SongShareSession) {
 }
 
 // resolves streams for a YouTube video picked from search inside Song Share; returns false if no playable video stream was found
+//
+// The resolve walks InnerTubeX's whole client catalog (plus the age-gate
+// escalation), so on a slow network it can run for minutes; the picker sheet
+// is locked while this runs, so it is bounded — a timeout reads as "could not
+// load", the sheet unlocks, and the pick can be retried (batch 62: an
+// unbounded resolve froze the sheet on Riki's phone).
+private const val PickedVideoResolveTimeoutMs = 60_000L
+
 internal suspend fun loadPickedYouTubeVideo(session: SongShareSession, videoId: String, title: String): Boolean {
-    val streams = resolveVideoStreams(videoId).getOrNull() ?: return false
+    val streams = withTimeoutOrNull(PickedVideoResolveTimeoutMs) { resolveVideoStreams(videoId) }
+        ?.getOrNull() ?: return false
     if (streams.tracks.isEmpty()) return false
     session.pickedYouTubeTitle = title
     session.pickedYouTubeVideo = Fetched.Found(ShareMusicVideo(videoId, streams) { it })

@@ -41,8 +41,8 @@ buildscript {
  * No "v" in the name — the in-app updater reads it as a number; the "v" is the
  * release tag's alone.
  */
-extra["bitchordVersionCode"] = 14
-extra["bitchordVersionName"] = "1.4.2"
+extra["bitchordVersionCode"] = 15
+extra["bitchordVersionName"] = "1.4.3"
 
 /*
  * Bump this by hand before cutting each sideloaded test build ("beta2",

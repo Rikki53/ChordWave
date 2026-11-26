@@ -76,6 +76,7 @@
     <string name="video_mode">Full video</string>
     <string name="video_pick_auto">Let ChordWave find it</string>
     <string name="video_pick_auto_desc">The official video, when there is one</string>
+    <string name="video_pick_loading">Loading…</string>
     <string name="video_pick_next">Next</string>
     <string name="video_pick_none">No video</string>
     <string name="video_pick_none_desc">This song just shows its cover</string>
