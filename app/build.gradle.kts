@@ -316,6 +316,9 @@ configurations.configureEach {
 dependencies {
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
+    // The Mochy engine module (two-engine architecture). Empty for now; the
+    // dependency exists so CI compiles it with the app from day one.
+    implementation(project(":mochyengine"))
 
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

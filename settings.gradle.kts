@@ -37,6 +37,9 @@ if (androidSdk != null && file(androidSdk).isDirectory) {
     include(":app")
     include(":tv")
     include(":wearos")
+    // The Mochy engine module (two-engine architecture) is Android-only, so it
+    // sits with the other Android modules behind the SDK check.
+    include(":mochyengine")
 } else {
     logger.lifecycle("No Android SDK found — building the desktop targets only.")
 }
