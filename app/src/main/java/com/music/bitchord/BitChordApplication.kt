@@ -77,6 +77,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // Mochy engine's applySettings) hit PreferencesCache.current()
         // cold and runBlocking'd the main thread on a disk read.
         PreferencesCache.start(this, CoroutineScope(SupervisorJob() + Dispatchers.IO))
+        // Batch 55a: the vault that seals cloud-backup credentials on disk
+        // (Mochy's SecretVault; the Modern DataStore itself stays plain).
+        com.music.bitchord.ui.mochy.utils.SecretVault.init(this)
         // The player is drawn by the shared UI module; this is what it reads
         // underneath — settings, the Canvas decoder, outputs, the party.
         AndroidStreamHooks.installEarly()

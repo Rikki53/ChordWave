@@ -184,7 +184,7 @@ import com.music.bitchord.ui.mochy.constants.TransportFadeMinSeconds
 import com.music.bitchord.ui.mochy.constants.TransportFadeSecondsKey
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.di.PlayerIntegrationsEntryPoint
-import com.music.bitchord.ui.mochy.models.MediaMetadata
+import com.music.bitchord.ui.mochy.models.MediaMetadata as MochyMediaMetadata
 import com.music.bitchord.ui.mochy.utils.dataStore
 import dagger.hilt.android.EntryPointAccessors
 import com.music.bitchord.ui.mochy.utils.dataStore
@@ -546,18 +546,18 @@ class MochyMusicService : MediaLibraryService() {
     }
 
     /** what the player is on, in the shape the scrobble timer reads */
-    private fun currentMediaMetadata(): MediaMetadata? {
+    private fun currentMediaMetadata(): MochyMediaMetadata? {
         val item = player?.currentMediaItem ?: return null
         val song = item.toSong()
         val durationSec = ((player?.duration ?: 0L).takeIf { it > 0 }?.div(1000))?.toInt() ?: 0
-        return MediaMetadata(
+        return MochyMediaMetadata(
             id = song.videoId,
             title = song.title,
-            artists = song.artists.map { MediaMetadata.Artist(it.browseId, it.name) }
-                .ifEmpty { listOf(MediaMetadata.Artist(song.artistId, song.artist)) },
+            artists = song.artists.map { MochyMediaMetadata.Artist(it.browseId, it.name) }
+                .ifEmpty { listOf(MochyMediaMetadata.Artist(song.artistId, song.artist)) },
             duration = durationSec,
             thumbnailUrl = song.thumbnailUrl,
-            album = song.albumId?.let { MediaMetadata.Album(it, song.albumName.orEmpty()) },
+            album = song.albumId?.let { MochyMediaMetadata.Album(it, song.albumName.orEmpty()) },
             localUri = song.localUri,
         )
     }

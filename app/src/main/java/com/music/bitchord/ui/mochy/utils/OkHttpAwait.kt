@@ -1,6 +1,6 @@
 // OkHttpAwait.kt
 
-package com.music.bitchord.ui.ChordWave.utils
+package com.music.bitchord.ui.mochy.utils
 
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call

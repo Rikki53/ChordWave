@@ -1,6 +1,6 @@
 // OfflineMode.kt
 
-package com.music.bitchord.ui.ChordWave.utils
+package com.music.bitchord.ui.mochy.utils
 
 import com.music.innertube.YouTube
 

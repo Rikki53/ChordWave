@@ -202,7 +202,7 @@ class CloudBackupManager @Inject constructor(
     private fun lastChangeAt(): Long {
         // ChordWave has no Room database file to watch (its library lives in
         // files and preferences), so the watch list is the stores below.
-        val watched = File(context.filesDir, "datastore").listFiles().orEmpty() +
+        val watched = File(context.filesDir, "datastore").listFiles().orEmpty().toList() +
             TransferArchive.PrefsToCarry.values.map { File(context.dataDir, "shared_prefs/$it.xml") } +
             context.filesDir.listFiles().orEmpty().filter { TransferArchive.carriesFile(it.name) && it.name !in TransferArchive.SongFolders }
         return watched.maxOfOrNull { it.lastModified() } ?: 0L
