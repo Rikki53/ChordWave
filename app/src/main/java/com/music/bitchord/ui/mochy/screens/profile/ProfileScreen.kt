@@ -123,6 +123,7 @@ import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.ui.mochy.constants.ShowDiscordPresence
 import com.music.bitchord.ui.mochy.LocalAppContentObscured
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.component.BlurDirection
@@ -415,7 +416,7 @@ fun ProfileScreen(
                         Spacer(Modifier.height(16.dp))
                         DeveloperCard(onClick = { menuState.showAboutSheet() })
                         Spacer(Modifier.height(16.dp))
-                        DiscordCard(onClick = { navigator.navigate("integrations_settings/discord") })
+                        if (ShowDiscordPresence) DiscordCard(onClick = { navigator.navigate("integrations_settings/discord") })
                         Spacer(Modifier.height(28.dp))
                         Text(stringResource(R.string.profile_settings_title), style = PageTitle.copy(fontSize = 15.sp), modifier = Modifier.padding(start = 2.dp, bottom = 10.dp))
                         OpenSettingsRow(onClick = { navigator.navigate("mochy_settings") })

@@ -16,6 +16,7 @@ import com.music.bitchord.data.mochydata.scrobble.ScrobbleSite
 import com.music.bitchord.ui.mochy.component.SubSettingsScaffold
 import com.music.bitchord.ui.mochy.screens.settings.importsync.YouTubeSyncRoute
 import com.music.bitchord.ui.mochy.screens.settings.integrations.backup.BackupRoute
+import com.music.bitchord.ui.mochy.constants.ShowDiscordPresence
 import com.music.bitchord.ui.mochy.screens.settings.integrations.discord.DiscordRoute
 
 const val IntegrationsRoute = "integrations_settings"
@@ -33,12 +34,14 @@ fun IntegrationsScreen(navigator: com.music.bitchord.ui.mochy.navigation.MochyNa
         onBack = { navigator.popBackStack() },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            IntegrationRow(
-                name = "Discord",
-                description = stringResource(R.string.integration_discord_desc),
-                icon = R.drawable.integration_discord,
-                onClick = { navigator.navigate(DiscordRoute) },
-            )
+            if (ShowDiscordPresence) {
+                IntegrationRow(
+                    name = "Discord",
+                    description = stringResource(R.string.integration_discord_desc),
+                    icon = R.drawable.integration_discord,
+                    onClick = { navigator.navigate(DiscordRoute) },
+                )
+            }
             IntegrationRow(
                 name = ScrobbleSite.LASTFM.label,
                 description = stringResource(R.string.integration_scrobbling_desc, ScrobbleSite.LASTFM.label),

@@ -30,6 +30,7 @@ package com.music.bitchord.ui.mochy.screens.settings
 
 import androidx.activity.compose.BackHandler
 import com.music.bitchord.data.mochydata.modules.browser.ModuleFeed
+import com.music.bitchord.ui.mochy.constants.ShowDiscordPresence
 import com.music.bitchord.ui.mochy.screens.devices.showDeviceIntegration
 import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleBrowserRoute
 import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleSettingsPages
@@ -219,7 +220,7 @@ private val SettingsScreenIndex = listOf(
     SettingsEntry("YouTube Music", "Audio Lab", "audio_quality", "youtube turn off disable provider only monochrome apple music"),
 
     // Integrations (sub-routes belong to the integrations worker; search links to the root)
-    SettingsEntry("Discord", "Integrations", "integrations_settings/discord", "discord rich presence rpc status activity listening playing profile behaviour pause clear"),
+    *(if (ShowDiscordPresence) arrayOf(SettingsEntry("Discord", "Integrations", "integrations_settings/discord", "discord rich presence rpc status activity listening playing profile behaviour pause clear")) else emptyArray()),
     SettingsEntry("Last.fm", "Integrations", "integrations_settings/scrobble/LASTFM", "lastfm scrobble scrobbling history stats account sign in"),
     SettingsEntry("Libre.fm", "Integrations", "integrations_settings/scrobble/LIBREFM", "librefm scrobble scrobbling history stats account sign in"),
     SettingsEntry("Now Playing", "Integrations", "integrations_settings/scrobble/LASTFM", "scrobble now playing status profile lastfm librefm"),

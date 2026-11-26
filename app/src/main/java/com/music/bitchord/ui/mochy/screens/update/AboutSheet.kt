@@ -58,6 +58,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
+import com.music.bitchord.ui.mochy.constants.ShowSupportMe
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.RemoteFocus
 import com.music.bitchord.ui.mochy.component.pressBounce
@@ -316,10 +317,12 @@ private fun ColumnScope.AboutSheetContent(
                     text = "ChordWave on GitHub \u2192",
                     onClick = { context.openUrl(ChordWaveRepoUrl) },
                 )
-                AboutPillRow(
-                    text = stringResource(R.string.about_support_me),
-                    onClick = { popup.showSupportSheet() },
-                )
+                if (ShowSupportMe) {
+                    AboutPillRow(
+                        text = stringResource(R.string.about_support_me),
+                        onClick = { popup.showSupportSheet() },
+                    )
+                }
             }
 
             Spacer(Modifier.height(18.dp))
