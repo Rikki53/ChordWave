@@ -16,6 +16,7 @@ import androidx.room.Transaction
 import com.mochyy.mochymusic.db.entities.Album
 import com.mochyy.mochymusic.db.entities.AlbumArtistMap
 import com.mochyy.mochymusic.db.entities.AlbumEntity
+import com.mochyy.mochymusic.db.entities.Artist
 import com.mochyy.mochymusic.db.entities.ArtistEntity
 import com.mochyy.mochymusic.db.entities.Event
 import com.mochyy.mochymusic.db.entities.FormatEntity
@@ -70,6 +71,23 @@ interface DatabaseDao {
 
     @Query("SELECT * FROM artist ORDER BY name")
     fun artists(): Flow<List<ArtistEntity>>
+
+    // Batch 55b: the module pages' reads (Mochy's DAO, same queries).
+    @SuppressWarnings(androidx.room.RoomWarnings.QUERY_MISMATCH)
+    @Query("SELECT *, (SELECT COUNT(1) FROM song_artist_map JOIN song ON song_artist_map.songId = song.id WHERE artistId = artist.id AND song.inLibrary IS NOT NULL) AS songCount FROM artist WHERE id = :id")
+    fun artist(id: String): Flow<Artist?>
+
+    @Query("SELECT COUNT(*) FROM song")
+    fun allSongCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM event")
+    fun eventCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM playlist WHERE bookmarkedAt IS NOT NULL")
+    fun playlistCountFlow(): Flow<Int>
+
+    @Query("SELECT * FROM artist WHERE name = :name LIMIT 1")
+    suspend fun artistByName(name: String): ArtistEntity?
 
     @Transaction
     @Query("SELECT * FROM album ORDER BY title")

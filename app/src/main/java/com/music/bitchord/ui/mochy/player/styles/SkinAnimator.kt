@@ -1,9 +1,7 @@
-// Ported from Mochy Music (GPL-3.0): ui/player/styles/SkinAnimator.kt.
+// Ported from Mochy Music (GPL-3.0): ui/player/styles/SkinAnimator.kt
+// Batch 55b: refreshed to Mochy's current version for the modules system.
+
 // a styled block's motion, all worked out in its own layer each frame: nudges, loops, keyframes on any clock, states blending in and out, event animations, its entrance and its blur
-//
-// Adapted: Mochy's PlayerConnection.uiState (transportState/trackInfo) does
-// not exist on MochyPlayerConnection — the live state is read from its own
-// flows (isPlaying, shuffleModeEnabled, repeatMode, mediaMetadata).
 
 package com.music.bitchord.ui.mochy.player.styles
 
@@ -30,8 +28,7 @@ import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.Player
-import com.music.bitchord.ui.mochy.component.BlurEffectCache
+import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.modules.skin.EnterKind
 import com.music.bitchord.ui.mochy.modules.skin.PoseProp
 import com.music.bitchord.ui.mochy.modules.skin.SkinBlock
@@ -42,16 +39,16 @@ import com.music.bitchord.ui.mochy.modules.skin.SkinKeyframes
 import com.music.bitchord.ui.mochy.modules.skin.SkinRepeat
 import com.music.bitchord.ui.mochy.modules.skin.SkinTimeline
 import com.music.bitchord.ui.mochy.modules.skin.SkinTrigger
-import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
+import com.music.bitchord.ui.mochy.component.BlurEffectCache
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import androidx.media3.common.Player
 
 /** the player's own state the built-in conditions read; only the parts the layout uses are kept up to date */
 @Stable
@@ -60,35 +57,44 @@ internal class SkinLive {
     var liked by mutableStateOf(false)
     var shuffle by mutableStateOf(false)
     var repeat by mutableStateOf(false)
+    var repeatOne by mutableStateOf(false)
+    var singing by mutableStateOf(false)
 }
 
 @Composable
-internal fun rememberSkinLive(flags: Set<SkinFlag>, preview: Boolean): SkinLive {
+internal fun rememberSkinLive(flags: Set<SkinFlag>, preview: Boolean, clock: LyricClock): SkinLive {
     val connection = LocalPlayerConnection.current
     // filled from what's true right now, so a state doesn't animate in on the frame the player opens
     val live = remember(connection) {
         SkinLive().apply {
-            playing = connection?.isPlaying?.value == true
-            shuffle = connection?.shuffleModeEnabled?.value == true
-            repeat = connection?.repeatMode?.value?.let { it != Player.REPEAT_MODE_OFF } == true
-            liked = connection?.mediaMetadata?.value?.liked == true
+            val transport = connection?.uiState?.transportState?.value
+            playing = transport?.isPlaying == true
+            shuffle = transport?.shuffleModeEnabled == true
+            repeat = transport != null && transport.repeatMode != Player.REPEAT_MODE_OFF
+            repeatOne = transport?.repeatMode == Player.REPEAT_MODE_ONE
+            liked = connection?.uiState?.trackInfo?.value?.liked == true
         }
     }
-    val needsTransport = flags.any { it == SkinFlag.Playing || it == SkinFlag.Paused || it == SkinFlag.Shuffle || it == SkinFlag.Repeat }
+    val needsTransport = flags.any { it == SkinFlag.Playing || it == SkinFlag.Paused || it == SkinFlag.Shuffle || it == SkinFlag.Repeat || it == SkinFlag.RepeatOne }
     val needsLike = SkinFlag.Liked in flags
+    val needsSinging = SkinFlag.Singing in flags
+    // the clock reads the position every frame, but the flag only changes when a line starts or ends
+    LaunchedEffect(clock, needsSinging, preview) {
+        if (!needsSinging || preview) return@LaunchedEffect
+        snapshotFlow { clock.singing() }.distinctUntilChanged().collect { live.singing = it }
+    }
     LaunchedEffect(connection, needsTransport, needsLike, preview) {
         if (connection == null || preview) return@LaunchedEffect
         coroutineScope {
             if (needsTransport) launch {
-                combine(connection.isPlaying, connection.shuffleModeEnabled, connection.repeatMode) { playing, shuffle, repeat ->
-                    Triple(playing, shuffle, repeat)
-                }.collect { (playing, shuffle, repeat) ->
-                    live.playing = playing
-                    live.shuffle = shuffle
-                    live.repeat = repeat != Player.REPEAT_MODE_OFF
+                connection.uiState.transportState.collect {
+                    live.playing = it.isPlaying
+                    live.shuffle = it.shuffleModeEnabled
+                    live.repeat = it.repeatMode != Player.REPEAT_MODE_OFF
+                    live.repeatOne = it.repeatMode == Player.REPEAT_MODE_ONE
                 }
             }
-            if (needsLike) launch { connection.mediaMetadata.collect { live.liked = it?.liked == true } }
+            if (needsLike) launch { connection.uiState.trackInfo.collect { live.liked = it.liked } }
         }
     }
     return live
@@ -102,13 +108,19 @@ internal class SkinEvents {
 
 /** the events the layout listens for, worked out from the player and the music; null when nothing listens */
 @Composable
-internal fun rememberSkinEvents(events: Set<SkinEvent>, pulse: SkinPulse, preview: Boolean): SkinEvents? {
+internal fun rememberSkinEvents(events: Set<SkinEvent>, pulse: SkinPulse, preview: Boolean, clock: LyricClock): SkinEvents? {
     if (events.isEmpty() || preview) return null
     val hub = remember { SkinEvents() }
     val connection = LocalPlayerConnection.current
     val showing = rememberStyleShowing()
-    LaunchedEffect(connection, events) {
+    LaunchedEffect(connection, events, clock) {
         coroutineScope {
+            if (SkinEvent.Line in events) launch {
+                // a new song's first line isn't a line change, the song event covers that
+                snapshotFlow { clock.line() }.distinctUntilChanged().drop(1).collect { line ->
+                    if (line in clock.lines.indices) hub.flow.tryEmit(SkinEvent.Line)
+                }
+            }
             if (SkinEvent.Open in events) launch {
                 snapshotFlow { showing() }.distinctUntilChanged().collect { if (it) hub.flow.tryEmit(SkinEvent.Open) }
             }
@@ -116,14 +128,17 @@ internal fun rememberSkinEvents(events: Set<SkinEvent>, pulse: SkinPulse, previe
             if (SkinEvent.Song in events) launch {
                 connection.mediaMetadata.map { it?.id }.distinctUntilChanged().drop(1).collect { hub.flow.tryEmit(SkinEvent.Song) }
             }
+            if (SkinEvent.Queue in events) launch {
+                connection.queueSnapshot.drop(1).collect { hub.flow.tryEmit(SkinEvent.Queue) }
+            }
             if (SkinEvent.Play in events || SkinEvent.Pause in events) launch {
-                connection.isPlaying.drop(1)
+                connection.uiState.transportState.map { it.isPlaying }.distinctUntilChanged().drop(1)
                     .collect { hub.flow.tryEmit(if (it) SkinEvent.Play else SkinEvent.Pause) }
             }
             if (SkinEvent.Like in events || SkinEvent.Unlike in events) launch {
                 // a new song that happens to be liked isn't someone pressing like, so only a change on the same song counts
                 var last: Pair<String?, Boolean>? = null
-                combine(connection.mediaMetadata.map { it?.id }, connection.mediaMetadata.map { it?.liked == true }) { id, liked -> id to liked }
+                combine(connection.mediaMetadata.map { it?.id }, connection.uiState.trackInfo.map { it.liked }) { id, liked -> id to liked }
                     .distinctUntilChanged()
                     .collect { now ->
                         val before = last
@@ -224,6 +239,19 @@ internal class PoseSum {
     var alpha = 1f
     var blur = 0f
 
+    /** back to the pose that changes nothing, before a frame adds its animations up */
+    fun reset() {
+        x = 0f
+        y = 0f
+        scaleX = 1f
+        scaleY = 1f
+        rotate = 0f
+        rotateX = 0f
+        rotateY = 0f
+        alpha = 1f
+        blur = 0f
+    }
+
     fun add(prop: PoseProp, value: Float, weight: Float) {
         if (prop.multiplies) {
             val factor = 1f + (value - 1f) * weight
@@ -254,7 +282,7 @@ private fun SkinKeyframes.addTo(pose: PoseSum, t: Float, fallback: Easing, weigh
     for (track in tracks) pose.add(track.prop, track.valueAt(t, fallback), weight)
 }
 
-// where a looping animation is on its own clock: time, the song's progress, or how loud the music is now
+// where a looping animation is on its own clock: time, the song's or the sung line's or word's progress, or how loud the music is now
 private fun SkinTimeline.at(context: SkinContext): Float = when (clock) {
     SkinClock.Time -> position((if (always) context.pulse.wall else context.pulse.time) * 1000f)
     SkinClock.Progress -> (context.position.positionMs().toFloat() / context.duration.coerceAtLeast(1L)).coerceIn(0f, 1f)
@@ -262,6 +290,8 @@ private fun SkinTimeline.at(context: SkinContext): Float = when (clock) {
     SkinClock.Bass -> context.pulse.bass
     SkinClock.Mid -> context.pulse.mid
     SkinClock.Treble -> context.pulse.treble
+    SkinClock.Line -> context.lyricClock.lineProgress()
+    SkinClock.Word -> context.lyricClock.wordProgress()
 }
 
 /** everything a styled block does, in one layer, so its motion never recomposes it */

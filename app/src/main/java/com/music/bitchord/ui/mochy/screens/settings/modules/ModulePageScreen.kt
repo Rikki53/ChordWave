@@ -71,6 +71,7 @@ import com.mochyy.mochymusic.db.entities.SpeedDialItem
 import com.music.bitchord.ui.mochy.di.ModulesEntryPoint
 import com.music.bitchord.ui.mochy.playback.toggleRepeatMode
 import com.music.bitchord.ui.mochy.models.MediaMetadata
+import com.music.bitchord.ui.mochy.models.insertSongMetadata
 import com.music.bitchord.data.mochydata.modules.ModuleEntry
 import com.music.bitchord.data.mochydata.modules.security.ModuleActionGuard
 import com.music.bitchord.data.mochydata.modules.security.SafeModuleRoutes
@@ -126,7 +127,7 @@ import com.music.bitchord.ui.mochy.screens.search.searchRoute
 import com.music.bitchord.ui.mochy.player.menu.openDevUrl
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.viewmodels.ModulesViewModel
-import com.music.innertube.models.WatchEndpoint
+import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -584,7 +585,21 @@ internal fun rememberPageActionRunner(page: PageContext): (ActionTarget) -> Unit
                         scope.launch {
                             val entity = withContext(Dispatchers.IO) { database.artist(artistId).firstOrNull() }
                             if (entity != null) {
-                                menuState.show { ArtistMenu(originalArtist = entity, coroutineScope = scope, onDismiss = { menuState.dismiss() }) }
+                                // the menu speaks the UI's Room-free models; the row is the database's
+                                val model = com.music.bitchord.ui.mochy.models.Artist(
+                                    artist = com.music.bitchord.ui.mochy.models.ArtistEntity(
+                                        id = entity.artist.id,
+                                        name = entity.artist.name,
+                                        thumbnailUrl = entity.artist.thumbnailUrl,
+                                        channelId = entity.artist.channelId,
+                                        lastUpdateTime = entity.artist.lastUpdateTime,
+                                        bookmarkedAt = entity.artist.bookmarkedAt,
+                                        isLocal = entity.artist.isLocal,
+                                    ),
+                                    songCount = entity.songCount,
+                                    timeListened = entity.timeListened,
+                                )
+                                menuState.show { ArtistMenu(originalArtist = model, coroutineScope = scope, onDismiss = { menuState.dismiss() }) }
                             }
                         }
                     }
@@ -599,10 +614,10 @@ internal fun rememberPageActionRunner(page: PageContext): (ActionTarget) -> Unit
                     ButtonKind.Like -> connection?.toggleLike()
                     ButtonKind.Shuffle -> connection?.player?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
                     ButtonKind.Repeat -> connection?.player?.toggleRepeatMode()
-                    ButtonKind.Forward -> connection?.let { it.seekTo((it.player.currentPosition + 10_000L).coerceAtLeast(0L)) }
-                    ButtonKind.Rewind -> connection?.let { it.seekTo((it.player.currentPosition - 10_000L).coerceAtLeast(0L)) }
-                    ButtonKind.Forward30 -> connection?.let { it.seekTo((it.player.currentPosition + 30_000L).coerceAtLeast(0L)) }
-                    ButtonKind.Rewind30 -> connection?.let { it.seekTo((it.player.currentPosition - 30_000L).coerceAtLeast(0L)) }
+                    ButtonKind.Forward -> connection?.let { it.seekTo(((it.player?.currentPosition ?: 0L) + 10_000L).coerceAtLeast(0L)) }
+                    ButtonKind.Rewind -> connection?.let { it.seekTo(((it.player?.currentPosition ?: 0L) - 10_000L).coerceAtLeast(0L)) }
+                    ButtonKind.Forward30 -> connection?.let { it.seekTo(((it.player?.currentPosition ?: 0L) + 30_000L).coerceAtLeast(0L)) }
+                    ButtonKind.Rewind30 -> connection?.let { it.seekTo(((it.player?.currentPosition ?: 0L) - 30_000L).coerceAtLeast(0L)) }
                     ButtonKind.Restart -> connection?.seekTo(0L)
                     ButtonKind.OpenPlayer -> if (playing != null) playerSheet?.expandSoft()
                     ButtonKind.Close, ButtonKind.Back -> page.onDismissSheet?.invoke() ?: page.navigator.popBackStack()
@@ -620,13 +635,13 @@ internal fun rememberPageActionRunner(page: PageContext): (ActionTarget) -> Unit
                         if (song != null && song.localUri == null) {
                             val existing = downloadUtil.downloads.value[song.id]?.state
                             if (existing == Download.STATE_COMPLETED || existing == Download.STATE_DOWNLOADING || existing == Download.STATE_QUEUED) {
-                                DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, song.id, false)
+                                DownloadService.sendRemoveDownload(context, MochyExoDownloadService::class.java, song.id, false)
                             } else {
                                 val req = DownloadRequest.Builder(song.id, song.id.toUri())
                                     .setCustomCacheKey(song.id)
                                     .setData(song.title.toByteArray())
                                     .build()
-                                DownloadService.sendAddDownload(context, ExoDownloadService::class.java, req, false)
+                                DownloadService.sendAddDownload(context, MochyExoDownloadService::class.java, req, false)
                             }
                         }
                     }
@@ -695,7 +710,7 @@ private fun PageNativeSheetHost(kind: SheetKind, page: PageContext, onDismiss: (
             AddToPlaylistDialog(
                 isVisible = true,
                 onGetSong = {
-                    database.transaction { insert(metadata) }
+                    database.withTransaction { insertSongMetadata(metadata) }
                     listOf(metadata.id)
                 },
                 onDismiss = onDismiss,

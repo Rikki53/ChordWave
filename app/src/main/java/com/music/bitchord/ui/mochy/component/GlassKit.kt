@@ -1,4 +1,7 @@
 // Ported from Mochy Music (GPL-3.0): ui/component/GlassKit.kt
+// Batch 55b: refreshed to Mochy's current version (fallback-reader tracking
+// the module glass surfaces need).
+
 package com.music.bitchord.ui.mochy.component
 
 import android.graphics.RenderNode
@@ -48,6 +51,29 @@ class GlassState {
      */
     var renderNode by mutableStateOf<Any?>(null)
     var rootPosition by mutableStateOf(Offset.Zero)
+    // bumped whenever glassRoot records a fresh display list so fallback gl surfaces skip idle captures
+    internal var drawGeneration: Long = 0L
+    // count of active api 29-30 fallback glass readers; api 29-30 skips recording when zero
+    internal val fallbackReaders = mutableIntStateOf(0)
+
+    internal fun addFallbackReader() {
+        fallbackReaders.intValue++
+    }
+
+    internal fun removeFallbackReader() {
+        fallbackReaders.intValue = (fallbackReaders.intValue - 1).coerceAtLeast(0)
+    }
+
+    // drops the recorded screen display list when the window hides so gpu textures can be reclaimed
+    fun discard() {
+        val node = renderNode ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) glassNodeDiscard(node)
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun glassNodeDiscard(node: Any) {
+    (node as RenderNode).discardDisplayList()
 }
 
 /*
@@ -59,24 +85,24 @@ class GlassState {
 internal fun glassNodeFor(existing: Any?, width: Int, height: Int): Any =
     (existing as? RenderNode ?: RenderNode("GlassRoot")).apply { setPosition(0, 0, width, height) }
 
-@RequiresApi(Build.VERSION_CODES.S)
+@RequiresApi(Build.VERSION_CODES.Q)
 internal fun glassNodeHasContent(node: Any): Boolean = (node as RenderNode).hasDisplayList()
 
-@RequiresApi(Build.VERSION_CODES.S)
+@RequiresApi(Build.VERSION_CODES.Q)
 internal fun glassNodeBeginRecording(node: Any): android.graphics.Canvas = (node as RenderNode).beginRecording()
 
-@RequiresApi(Build.VERSION_CODES.S)
+@RequiresApi(Build.VERSION_CODES.Q)
 internal fun glassNodeEndRecording(node: Any) {
     (node as RenderNode).endRecording()
 }
 
-@RequiresApi(Build.VERSION_CODES.S)
+@RequiresApi(Build.VERSION_CODES.Q)
 internal fun glassNodeWidth(node: Any): Int = (node as RenderNode).width
 
-@RequiresApi(Build.VERSION_CODES.S)
+@RequiresApi(Build.VERSION_CODES.Q)
 internal fun glassNodeHeight(node: Any): Int = (node as RenderNode).height
 
-@RequiresApi(Build.VERSION_CODES.S)
+@RequiresApi(Build.VERSION_CODES.Q)
 internal fun android.graphics.Canvas.drawGlassNode(node: Any) {
     drawRenderNode(node as RenderNode)
 }
@@ -158,16 +184,21 @@ fun Modifier.glassRoot(state: GlassState, isActive: () -> Boolean = { true }): M
 
         onDrawWithContent {
             val drawContextCanvas = drawContext.canvas
+            val recordForApi = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && state.fallbackReaders.intValue > 0)
 
-            if (node != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isActive()) {
+            if (node != null && recordForApi && isActive() && drawContextCanvas.nativeCanvas.isHardwareAccelerated) {
                 val nativeCanvas = glassNodeBeginRecording(node)
                 val composeCanvas = Canvas(nativeCanvas)
 
                 drawContext.canvas = composeCanvas
-                drawContent()
-
-                drawContext.canvas = drawContextCanvas
-                glassNodeEndRecording(node)
+                try {
+                    drawContent()
+                } finally {
+                    drawContext.canvas = drawContextCanvas
+                    glassNodeEndRecording(node)
+                }
+                state.drawGeneration++
 
                 if (glassNodeHasContent(node)) {
                     drawIntoCanvas { it.nativeCanvas.drawGlassNode(node) }
@@ -201,7 +232,7 @@ private const val ChromeAccentWash = 0.55f
  */
 @Composable
 fun rememberChromeAccentWash(): () -> Color {
-    val accent = com.music.bitchord.ui.mochy.LocalDetailAccentColor.current
+    val accent = com.mochyy.mochymusic.LocalDetailAccentColor.current
     val wash = remember { androidx.compose.animation.Animatable(Color.Transparent) }
     LaunchedEffect(accent) {
         // fading out keeps the page's hue instead of greying through transparent black
@@ -233,7 +264,8 @@ internal fun glassDownscale(effectiveRadius: Float, low: Boolean = false): Int =
     // low quality drops a step sooner: a little softer, a quarter of the pixels to draw and blur
     low && effectiveRadius >= 32f -> 4
     effectiveRadius >= 16f -> 2
-    low && effectiveRadius >= 8f -> 2
+    // the faint first steps of a low progressive bar are its biggest, and drawn at full size they cost the most for a blur you can hardly see
+    low && effectiveRadius >= 2f -> 2
     else -> 1
 }
 
@@ -443,6 +475,11 @@ fun GlassPillBackground(
     progressive: BlurDirection? = null,
     // how far along the progressive blur reaches its full radius (1 is the far end), holding it from there on
     progressiveRamp: Float = 1f,
+    // opt-in gpu dual-kawase blur on android 10-11 (api 29-30) for module surfaces so standard screens keep zero overhead
+    fallbackBlur: Boolean = false,
+    // optional mask kind for the android 10-11 fallback blur (0 none, 1 top fade, 2 bottom fade, 3 radial)
+    fallbackMaskMode: Int = 0,
+    fallbackMaskParam: Float = 0.72f,
     modifier: Modifier = Modifier
 ) {
     var position by remember { mutableStateOf(Offset.Zero) }
@@ -456,6 +493,22 @@ fun GlassPillBackground(
     val radius = {
         if (disableBlur) 0f
         else BlurEffectCache.effectiveRadius(currentBlurRadius() * (blurStrengthPx / 25f))
+    }
+
+    if (fallbackBlur && !disableBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        FallbackGlassBlur(
+            state = state,
+            radius = radius,
+            tint = tint,
+            foundationColor = foundationColor,
+            accentWash = accentWash,
+            progressive = progressive,
+            progressiveRamp = progressiveRamp,
+            maskMode = fallbackMaskMode,
+            maskParam = fallbackMaskParam,
+            modifier = modifier.then(if (shape != null) Modifier.clip(shape) else Modifier),
+        )
+        return
     }
 
     DownscaledBlur(
@@ -524,7 +577,8 @@ fun ProgressiveGlassBackground(
     foundationColor: Color? = null,
     direction: BlurDirection = BlurDirection.TopToBottom,
     modifier: Modifier = Modifier,
-    steps: Int = 5
+    steps: Int = 5,
+    fallbackBlur: Boolean = false,
 ) {
     // off, the bar is one even blur that stops at a hard edge with a hairline, a classic frosted bar instead of a fade
     if (!rememberProgressiveBlur()) {
@@ -546,15 +600,34 @@ fun ProgressiveGlassBackground(
                 tileMode = android.graphics.Shader.TileMode.CLAMP,
                 // blurred from what's really past the edge, so the hard edge doesn't smear into a glow
                 bleed = true,
+                fallbackBlur = fallbackBlur,
                 modifier = Modifier.fillMaxSize(),
             )
         }
         return
     }
-    val smooth = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        LocalBlurQuality.current == com.music.bitchord.ui.mochy.constants.BlurQuality.HIGH
+    // android 10-11 opt-in module progressive blur runs in one kawase + ramp pass instead of stacking 5 layers
+    if (fallbackBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        val fade = 1f / steps.coerceAtLeast(1)
+        Box(modifier = modifier) {
+            GlassPillBackground(
+                state = state,
+                blurRadius = maxBlurRadius,
+                tint = tint,
+                foundationColor = foundationColor,
+                progressive = direction,
+                fallbackBlur = true,
+                fallbackMaskMode = if (direction == BlurDirection.TopToBottom) 1 else 2,
+                fallbackMaskParam = fade,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        return
+    }
+    // low quality too: its stacked steps each drew and blurred the list again, three to five times per scroll frame
+    val smooth = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     if (smooth) {
-        // high quality: one pass whose radius grows row by row, faded in where the first step used to fade in
+        // one pass whose radius grows row by row, faded in where the first step used to fade in (low draws it in one band, see BandPlan)
         val fade = 1f / steps.coerceAtLeast(1)
         val mask = remember(direction, fade) {
             if (direction == BlurDirection.TopToBottom) {

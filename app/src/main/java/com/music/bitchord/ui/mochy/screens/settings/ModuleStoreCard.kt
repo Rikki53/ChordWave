@@ -29,7 +29,7 @@ import com.music.bitchord.ui.mochy.component.rememberResourcePainter
 import com.music.bitchord.ui.mochy.screens.audiolab.LabColors
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 
-private val CardShape = RoundedCornerShape(26.dp)
+private val ModuleStoreCardShape = RoundedCornerShape(26.dp)
 
 @Composable
 internal fun ModuleStoreCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -37,7 +37,7 @@ internal fun ModuleStoreCard(onClick: () -> Unit, modifier: Modifier = Modifier)
         modifier = modifier
             .fillMaxWidth()
             .height(112.dp)
-            .clip(CardShape)
+            .clip(ModuleStoreCardShape)
             .background(LabColors.Card)
             .clickable(onClick = onClick)
             .padding(start = 24.dp, end = 18.dp),

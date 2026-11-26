@@ -480,6 +480,10 @@ object YouTubeVideoSessions {
     private val entries = HashMap<String, Entry>()
     private val main = Handler(Looper.getMainLooper())
 
+    // the video a view is showing right now, so the player's menu only offers its quality while one plays
+    var showing by androidx.compose.runtime.mutableStateOf<YouTubeVideoSession?>(null)
+        private set
+
     fun acquire(context: Context, videoId: String): YouTubeVideoSession {
         // only one video plays at a time: one left waiting for a hand-over that didn't come goes as another starts
         entries.entries.removeAll { (id, other) ->
@@ -494,6 +498,7 @@ object YouTubeVideoSessions {
         entry.pendingRelease?.let(main::removeCallbacks)
         entry.pendingRelease = null
         entry.users += 1
+        showing = entry.session
         return entry.session
     }
 
@@ -501,6 +506,7 @@ object YouTubeVideoSessions {
         val entry = entries[session.videoId]?.takeIf { it.session === session } ?: return
         entry.users -= 1
         if (entry.users > 0) return
+        if (showing === session) showing = null
         val drop = Runnable {
             if (entry.users == 0 && entries[session.videoId] === entry) {
                 entries.remove(session.videoId)

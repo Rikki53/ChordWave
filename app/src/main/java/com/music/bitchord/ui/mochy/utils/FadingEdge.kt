@@ -6,7 +6,7 @@ package com.music.bitchord.ui.mochy.utils
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.composed
+import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.CompositingStrategy

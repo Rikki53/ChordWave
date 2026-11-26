@@ -122,7 +122,7 @@ import com.music.innertube.models.AlbumItem
 import com.music.innertube.models.ArtistItem
 import com.music.innertube.models.PlaylistItem
 import com.music.innertube.models.SongItem
-import com.music.innertube.models.WatchEndpoint
+import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -330,11 +330,11 @@ internal fun PageSongsBlock(block: PageBlock.Songs, page: PageContext, glass: Gl
     val sourceSongs: List<MediaMetadata> = when (block.source) {
         SongSource.Subject -> page.subject.songs
         SongSource.Library -> {
-            val rows by remember(database) { database.songs(SongSortType.CREATE_DATE, true) }.collectAsState(initial = emptyList())
+            val rows by remember(database) { database.songs() }.collectAsState(initial = emptyList())
             remember(rows, block.limit) { rows.take(block.limit).map { it.toMediaMetadata() } }
         }
         SongSource.Liked -> {
-            val rows by remember(database) { database.likedSongs(SongSortType.CREATE_DATE, true) }.collectAsState(initial = emptyList())
+            val rows by remember(database) { database.likedSongs() }.collectAsState(initial = emptyList())
             remember(rows, block.limit) { rows.take(block.limit).map { it.toMediaMetadata() } }
         }
         SongSource.Downloaded -> {
@@ -1071,7 +1071,7 @@ internal fun PageNowPlayingBlock(block: PageBlock.NowPlaying, glass: GlassState?
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.White).clickable {
-                                if (playing) connection.player.pause() else connection.player.play()
+                                if (playing) connection.player?.pause() else connection.player?.play()
                             },
                         ) {
                             Icon(painterResource(if (playing) R.drawable.pause else R.drawable.play), null, tint = Color.Black, modifier = Modifier.size(18.dp))
@@ -1277,7 +1277,7 @@ internal fun PageStatsBlock(block: PageBlock.Stats, glass: GlassState?) {
         if (block.showLibrary) database.likedSongsCount() else ZeroIntFlow
     }.collectAsState(initial = 0)
     val playlistCount by remember(database, block.showLibrary) {
-        if (block.showLibrary) database.playlistCount() else ZeroIntFlow
+        if (block.showLibrary) database.playlistCountFlow() else ZeroIntFlow
     }.collectAsState(initial = 0)
 
     val tiles = buildList {
@@ -1447,7 +1447,7 @@ private fun MediaThumb(url: String?, fallbackIcon: Int, size: androidx.compose.u
 }
 
 private val NullMetaFlow = MutableStateFlow<MediaMetadata?>(null)
-private val NullDbSongFlow = MutableStateFlow<com.mochyy.mochymusic.db.entities.Song?>(null)
+private val NullDbSongFlow = MutableStateFlow<com.music.bitchord.ui.mochy.models.Song?>(null)
 private val FalseFlow = MutableStateFlow(false)
 private val ZeroIntFlow = MutableStateFlow(0)
 private val EmptyQueueFlow = MutableStateFlow<List<androidx.media3.common.Timeline.Window>>(emptyList())

@@ -43,6 +43,7 @@ fun PlayerBackgroundContent(
     thumbnailUrl: String?,
     pureBlack: Boolean,
     modifier: Modifier = Modifier,
+    animate: Boolean = true,
 ) {
     when (style) {
         PlayerBackgroundStyle.COVER_GRADIENT -> Unit
@@ -54,6 +55,7 @@ fun PlayerBackgroundContent(
         )
         PlayerBackgroundStyle.AMBIENT -> StandaloneAmbientBackground(
             thumbnailUrl = thumbnailUrl,
+            animate = animate,
             modifier = modifier,
         )
     }
@@ -61,12 +63,12 @@ fun PlayerBackgroundContent(
 
 // the ambient backdrop on its own, from the picture's colours and with its own clock, for previews and the other styles' pages
 @Composable
-private fun StandaloneAmbientBackground(thumbnailUrl: String?, modifier: Modifier = Modifier) {
+private fun StandaloneAmbientBackground(thumbnailUrl: String?, animate: Boolean = true, modifier: Modifier = Modifier) {
     val colors = com.music.bitchord.ui.mochy.player.flagship.rememberAmbientColors()
     com.music.bitchord.ui.mochy.player.flagship.FollowPicture(colors, thumbnailUrl)
     com.music.bitchord.ui.mochy.player.flagship.AmbientBackdrop(
         colors = colors,
-        time = com.music.bitchord.ui.mochy.player.flagship.rememberAmbientClock(running = true),
+        time = com.music.bitchord.ui.mochy.player.flagship.rememberAmbientClock(running = animate),
         modifier = modifier,
     )
 }

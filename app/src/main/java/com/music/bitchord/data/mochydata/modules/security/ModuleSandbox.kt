@@ -345,7 +345,7 @@ internal object SafeAppSettings {
         ),
         Choice(
             "homestyle", "customisation", "Home style", "Top layout of the Home tab", HomeStyleKey,
-            default = HomeStyle.MOCHYY.name,
+            default = HomeStyle.MODERN.name,
             options = HomeStyle.entries.map { it.name to it.displayName },
         ),
         Choice(
@@ -484,8 +484,8 @@ internal object SafeAppSettings {
         ),
         Choice(
             "downloadquality", "audio_lab", "Download quality", "Quality for YouTube downloads", DownloadQualityKey,
-            default = DownloadQuality.HIGH.name,
-            options = DownloadQuality.entries.map { it.name to it.title },
+            default = MochyDownloadQuality.HIGH.name,
+            options = MochyDownloadQuality.entries.map { it.name to it.title },
         ),
         Toggle("preferusbdac", "audio_lab", "Prefer USB DAC", "Route playback to a connected USB DAC", PreferUsbDacKey, default = false),
         Toggle("hiresoutput", "audio_lab", "Hi-res float output", "Keep 24-bit precision on supported outputs", HiResOutputKey, default = false),

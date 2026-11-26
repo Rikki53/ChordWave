@@ -12,7 +12,7 @@ import com.music.bitchord.playback.mochy.MochyDownloadUtil
 
 /** the shared library database, for module pages that list songs, playlists, albums and artists */
 val LocalDatabase = staticCompositionLocalOf<MusicDatabase> {
-    error(LocalDatabase not provided)
+    error("LocalDatabase not provided")
 }
 
 /** the Modern engine's downloader, for module pages that show download state */

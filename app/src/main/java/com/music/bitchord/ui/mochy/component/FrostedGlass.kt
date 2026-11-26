@@ -1,11 +1,18 @@
 // Ported from Mochy Music (GPL-3.0): ui/component/FrostedGlass.kt
+// Batch 55b: refreshed to Mochy's current version for the modules system.
+
 // FrostedGlass.kt
 
 package com.music.bitchord.ui.mochy.component
 
+import android.os.Build
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
@@ -84,11 +91,37 @@ fun FrostedChromeGlass(
     surface: ChromeSurface = ChromeSurface.NavBar,
     // the lit tab's pill for a glass that draws it, given the bar's size; read while drawing
     pill: ((Size) -> ChromePill?)? = null,
+    // enables gpu fallback blur on android 10-11 for module bars while keeping default chrome zero-overhead
+    fallbackBlur: Boolean = false,
 ) {
     val moduleGlass = rememberChromeModuleGlass()
-    if (moduleGlass != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-        ModuleChromeGlass(state, moduleGlass, pureBlack, accentWash, surface, modifier, pill)
-        return
+    if (moduleGlass != null) {
+        if (moduleGlass.isNative && moduleGlass.shader != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ModuleChromeGlass(state, moduleGlass, pureBlack, accentWash, surface, modifier, pill)
+            return
+        }
+        val transpiled = moduleGlass.shader as? TranspiledAgsl
+        if (!moduleGlass.isNative && transpiled != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            var glFailed by remember(moduleGlass) { mutableStateOf(false) }
+            if (!glFailed) {
+                FallbackModuleChromeGlass(
+                    state = state,
+                    glass = moduleGlass,
+                    transpiled = transpiled,
+                    pureBlack = pureBlack,
+                    accentWash = accentWash,
+                    surface = surface,
+                    onFailed = { glFailed = true },
+                    modifier = modifier,
+                    pill = pill,
+                )
+                return
+            }
+        }
+        moduleGlass.fallback?.let { staticFallback ->
+            StaticFallbackChromeGlass(staticFallback, pureBlack, accentWash, modifier)
+            return
+        }
     }
     val color = if (pureBlack) Color.Black else GlassChromeColor
     // the grain only matters on the finer, high quality glass
@@ -108,6 +141,7 @@ fun FrostedChromeGlass(
             // Only reaches the margin's outer edge now, too far out to show.
             tileMode = android.graphics.Shader.TileMode.CLAMP,
             bleed = true,
+            fallbackBlur = fallbackBlur,
             modifier = Modifier.fillMaxSize(),
         )
     }
@@ -116,11 +150,16 @@ fun FrostedChromeGlass(
 /** the look's glass while the bars draw it, so a bar can leave out the hairline, shadow or pill the glass draws itself; null while they keep mochy's frost */
 @Composable
 internal fun rememberChromeModuleGlass(): com.music.bitchord.ui.mochy.modules.skin.ActiveGlass? {
-    // a look module can swap the frost for a glass shader of its own; android 13+ runs it, older phones and blur switched off keep the frost
+    // android 13+ runs native agsl, 10-12 runs the gles 3.0 fallback, and 7-9 uses an optional static fallback; blur off keeps plain chrome
     val (style) = rememberEnumPreference(ChromeGlassStyleKey, defaultValue = ChromeGlassStyle.FROSTED)
     val (blurOff) = rememberPreference(DisableBlurKey, defaultValue = false)
-    val glass = com.music.bitchord.ui.mochy.modules.skin.ActiveSkin.glass
-    return glass.takeIf { style == ChromeGlassStyle.MODULE && !blurOff && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU }
+    val glass = com.music.bitchord.ui.mochy.modules.skin.ActiveSkin.glass ?: return null
+    if (style != ChromeGlassStyle.MODULE || blurOff) return null
+    val liveSupported = when {
+        glass.isNative -> glass.shader != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        else -> glass.shader is TranspiledAgsl && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    }
+    return glass.takeIf { liveSupported || it.fallback != null }
 }
 
 /** the bars that share the chrome glass; [kind] is the number a look's glass shader gets for each */

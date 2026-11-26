@@ -476,6 +476,7 @@ class StyleMenuExtra(
     val active: Boolean = false,
     /** stays open after the tap, so a toggle's change shows */
     val keepsOpen: Boolean = false,
+    val accent: Color? = null,
     val onClick: () -> Unit,
 )
 
@@ -559,6 +560,12 @@ class StyleActions(
     val onQueue: (() -> Unit)? = null,
     // the rotate item; none in the selector's cards or on a tv
     val turn: StyleTurn? = null,
+    // opens any native player sheet directly (sleep timer, output, speed, details, stream info, add to playlist, lyrics tools, share, etc.)
+    val onOpenSheet: ((com.music.bitchord.ui.mochy.modules.skin.SheetKind) -> Unit)? = null,
+    // switches to full video mode directly
+    val onFullVideo: (() -> Unit)? = null,
+    // opens the equalizer directly
+    val onEqualizer: (() -> Unit)? = null,
 )
 
 // whether the style on now is turned sideways and the switch for it, read as lambdas since the actions are built once

@@ -42,13 +42,15 @@ object WidevineDrm {
             .build(callback(license))
 
     fun callback(license: LicenseServer) = object : MediaDrmCallback {
-        override fun executeProvisionRequest(uuid: UUID, request: ExoMediaDrm.ProvisionRequest): ByteArray =
-            provision(request.defaultUrl, request.data)
+        override fun executeProvisionRequest(uuid: UUID, request: ExoMediaDrm.ProvisionRequest): MediaDrmCallback.Response =
+            MediaDrmCallback.Response(provision(request.defaultUrl, request.data))
 
-        override fun executeKeyRequest(uuid: UUID, request: ExoMediaDrm.KeyRequest): ByteArray =
-            runCatching { license.acquire(request.data) }
-                .onFailure { android.util.Log.w("WidevineDrm", "License request failed", it) }
-                .getOrThrow()
+        override fun executeKeyRequest(uuid: UUID, request: ExoMediaDrm.KeyRequest): MediaDrmCallback.Response =
+            MediaDrmCallback.Response(
+                runCatching { license.acquire(request.data) }
+                    .onFailure { android.util.Log.w("WidevineDrm", "License request failed", it) }
+                    .getOrThrow()
+            )
     }
 
     /** a device that has never played Widevine gets its certificate from Google first */

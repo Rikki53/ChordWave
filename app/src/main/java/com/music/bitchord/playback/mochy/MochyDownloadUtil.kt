@@ -128,6 +128,10 @@ object MochyDownloadUtil {
     /** Every download the manager knows, by song id (Mochy's downloads flow). */
     val downloads: StateFlow<Map<String, Download>> = _downloads.asStateFlow()
 
+    /** one song's download as it changes (Mochy's DownloadUtil.getDownload). */
+    fun getDownload(songId: String): kotlinx.coroutines.flow.Flow<Download?> =
+        downloads.map { it[songId] }.distinctUntilChanged()
+
     /** Each song's stream url and when it stops working (ms since 1970); read on the download threads. */
     private val songUrlCache = ConcurrentHashMap<String, Pair<String, Long>>()
 

@@ -78,10 +78,10 @@ class ModuleProcessors @Inject constructor() {
             script: String,
             presets: List<Pair<String, Map<String, Float>>>,
         ): FxKind = FxKind(
-            key = module:/,
+            key = "module:$moduleId/$processorId",
             name = name,
             category = category?.takeIf { it.isNotBlank() } ?: moduleName,
-            description = description?.takeIf { it.isNotBlank() } ?: ,
+            description = description?.takeIf { it.isNotBlank() } ?: "",
             knobs = emptyList(),
             presets = presets.map { (presetName, _) -> KindPreset(presetName, emptyList()) },
             origin = KindOrigin.Module(moduleId, moduleName),

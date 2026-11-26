@@ -15,9 +15,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.music.bitchord.ui.mochy.LocalDatabase
 import com.music.bitchord.R
-import com.music.bitchord.ui.mochy.constants.SongSortType
-import com.mochyy.mochymusic.db.entities.Album
-import com.mochyy.mochymusic.db.entities.Playlist
+import com.music.bitchord.ui.mochy.models.Album
+import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.data.mochydata.modules.security.SecretGuard
@@ -299,7 +298,7 @@ private fun historySubject(args: Map<String, String>): PageSubject {
 @Composable
 private fun librarySubject(args: Map<String, String>): PageSubject {
     val database = LocalDatabase.current
-    val rows by remember(database) { database.songs(SongSortType.CREATE_DATE, true) }.collectAsState(initial = emptyList())
+    val rows by remember(database) { database.songs() }.collectAsState(initial = emptyList())
     val songs = rememberMetadata(rows) { list -> list.map { it.toMediaMetadata() } }
     val title = stringResource(R.string.filter_library)
     val subtitle = pluralStringResource(R.plurals.n_song, songs.size, songs.size)

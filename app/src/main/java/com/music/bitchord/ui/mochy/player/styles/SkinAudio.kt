@@ -48,6 +48,8 @@ internal class SkinAudio(initial: Map<String, String> = emptyMap()) {
 
     // a value the app doesn't know yet shows as a dash, so the layout never jumps around an empty gap
     fun fill(text: String): String = SkinAudioField.replace(text) { fields[it.groupValues[1].lowercase()] ?: Unknown }
+
+    val isLossless: Boolean get() = fields["codec"] in Lossless
 }
 
 /** null unless the layout shows a stream placeholder; the volume and cpu only tick while the player can be seen */
@@ -99,6 +101,7 @@ private fun liveFlow(android: Context): Flow<Map<String, String>> = flow {
 }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
 private const val Unknown = "–"
+private val Lossless = setOf("FLAC", "ALAC", "PCM")
 private const val LiveTickMs = 1_000L
 private val PreviewFields = mapOf(
     "codec" to "MP3", "khz" to "44.1", "kbps" to "320", "bits" to "16", "size" to "7.4",

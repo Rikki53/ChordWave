@@ -387,7 +387,7 @@ private fun runControl(
     kind: ButtonKind,
     connection: MochyPlayerConnection?,
     database: MusicDatabase,
-    downloadUtil: com.mochyy.mochymusic.playback.DownloadUtil,
+    downloadUtil: com.music.bitchord.playback.mochy.MochyDownloadUtil,
     android: Context,
     scope: CoroutineScope,
     context: SkinContext,
@@ -399,7 +399,7 @@ private fun runControl(
         ButtonKind.Previous -> connection?.seekToPrevious()
         ButtonKind.Next -> connection?.seekToNext()
         ButtonKind.Like -> connection?.toggleLike()
-        ButtonKind.Shuffle -> connection?.let { it.player.shuffleModeEnabled = !it.player.shuffleModeEnabled }
+        ButtonKind.Shuffle -> connection?.player?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
         ButtonKind.Repeat -> connection?.player?.toggleRepeatMode()
         ButtonKind.Lyrics -> context.actions.onLyrics?.invoke()
         ButtonKind.Queue -> context.actions.onQueue?.invoke()
@@ -430,13 +430,13 @@ private fun runControl(
             if (song.localUri != null) return
             val existing = downloadUtil.downloads.value[song.id]?.state
             if (existing == Download.STATE_COMPLETED || existing == Download.STATE_DOWNLOADING || existing == Download.STATE_QUEUED) {
-                DownloadService.sendRemoveDownload(android, ExoDownloadService::class.java, song.id, false)
+                DownloadService.sendRemoveDownload(android, com.music.bitchord.playback.mochy.MochyExoDownloadService::class.java, song.id, false)
             } else {
                 val req = DownloadRequest.Builder(song.id, song.id.toUri())
                     .setCustomCacheKey(song.id)
                     .setData(song.title.toByteArray())
                     .build()
-                DownloadService.sendAddDownload(android, ExoDownloadService::class.java, req, false)
+                DownloadService.sendAddDownload(android, com.music.bitchord.playback.mochy.MochyExoDownloadService::class.java, req, false)
             }
         }
         ButtonKind.Pin -> {

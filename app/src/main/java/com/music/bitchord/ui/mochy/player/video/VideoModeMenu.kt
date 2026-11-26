@@ -343,7 +343,7 @@ internal fun VideoQualitySheet(session: YouTubeVideoSession?, onDismiss: () -> U
 }
 
 @Composable
-private fun QualityRow(title: String, description: String?, selected: Boolean, onClick: () -> Unit) {
+internal fun QualityRow(title: String, description: String?, selected: Boolean, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

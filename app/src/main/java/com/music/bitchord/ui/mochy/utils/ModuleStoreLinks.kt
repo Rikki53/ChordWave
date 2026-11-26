@@ -4,4 +4,4 @@
 
 package com.music.bitchord.ui.mochy.utils
 
-const val DiscordUrl = https://discord.gg/NTmqVphbRY
+const val DiscordUrl = "https://discord.gg/NTmqVphbRY"
