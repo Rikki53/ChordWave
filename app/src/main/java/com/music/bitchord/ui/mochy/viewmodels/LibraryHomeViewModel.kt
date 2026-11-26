@@ -35,6 +35,7 @@ import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.mochydata.MochyLibraryRepository
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.download.SavedCollection
 import com.music.bitchord.playback.AudioCache
@@ -64,6 +65,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -87,6 +89,15 @@ import java.util.Collections
 class LibraryHomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    /**
+     * The Room (Mochy engine) library, read-only this stage: once the
+     * one-time legacy -> Room migration has completed, the offline
+     * playlists, their songs and the downloads below read from Room;
+     * until then (or if the migration failed) everything keeps reading
+     * the legacy ChordWave stores exactly as before.
+     */
+    private val mochyLibrary = MochyLibraryRepository(context)
 
     // --- Library (account) --------------------------------------------------
 
@@ -197,17 +208,32 @@ class LibraryHomeViewModel @Inject constructor(
      * from storage, and files the offline playlists reference (a file in a CW playlist is
      * imported in Mochy's sense: it is in the library). Newest first; undated last.
      */
+    /**
+     * Songs sitting in the user's playlists: from Room once the migration
+     * has landed, from [OfflinePlaylists] until then.
+     */
+    private val playlistSongsSource: Flow<List<Song>> = combine(
+        OfflinePlaylists.playlists,
+        mochyLibrary.ready,
+        mochyLibrary.playlistSongs,
+    ) { offline, roomReady, roomSongs ->
+        if (roomReady && roomSongs.isNotEmpty()) {
+            roomSongs
+        } else {
+            offline
+                .flatMap { it.songs }
+                .distinctBy { it.localUri }
+                .map { it.toLocalFileMochySong() }
+        }
+    }
+
     private val localSource: Flow<List<Song>> = combine(
         _downloadedSongs,
         LocalImportStore.songs,
-        OfflinePlaylists.playlists,
+        playlistSongsSource,
         LikeState.overrides,
         OfflinePlaylists.liked,
-    ) { downloaded, imported, offline, overrides, likedUris ->
-        val fromPlaylists = offline
-            .flatMap { it.songs }
-            .distinctBy { it.localUri }
-            .map { it.toLocalFileMochySong() }
+    ) { downloaded, imported, fromPlaylists, overrides, likedUris ->
         (downloaded + imported + fromPlaylists)
             .distinctBy { it.id }
             .map { song ->
@@ -331,7 +357,21 @@ class LibraryHomeViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            OfflinePlaylists.playlists.collect { rebuildOfflinePlaylists(it) }
+            combine(
+                OfflinePlaylists.playlists,
+                mochyLibrary.ready,
+                mochyLibrary.offlinePlaylists,
+                mochyLibrary.playlistSongIds,
+            ) { legacy, roomReady, roomPlaylists, roomIds ->
+                Triple(legacy, roomReady && roomPlaylists.isNotEmpty(), roomPlaylists to roomIds)
+            }.collect { (legacy, useRoom, room) ->
+                if (useRoom) {
+                    _offlinePlaylists.value = room.first
+                    _playlistSongIds.value = room.second
+                } else {
+                    rebuildOfflinePlaylists(legacy)
+                }
+            }
         }
 
         // A download finishing lands in the Local shelf; debounced so a whole
@@ -546,6 +586,18 @@ class LibraryHomeViewModel @Inject constructor(
     }
 
     private suspend fun refreshDownloadedSongs() {
+        // Room first once the migration has landed (the files themselves
+        // stay in Music/ChordWave either way); the legacy scan is the
+        // fallback until then and whenever Room has nothing to say.
+        val fromRoom = if (mochyLibrary.ready.first()) {
+            runCatching { mochyLibrary.downloadedSongs.first() }.getOrNull().orEmpty()
+        } else {
+            emptyList()
+        }
+        if (fromRoom.isNotEmpty()) {
+            _downloadedSongs.value = fromRoom
+            return
+        }
         val downloaded = runCatching { Downloads.getDownloadedSongs(context) }.getOrNull().orEmpty()
         _downloadedSongs.value = downloaded.map { it.toDownloadedMochySong() }
     }

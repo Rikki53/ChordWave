@@ -193,6 +193,15 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.
         ListeningStats.init(this)
+        // The shared Room library (Mochy engine database): copies the
+        // legacy stores into it once, with a backup first, off the main
+        // thread. The legacy stores are never modified, so Classic is
+        // untouched and a failure here only leaves Modern reading them.
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                com.music.bitchord.data.mochydata.MochyDataMigration.runIfNeeded(this@BitChordApplication)
+            }
+        }
         // After AppSettings, whose switch decides whether half of it runs.
         ArtistFacts.init(this)
         // One cache directory can only be opened once per process, and
