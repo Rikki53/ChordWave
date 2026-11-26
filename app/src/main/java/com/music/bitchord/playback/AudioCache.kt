@@ -1339,6 +1339,42 @@ object AudioCache {
     }
 
     /**
+     * The player's own data source chain, for the Modern song share's preview
+     * and video export — Mochy's `shareDataSourceFactory()`: the share reads
+     * the song through the same cache and the same stream choice playback
+     * does, so the audio cut into an exported lyrics video is the very
+     * recording the listener hears under those lyrics (a substituted or
+     * upgraded stream included), never a fresh resolve that can land on a
+     * different version.
+     *
+     * Ungated, like [PlaybackService]'s Cast resolves: the share reads a
+     * track on the listener's explicit request, not read-ahead, so the
+     * Direct Source hold must not park it until the track happens to play.
+     *
+     * Null until the player's upstream exists.
+     */
+    fun shareDataSourceFactory(): DataSource.Factory? {
+        val upstream = upstreamFactory ?: return null
+        val playback = playbackFactory(upstream)
+        return DataSource.Factory { UngatedDataSource(playback.createDataSource()) }
+    }
+
+    /** Opens [delegate] with the Direct Source gate lifted — see [shareDataSourceFactory]. */
+    private class UngatedDataSource(private val delegate: DataSource) : DataSource {
+        override fun addTransferListener(transferListener: TransferListener) =
+            delegate.addTransferListener(transferListener)
+
+        override fun open(dataSpec: DataSpec): Long = DirectSourceGate.ungated { delegate.open(dataSpec) }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+            delegate.read(buffer, offset, length)
+
+        override fun getUri(): Uri? = delegate.uri
+
+        override fun close() = delegate.close()
+    }
+
+    /**
      * A reader over [videoId]'s YouTube Opus, for the lyrics share video to
      * cut the song's audio from — and the URI to open it with.
      *

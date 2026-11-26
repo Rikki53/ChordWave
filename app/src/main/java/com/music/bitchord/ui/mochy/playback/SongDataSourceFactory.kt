@@ -1,8 +1,14 @@
 // SongDataSourceFactory.kt — ONE shared DataSource.Factory that resolves a
 // song's stream for MediaItems built by MediaMetadata.toMediaItem()
 // (mediaId == song id; URI is a local file, bitchord://watch?v=<id>,
-// bitchord://source?… or a bare id). Used by the share preview
-// player (E1) and the share export (E2) — the same factory both places.
+// bitchord://source?… or a bare id).
+//
+// Batch 50: the Modern song share reads through the player's own chain
+// (AudioCache.shareDataSourceFactory — Mochy's shareDataSourceFactory), so
+// this factory is only the cold-start stand-in for the moments before the
+// player service exists. It must never become the share's normal path
+// again: resolving afresh here can land on a different recording than the
+// one playback (and the lyrics) are using.
 //
 // It follows ChordWave's own player (PlaybackService): a ResolvingDataSource
 // whose resolver turns the item's id into a stream URL via

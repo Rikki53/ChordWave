@@ -19,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameMillis
@@ -34,6 +33,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.SongDataSourceFactory
@@ -215,34 +215,41 @@ private fun SongPreviewAudio(session: SongShareSession) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current
     WatchesTheApp(session)
-    // Whether the app's music was playing when the preview first paused it:
-    // null until the preview has paused it once, so the share never starts
-    // music that was already stopped.
-    val pausedApp = remember(session) { mutableStateOf<Boolean?>(null) }
-    val currentConnection by rememberUpdatedState(playerConnection)
+    // set once the share's song has paused the app's own, so closing the share plays it again
+    val pausedTheApp = remember { booleanArrayOf(false) }
     DisposableEffect(session) {
-        val preview = SongPreviewPlayer(context, SongDataSourceFactory.create(context))
+        // the player's own factory, so the preview hears the same recording
+        // playback does; the standalone factory only stands in before the
+        // player service exists
+        val preview = SongPreviewPlayer(context, AudioCache.shareDataSourceFactory() ?: SongDataSourceFactory.create(context))
         session.preview = preview
         onDispose {
             session.preview = null
             preview.release()
-            if (pausedApp.value == true) currentConnection?.play()
+            if (pausedTheApp[0]) playerConnection?.play()
         }
     }
     LaunchedEffect(session) {
-        snapshotFlow { Triple(session.previewPlays, session.windowStartMs, session.windowLengthMs) }
-            .collectLatest { (plays, startMs, lengthMs) ->
-                val preview = session.preview ?: return@collectLatest
-                if (!plays) {
-                    preview.setPlaying(false)
-                    return@collectLatest
-                }
-                if (pausedApp.value == null) {
-                    pausedApp.value = playerConnection?.isPlaying?.value == true
-                    playerConnection?.pause()
-                }
-                preview.load(session.song.toMediaItem(), startMs, lengthMs, play = true)
+        val item = session.song.toMediaItem()
+        // nothing loads until the song first plays, so a picture never fetches it at all
+        var loaded: Pair<Long, Long>? = null
+        snapshotFlow { Triple(session.previewPlays, session.windowStartMs, session.windowLengthMs) }.collect { (plays, start, length) ->
+            val preview = session.preview ?: return@collect
+            if (plays && playerConnection?.player?.isPlaying == true) {
+                // the two would play over each other
+                playerConnection?.pause()
+                pausedTheApp[0] = true
             }
+            if (loaded == null && !plays) return@collect
+            // the window it loops follows the timeline once the finger lets go
+            val window = start to length
+            if (loaded != window) {
+                preview.load(item, start, length, play = plays)
+                loaded = window
+            } else {
+                preview.setPlaying(plays)
+            }
+        }
     }
 }
 

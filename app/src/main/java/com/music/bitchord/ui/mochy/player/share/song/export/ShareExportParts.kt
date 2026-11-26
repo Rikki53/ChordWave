@@ -29,17 +29,6 @@ import kotlin.math.min
 private const val FadeInMs = 250L
 private const val FadeOutMs = 700L
 
-// how long the gl thread waits for the main thread to draw one frame before
-// giving up on it: a stalled draw must never hold the whole export at 0%
-// (batch 36: 15 s a frame at 4K read as a frozen 0% for minutes; 3 s is
-// already generous for one card draw)
-private const val FrameTimeoutMs = 3_000L
-
-// this many frames in a row never drawn means the card cannot be drawn on
-// this phone at this size: fail the export with a reason instead of
-// encoding a card-less video behind a frozen progress bar (batch 36)
-private const val MaxConsecutiveFrameTimeouts = 10
-
 // what this phone's h264 encoders can take at the size actually encoded.
 // The share is portrait 9:16 and the encoder is handed that size as-is, so
 // the check asks for portrait: asking for the rotated 16:9 size (Mochy's
@@ -123,9 +112,7 @@ internal class ExportFrames(
     private val main = Handler(Looper.getMainLooper())
     private var lastPtsUs = -1L
     private var drawn = 0L
-    private var settled = 0L
     private var failed = 0
-    private var consecutiveTimeouts = 0
 
     // called on the gl thread; waits in short steps so a cancel always gets through
     fun frameAt(presentationTimeUs: Long): FrameImage? {
@@ -144,27 +131,8 @@ internal class ExportFrames(
                 done.countDown()
             }
         }
-        var waitedMs = 0L
         while (!done.await(100, TimeUnit.MILLISECONDS)) {
             if (job.cancelled) return null
-            waitedMs += 100
-            if (waitedMs >= FrameTimeoutMs) {
-                // the main thread never got to this frame: it goes without
-                // the card rather than stalling the export at 0% forever;
-                // the queued draw still lands for the frames after it. The
-                // frame still counts as settled, so the progress bar keeps
-                // moving instead of freezing at 0% (batch 36)
-                if (failed == 0) Log.e("SongShare", "Share frame at $presentationTimeUs us not drawn within ${FrameTimeoutMs}ms; continuing without it")
-                failed++
-                settled++
-                job.advanceProgress(settled.toFloat() / totalFrames)
-                consecutiveTimeouts++
-                if (consecutiveTimeouts >= MaxConsecutiveFrameTimeouts) {
-                    job.failure = "The share card could not be drawn on this phone"
-                    job.cancelled = true
-                }
-                return null
-            }
         }
         return result
     }
@@ -178,9 +146,7 @@ internal class ExportFrames(
         frames.advance(stepMs)
         val frame = frames.capture()
         drawn++
-        settled++
-        consecutiveTimeouts = 0
-        job.advanceProgress(settled.toFloat() / totalFrames)
+        job.progress = min(1f, drawn.toFloat() / totalFrames)
         return frame
     }
 }

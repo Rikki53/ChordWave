@@ -108,37 +108,6 @@ internal class ShareTheme(val colors: ColorScheme, val typography: Typography)
 internal class ShareExportJob {
     @Volatile var cancelled = false
     @Volatile var progress = 0f
-
-    // set when the export gives up on itself (batch 36): the card could not
-    // be drawn, so the run ends as a failure with this reason instead of a
-    // silent card-less video
-    @Volatile var failure: String? = null
-
-    // set when a 4K attempt had to be retried at 1080p (batch 49), so the
-    // send page can say so instead of quietly handing back a smaller video
-    // than the one that was picked
-    @Volatile var steppedDown = false
-
-    // the one way progress is reported (batch 49): the frame counter and
-    // the transformer's own progress both feed the same bar and each
-    // measures the run differently, so the bar only ever moves forward —
-    // whichever source is further along wins, never backwards. Before
-    // this, the frame counter overwrote the bar with its own smaller
-    // number and the bar jumped up and down for the whole export.
-    @Synchronized
-    fun advanceProgress(value: Float) {
-        val clamped = value.coerceIn(0f, 1f)
-        if (clamped > progress) progress = clamped
-    }
-
-    // a retry starts clean (batch 49): the first attempt's failure and
-    // cancel flags must not poison the second attempt, and its progress
-    // restarts from zero
-    fun resetForRetry() {
-        progress = 0f
-        failure = null
-        cancelled = false
-    }
 }
 
 // the picture drawn at export size: 360 picture units across the full width, in the app's theme, at full blur quality
@@ -254,12 +223,6 @@ internal suspend fun exportVideo(
 ): File {
     val host = checkNotNull(session.offscreenHost) { "The share isn't on screen" }
     val fps = ShareEncoders.frameRateFor(quality)
-    // kept in release builds: an export that stalls on a phone can say what it was asked to make (batch 36)
-    Log.i(Tag, "Export start: ${quality.width}x${quality.height} @${fps}fps window=${session.windowLengthMs}ms song=${session.song.id} local=${session.song.localUri != null} layers=$layers cardOnly=${session.isCardOnly}")
-    // the encoder is handed the portrait size as-is (batch 49): when no
-    // h264 encoder on this phone takes it at this rate, fail here so the
-    // retry steps down to 1080p instead of dying inside the transformer
-    check(ShareEncoders.canEncode(quality, fps)) { "No encoder on this phone can make ${quality.width}x${quality.height} video" }
     val cardOnly = session.isCardOnly
     val activeSource = session.activeVideoSource?.takeIf { layers.background && it.isTextureVideo }
     val video = activeSource?.let { src ->
@@ -345,14 +308,7 @@ internal suspend fun exportVideo(
             song = DefaultMediaSourceFactory(songSource),
             web = webSources(context, background?.headers.orEmpty()),
         )
-        // the transformer's own progress is always polled (batch 36): with a
-        // card source it used to be the frames alone, so a stalled draw froze
-        // the bar at 0% while the encoder worked on unseen
-        runTransformer(context, composition, out, sources, quality, fps, job, trackProgress = true)
-        job.failure?.let { reason ->
-            out.delete()
-            throw IllegalStateException(reason)
-        }
+        runTransformer(context, composition, out, sources, quality, fps, job, trackProgress = source == null)
         return out
     } finally {
         // kept in release builds, so a phone where the card goes missing can say why
@@ -476,7 +432,7 @@ private suspend fun runTransformer(
             while (true) {
                 delay(150)
                 val current = transformer ?: continue
-                if (current.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) job.advanceProgress(holder.progress / 100f)
+                if (current.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) job.progress = holder.progress / 100f
             }
         }
     } else {
