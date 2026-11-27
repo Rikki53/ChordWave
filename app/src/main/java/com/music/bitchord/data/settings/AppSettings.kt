@@ -1866,6 +1866,22 @@ object AppSettings {
             .apply()
     }
 
+    /**
+     * Batch 66: persists the UI mode synchronously WITHOUT touching the
+     * [uiMode] flow, for the switch-and-restart path
+     * (EngineSwitch.switchModeAndRestart). The process is about to exit,
+     * so the write must be on disk (commit, not apply), and the flow must
+     * not flip first — that would start MainActivity's in-process host
+     * swap in the dying process. The fresh process reads the mode back
+     * from prefs at init.
+     */
+    fun setUiModeSync(value: UiMode) {
+        prefs.edit()
+            .putString(KEY_UI_MODE, value.name)
+            .putBoolean(KEY_UI_MODE_CHOSEN, true)
+            .commit()
+    }
+
     fun setAppFont(value: AppFont) {
         appFont.value = value
         prefs.edit().putString(KEY_APP_FONT, value.name).apply()

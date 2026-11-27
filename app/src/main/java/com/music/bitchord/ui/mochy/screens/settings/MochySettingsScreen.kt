@@ -37,6 +37,8 @@ import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleBrowserRoute
 import com.music.bitchord.ui.mochy.screens.settings.modules.ModuleSettingsPages
 import com.music.bitchord.ui.mochy.screens.devices.rememberDevicesLink
 import com.music.bitchord.ui.mochy.screens.devices.DeviceIntegrationRoute
+import com.music.bitchord.playback.mochy.EngineSwitch
+import com.music.bitchord.ui.mochy.component.DefaultDialog
 import com.music.bitchord.ui.mochy.component.LocalZoomOutOverlayState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -68,12 +70,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -84,6 +88,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -886,6 +891,11 @@ private val UiModeHighlightKeys = setOf("Interface", "Classic", "Modern")
 @Composable
 private fun UiModeCard() {
     val uiMode by AppSettings.uiMode.collectAsState()
+    val context = LocalContext.current
+    val switchScope = rememberCoroutineScope()
+    // Batch 66: the appearance the user tapped, held while the
+    // restart-confirmation dialog is up (null = no dialog).
+    var pendingMode by remember { mutableStateOf<UiMode?>(null) }
     val highlight by snapshotFlow { SettingsHighlight.active }.collectAsState(initial = null)
     val bringIntoView = remember { BringIntoViewRequester() }
     // the search index points "Interface", "Classic" and "Modern" here, and
@@ -942,7 +952,7 @@ private fun UiModeCard() {
                         .weight(1f)
                         .clip(RoundedCornerShape(16.dp))
                         .background(if (selected) Color.White else IconBgColor)
-                        .clickable { AppSettings.setUiMode(mode) }
+                        .clickable { if (mode != uiMode) pendingMode = mode }
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -957,6 +967,39 @@ private fun UiModeCard() {
                     )
                 }
             }
+        }
+    }
+    // Batch 66: confirm before switching appearance — the app restarts
+    // (closes and reopens) into the chosen look, and the playing song
+    // stops. Saying so first keeps the restart from looking like a bug.
+    pendingMode?.let { target ->
+        DefaultDialog(
+            onDismiss = { pendingMode = null },
+            title = { Text(stringResource(R.string.ui_mode_switch_title)) },
+            buttons = {
+                TextButton(onClick = { pendingMode = null }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+                TextButton(onClick = {
+                    pendingMode = null
+                    switchScope.launch {
+                        EngineSwitch.switchModeAndRestart(context, target)
+                    }
+                }) {
+                    Text(stringResource(R.string.ui_mode_switch_confirm))
+                }
+            },
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.ui_mode_switch_restart_notice,
+                    stringResource(
+                        if (target == UiMode.CLASSIC) R.string.ui_mode_classic
+                        else R.string.ui_mode_modern
+                    ),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 }

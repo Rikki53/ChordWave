@@ -4,18 +4,14 @@
 package com.music.bitchord.ui.mochy.screens.setup.onboarding
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -148,22 +144,6 @@ internal fun PermissionsPage(onContinue: () -> Unit) {
                 description = "Nearby stations on the Radio tab, city level only",
                 granted = granted(Manifest.permission.ACCESS_COARSE_LOCATION),
                 onAllow = { launcher.launch(Manifest.permission.ACCESS_COARSE_LOCATION) },
-            )
-            PermissionRow(
-                icon = rememberVectorPainter(Icons.Rounded.PictureInPictureAlt),
-                title = "Display over other apps",
-                description = "The floating lyrics bubble over other apps",
-                granted = Settings.canDrawOverlays(context),
-                onAllow = {
-                    runCatching {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:" + context.packageName),
-                            ),
-                        )
-                    }
-                },
             )
         }
     }

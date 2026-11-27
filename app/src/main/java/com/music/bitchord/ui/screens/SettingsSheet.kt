@@ -67,6 +67,7 @@ import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.Person
@@ -173,6 +174,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.settings.UiMode
+import com.music.bitchord.playback.mochy.EngineSwitch
 import com.music.bitchord.data.settings.AppFont
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.stats.Backup
@@ -358,6 +360,10 @@ fun SettingsScreen(
     var importStatus by remember { mutableStateOf<String?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
     var confirmClearSongCache by remember { mutableStateOf(false) }
+    // Batch 66: the appearance the user asked to switch to, held while
+    // the restart-confirmation dialog is up (null = no dialog).
+    var pendingUiMode by remember { mutableStateOf<UiMode?>(null) }
+    val uiModeSwitchScope = rememberCoroutineScope()
     var confirmDeleteAutomixModel by remember { mutableStateOf(false) }
     var showPerformanceWarning by remember { mutableStateOf(false) }
     var showPerformanceConfirmation by remember { mutableStateOf(false) }
@@ -1130,16 +1136,32 @@ fun SettingsScreen(
                 )
             }
             // Dual UI mode: Classic (this look) or Modern.
-            // The host recomposes onto the other UI; no restart, and
-            // playback keeps going — it runs in a service.
+            // Batch 66: switching asks first — the app restarts into the
+            // other appearance (close + reopen), so the dialog says so
+            // up front instead of the switch looking like a crash.
             val uiModeTitle = stringResource(R.string.ui_mode)
             row(uiModeTitle, "interface", "modern", "classic") {
                 SettingsRow(icon = Icons.Rounded.Palette, title = uiModeTitle)
                 SegmentedControl(
                     options = UiMode.entries.map { it.localizedLabel() },
                     selectedIndex = UiMode.entries.indexOf(uiMode),
-                    onSelect = { AppSettings.setUiMode(UiMode.entries[it]) },
+                    onSelect = {
+                        val picked = UiMode.entries[it]
+                        if (picked != uiMode) pendingUiMode = picked
+                    },
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                )
+                // One clear button to the other appearance (batch 66),
+                // so the switch is easy to find and tap.
+                val otherMode = if (uiMode == UiMode.CLASSIC) UiMode.MODERN else UiMode.CLASSIC
+                SettingsRow(
+                    icon = Icons.Rounded.SwapHoriz,
+                    title = stringResource(
+                        if (otherMode == UiMode.MODERN) R.string.ui_mode_switch_to_modern
+                        else R.string.ui_mode_switch_to_classic
+                    ),
+                    subtitle = stringResource(R.string.ui_mode_switch_restart_hint),
+                    onClick = { pendingUiMode = otherMode },
                 )
             }
             // One switch only (batch 29): the segmented control above is
@@ -1992,6 +2014,39 @@ fun SettingsScreen(
                 .padding(top = 24.dp, bottom = 8.dp),
         )
         }
+    }
+
+    // Batch 66: confirm before switching appearance — the app restarts
+    // (closes and reopens) into the chosen look, and the playing song
+    // stops. Saying so first keeps the restart from looking like a bug.
+    pendingUiMode?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingUiMode = null },
+            title = { Text(stringResource(R.string.ui_mode_switch_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.ui_mode_switch_restart_notice,
+                        target.localizedLabel(),
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingUiMode = null
+                    uiModeSwitchScope.launch {
+                        EngineSwitch.switchModeAndRestart(context, target)
+                    }
+                }) {
+                    Text(stringResource(R.string.ui_mode_switch_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingUiMode = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     // Everything in the Cached songs folder goes with it, so say so first.

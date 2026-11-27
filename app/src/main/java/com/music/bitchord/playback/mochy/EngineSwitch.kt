@@ -49,6 +49,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.music.bitchord.MainActivity
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.UiMode
 import com.music.bitchord.playback.PlaybackService
@@ -243,6 +244,36 @@ object EngineSwitch {
             Timber.tag(TAG).w(e, "connect failed for $engine")
             null
         }
+
+    /**
+     * Batch 66 — the user-facing mode switch: persist [target] and
+     * restart the whole process into it, instead of swapping hosts
+     * inside the running process. The in-process swap (splash +
+     * [switchTo]) still force-closed on Riki's phone even after the
+     * batch-53 hardening, so the switch now takes the one path that
+     * cannot leave half-torn-down state behind: a clean process
+     * restart. The UI confirms first ("the app will restart") so the
+     * close-and-reopen is expected, not mistaken for a crash.
+     *
+     * The outgoing engine's service is stopped first (song stops, per
+     * Riki's decision); component states are re-synced at startup
+     * (BitChordApplication calls [syncComponents]). The mode is
+     * committed synchronously without flipping the uiMode flow, so
+     * MainActivity's in-process swap never starts in this process.
+     */
+    suspend fun switchModeAndRestart(context: Context, target: UiMode) {
+        val app = context.applicationContext
+        val current = if (boundEngineReady) _boundEngine.value else activeEngine(app)
+        if (current != engineFor(target)) {
+            stopEngine(app, current)
+        }
+        AppSettings.setUiModeSync(target)
+        val intent = Intent(app, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+        app.startActivity(intent)
+        Runtime.getRuntime().exit(0)
+    }
 
     private const val STOP_TIMEOUT_MS = 4_000L
     private const val DESTROY_TIMEOUT_MS = 3_000L
