@@ -351,6 +351,15 @@ dependencies {
     // engine — nothing here calls into it at runtime.
     implementation(project(":mochyengine"))
 
+    // ---- Firebase (admin push system, Tahap 1) ----
+    // Compile-time only in effect: the shared phone sources reference
+    // FirebaseMessaging (data/push), so the classes must resolve here
+    // too. No google-services plugin and no google-services.json on TV —
+    // push is phone-only for now, and PushNotifications.init skips the
+    // topic subscribe when no FirebaseApp was initialised.
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-messaging")
+
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)

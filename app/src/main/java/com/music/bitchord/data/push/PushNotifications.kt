@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import com.music.bitchord.MainActivity
 import com.music.bitchord.R
@@ -52,7 +53,14 @@ object PushNotifications {
     fun init(context: Context) {
         ensureChannel(context)
         CoroutineScope(Dispatchers.IO).launch {
-            runCatching { FirebaseMessaging.getInstance().subscribeToTopic(TOPIC_ALL_USERS) }
+            runCatching {
+                // No FirebaseApp in builds without google-services.json
+                // (the TV module compiles these sources but ships no
+                // Firebase config) — skip quietly instead of throwing.
+                if (FirebaseApp.getApps(context).isNotEmpty()) {
+                    FirebaseMessaging.getInstance().subscribeToTopic(TOPIC_ALL_USERS)
+                }
+            }
         }
     }
 
