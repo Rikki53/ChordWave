@@ -57,6 +57,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
@@ -357,6 +358,7 @@ private object ShareLoopThread {
     val handler: Handler by lazy { Handler(HandlerThread("ShareLoopVideo").apply { start() }.looper) }
 }
 
+@OptIn(UnstableApi::class)
 private class ShareLoopSession(
     context: Context,
     mediaSourceFactory: MediaSource.Factory,
@@ -370,6 +372,14 @@ private class ShareLoopSession(
         handler.post {
             player = ExoPlayer.Builder(context)
                 .setLooper(handler.looper)
+                // the video session's small buffer (800ms to start): with the
+                // defaults the preview waited for 2.5s of picture before its
+                // first frame while the song was already playing (batch 75)
+                .setLoadControl(
+                    DefaultLoadControl.Builder()
+                        .setBufferDurationsMs(12_000, 40_000, 800, 1_600)
+                        .build(),
+                )
                 .setMediaSourceFactory(mediaSourceFactory)
                 .build()
                 .apply {

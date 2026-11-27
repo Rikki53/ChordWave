@@ -20,11 +20,13 @@ import com.music.bitchord.data.model.Song as CwSong
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
 import com.music.bitchord.ui.mochy.lyrics.serializeLyricLines
+import com.music.bitchord.ui.mochy.player.OfficialMusicVideo
 import com.music.bitchord.ui.mochy.player.lookUpVideo
 import com.music.bitchord.ui.mochy.player.share.coverPalette
 import com.music.bitchord.ui.mochy.player.video.matchSongToVideo
 import com.music.bitchord.ui.mochy.player.video.resolveVideoStreams
 import com.music.bitchord.ui.mochy.utils.SoftBlurTransformation
+import com.music.bitchord.ui.mochy.utils.VideoStreams
 import com.music.bitchord.ui.mochy.utils.resize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -140,8 +142,24 @@ internal suspend fun findMusicVideo(session: SongShareSession) {
     session.musicVideo = if (found == null) {
         Fetched.Missing
     } else {
-        Fetched.Found(ShareMusicVideo(found.videoId, found.streams) { it })
+        Fetched.Found(ShareMusicVideo(found.videoId, shareSizedStreams(found)) { it })
     }
+}
+
+// the lookup's streams are sized for the video mode (the tallest there is);
+// the share re-resolves at its own cap when they overshoot it, and keeps the
+// lookup's links when the re-resolve fails (batch 75)
+private suspend fun shareSizedStreams(found: OfficialMusicVideo): VideoStreams {
+    val tallest = found.streams.tracks.maxOfOrNull { it.shortSide } ?: 0
+    if (tallest <= ShareVideoMaxHeight) return found.streams
+    val sized = withTimeoutOrNull(ShareResolveTimeoutMs) {
+        resolveVideoStreams(found.videoId, maxHeight = ShareVideoMaxHeight, durationMs = found.streams.durationMs)
+    }?.getOrNull()
+    if (sized == null) {
+        Timber.w("SongShare: could not re-resolve the music video at $ShareVideoMaxHeight; using the ${tallest}p links")
+        return found.streams
+    }
+    return sized
 }
 
 // lines the music video up with the song by listening to both; heavy, so it only runs once the music video is picked
@@ -166,8 +184,19 @@ internal suspend fun matchMusicVideo(session: SongShareSession) {
 // unbounded resolve froze the sheet on Riki's phone).
 private const val PickedVideoResolveTimeoutMs = 60_000L
 
+// the share never needs a picture past 1080: the preview keeps to a light
+// one and the export reads up to 1080 (trackFor). The lookup resolves the
+// tallest picture there is (up to 2160) for the video mode, and with the
+// adapter's single track the share's caps had nothing to pick from — the
+// preview streamed the tallest track and the export decoded it (batch 75)
+private const val ShareVideoMaxHeight = 1080
+
+// a re-resolve for the share is bounded like the picker's, so an export
+// can't sit at 0% waiting on links that never come (batch 75)
+private const val ShareResolveTimeoutMs = 30_000L
+
 internal suspend fun loadPickedYouTubeVideo(session: SongShareSession, videoId: String, title: String): Boolean {
-    val streams = withTimeoutOrNull(PickedVideoResolveTimeoutMs) { resolveVideoStreams(videoId) }
+    val streams = withTimeoutOrNull(PickedVideoResolveTimeoutMs) { resolveVideoStreams(videoId, maxHeight = ShareVideoMaxHeight) }
         ?.getOrNull() ?: return false
     if (streams.tracks.isEmpty()) return false
     session.pickedYouTubeTitle = title
@@ -207,7 +236,9 @@ internal fun youtubeClipWindow(video: ShareMusicVideo, songStartMs: Long, window
 // export over a stale music video may fail at the encoder.
 internal suspend fun freshMusicVideo(video: ShareMusicVideo): ShareMusicVideo {
     if (!video.streams.isExpired) return video
-    val fresh = resolveVideoStreams(video.videoId, durationMs = video.streams.durationMs).getOrNull()
+    val fresh = withTimeoutOrNull(ShareResolveTimeoutMs) {
+        resolveVideoStreams(video.videoId, maxHeight = ShareVideoMaxHeight, durationMs = video.streams.durationMs)
+    }?.getOrNull()
     if (fresh == null) {
         Timber.w("SongShare: music video links expired and could not be refreshed; using them as-is")
         return video

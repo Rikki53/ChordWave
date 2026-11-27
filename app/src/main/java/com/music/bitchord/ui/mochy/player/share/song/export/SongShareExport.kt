@@ -29,6 +29,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.OverlaySettings
 import androidx.media3.common.VideoCompositorSettings
 import androidx.media3.common.util.Clock
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Size
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceBitmapLoader
@@ -52,6 +53,7 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
+import com.music.bitchord.playback.ChunkedDataSource
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.component.LocalBlurQuality
 import com.music.bitchord.ui.mochy.constants.BlurQuality
@@ -80,6 +82,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -92,6 +96,14 @@ private const val Tag = "SongShare"
 
 // how many still frames the picture gets to settle into place before the first real one
 private const val WarmUpFrames = 3
+
+// how often the export checks its own pulse, and how long without a pulse
+// before it calls itself stalled (batch 75)
+private const val StallCheckMs = 5_000L
+private const val StallTimeoutMs = 90_000L
+
+// bounded range size for the export's video reads, the preview's own (batch 75)
+private const val ExportChunkBytes = 1L * 1024 * 1024
 
 // stories are 9:16; the short side is the quality
 internal enum class ShareQuality(val width: Int) {
@@ -410,9 +422,14 @@ private fun newExportFile(context: Context, extension: String): File {
     return File(dir, "chordwave-${System.currentTimeMillis()}.$extension")
 }
 
+@OptIn(UnstableApi::class)
 private fun webSources(context: Context, headers: Map<String, String>): MediaSource.Factory {
     val http = OkHttpDataSource.Factory(OkHttpClient.Builder().followAppProxy().build()).setDefaultRequestProperties(headers)
-    return DefaultMediaSourceFactory(DefaultDataSource.Factory(context, http))
+    // googlevideo paces one open-ended read down to about playback speed,
+    // while bounded ranges are served at line rate (see ChunkedDataSource):
+    // read plainly, the transformer starved and the export sat at 0%.
+    // The preview reads the same URLs chunked for the same reason (batch 71).
+    return DefaultMediaSourceFactory(DefaultDataSource.Factory(context, ChunkedDataSource.Factory(http, ExportChunkBytes)))
 }
 
 private suspend fun runTransformer(
@@ -426,6 +443,9 @@ private suspend fun runTransformer(
     trackProgress: Boolean,
 ) = coroutineScope {
     var transformer: Transformer? = null
+    // one resume only: the listener and the watchdog below race to end the wait
+    val finished = AtomicBoolean(false)
+    var failStalled: (() -> Unit)? = null
     val progress = if (trackProgress) {
         launch {
             val holder = ProgressHolder()
@@ -438,15 +458,36 @@ private suspend fun runTransformer(
     } else {
         null
     }
+    // a transformer starved by a dead stream retries quietly and the dialog
+    // would sit at 0% forever; progress that hasn't moved for a while means
+    // the export is stalled, so fail it where the user can see why (batch 75)
+    val watchdog = launch {
+        var lastProgress = job.progress
+        var lastMovedAt = System.currentTimeMillis()
+        while (!finished.get()) {
+            delay(StallCheckMs)
+            val now = job.progress
+            if (now != lastProgress) {
+                lastProgress = now
+                lastMovedAt = System.currentTimeMillis()
+            } else if (System.currentTimeMillis() - lastMovedAt > StallTimeoutMs) {
+                Log.e(Tag, "Share export stalled at ${(now * 100).toInt()}% for ${StallTimeoutMs / 1000}s; failing it")
+                job.cancelled = true
+                Handler(Looper.getMainLooper()).post { transformer?.cancel() }
+                failStalled?.invoke()
+                break
+            }
+        }
+    }
     try {
         suspendCancellableCoroutine { continuation ->
             val listener = object : Transformer.Listener {
                 override fun onCompleted(composition: Composition, exportResult: ExportResult) {
-                    continuation.resume(Unit)
+                    if (finished.compareAndSet(false, true)) continuation.resume(Unit)
                 }
 
                 override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
-                    continuation.resumeWithException(exportException)
+                    if (finished.compareAndSet(false, true)) continuation.resumeWithException(exportException)
                 }
             }
             val encoders = DefaultEncoderFactory.Builder(context)
@@ -468,8 +509,14 @@ private suspend fun runTransformer(
                 .addListener(listener)
                 .build()
             transformer = built
+            failStalled = {
+                if (finished.compareAndSet(false, true)) {
+                    continuation.resumeWithException(IOException("The video export stalled"))
+                }
+            }
             built.start(composition, out.path)
             continuation.invokeOnCancellation {
+                finished.set(true)
                 // the gl thread lets go first, so the cancel never waits on a frame the main thread is about to be asked for
                 job.cancelled = true
                 Handler(Looper.getMainLooper()).post { built.cancel() }
@@ -478,5 +525,6 @@ private suspend fun runTransformer(
         }
     } finally {
         progress?.cancel()
+        watchdog.cancel()
     }
 }
