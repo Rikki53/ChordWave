@@ -2036,6 +2036,10 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 4.dp)
                         ) {
+                            // Admin announcements (Tahap 5): bell left of
+                            // the avatar; its own click opens the card
+                            // (the pill around it still opens Profile).
+                            com.music.bitchord.ui.admin.AnnouncementBellButton(modern = true)
             val avatarBoundsModifier = Modifier
                             if (profileImageUrl != null) {
                                 AsyncImage(

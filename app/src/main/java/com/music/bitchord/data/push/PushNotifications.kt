@@ -76,11 +76,19 @@ object PushNotifications {
     }
 
     /**
-     * Posts one announcement. Tapping it opens the app (the in-app pop-up
-     * card and notification icon are Tahap 5; for now the launcher
-     * behaviour is the whole contract).
+     * Posts one announcement. Tapping it opens the app straight onto
+     * the announcement card/pop-up (Tahap 5): the tap intent carries
+     * the announcement id/title/body as extras, which MainActivity
+     * hands to AnnouncementStore.consumeIntent. Without an id the
+     * tap still opens the app, and the card shows the saved push.
      */
-    fun showAnnouncement(context: Context, title: String, body: String, messageId: String?) {
+    fun showAnnouncement(
+        context: Context,
+        title: String,
+        body: String,
+        messageId: String?,
+        announcementId: String? = null,
+    ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -90,6 +98,12 @@ object PushNotifications {
 
         val intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(
+                com.music.bitchord.data.admin.AnnouncementStore.EXTRA_ANNOUNCEMENT_ID,
+                announcementId ?: messageId ?: "",
+            )
+            .putExtra(com.music.bitchord.data.admin.AnnouncementStore.EXTRA_ANNOUNCEMENT_TITLE, title)
+            .putExtra(com.music.bitchord.data.admin.AnnouncementStore.EXTRA_ANNOUNCEMENT_BODY, body)
         // One notification per message: the FCM message id keeps two
         // announcements from replacing each other in the shade.
         val notificationId = messageId?.hashCode() ?: (System.currentTimeMillis() and 0x7fffffff).toInt()

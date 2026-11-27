@@ -36,6 +36,13 @@ import kotlin.coroutines.resumeWithException
  *  - `maintenance_active` (boolean, default false) — total block.
  *  - `maintenance_message` (string, default "") — shown on the
  *    maintenance screen; blank falls back to a built-in text.
+ *  - `announcement_title` / `announcement_body` / `announcement_id`
+ *    (strings, default "") + `announcement_expires` (epoch seconds,
+ *    default 0 = never) — the standing announcement banner/card
+ *    (Tahap 5; see AnnouncementStore + AdminAnnouncementOverlay).
+ *  - `latest_version_code` (long, default 0), `latest_version_name`,
+ *    `update_url`, `update_message` (strings, default ""),
+ *    `update_force` (boolean, default false) — the update prompt.
  *
  * Fetching is async and applied on the main thread (batch 46/54's
  * lesson: no main-thread-only API from a background thread, and no
@@ -48,12 +55,37 @@ object AdminFlags {
     const val KEY_ONLINE_ENABLED = "online_enabled"
     const val KEY_MAINTENANCE_ACTIVE = "maintenance_active"
     const val KEY_MAINTENANCE_MESSAGE = "maintenance_message"
+    const val KEY_ANNOUNCEMENT_TITLE = "announcement_title"
+    const val KEY_ANNOUNCEMENT_BODY = "announcement_body"
+    const val KEY_ANNOUNCEMENT_ID = "announcement_id"
+    const val KEY_ANNOUNCEMENT_EXPIRES = "announcement_expires"
+    const val KEY_LATEST_VERSION_CODE = "latest_version_code"
+    const val KEY_LATEST_VERSION_NAME = "latest_version_name"
+    const val KEY_UPDATE_URL = "update_url"
+    const val KEY_UPDATE_MESSAGE = "update_message"
+    const val KEY_UPDATE_FORCE = "update_force"
 
-    /** One immutable snapshot of the three admin flags. */
+    /**
+     * One immutable snapshot of the admin flags. Tahap 5 adds the
+     * announcement (title/body/id/expiry) and the update prompt
+     * (latest version, download URL, message, force flag) — all
+     * defaulting to empty/zero/false, so an unpublished Remote
+     * Config template shows no banner and no prompt (fail-open).
+     * `announcement_expires` is epoch SECONDS (0 = never expires).
+     */
     data class Flags(
         val onlineEnabled: Boolean = true,
         val maintenanceActive: Boolean = false,
         val maintenanceMessage: String = "",
+        val announcementTitle: String = "",
+        val announcementBody: String = "",
+        val announcementId: String = "",
+        val announcementExpiresEpochSec: Long = 0L,
+        val latestVersionCode: Long = 0L,
+        val latestVersionName: String = "",
+        val updateUrl: String = "",
+        val updateMessage: String = "",
+        val updateForce: Boolean = false,
     )
 
     private val _flags = MutableStateFlow(Flags())
@@ -98,6 +130,15 @@ object AdminFlags {
                         KEY_ONLINE_ENABLED to true,
                         KEY_MAINTENANCE_ACTIVE to false,
                         KEY_MAINTENANCE_MESSAGE to "",
+                        KEY_ANNOUNCEMENT_TITLE to "",
+                        KEY_ANNOUNCEMENT_BODY to "",
+                        KEY_ANNOUNCEMENT_ID to "",
+                        KEY_ANNOUNCEMENT_EXPIRES to 0L,
+                        KEY_LATEST_VERSION_CODE to 0L,
+                        KEY_LATEST_VERSION_NAME to "",
+                        KEY_UPDATE_URL to "",
+                        KEY_UPDATE_MESSAGE to "",
+                        KEY_UPDATE_FORCE to false,
                     ),
                 ).awaitTask()
                 // Whatever a previous run activated is already the
@@ -142,6 +183,21 @@ object AdminFlags {
             onlineEnabled = remoteConfig.getBoolean(KEY_ONLINE_ENABLED),
             maintenanceActive = remoteConfig.getBoolean(KEY_MAINTENANCE_ACTIVE),
             maintenanceMessage = remoteConfig.getString(KEY_MAINTENANCE_MESSAGE),
+            announcementTitle = remoteConfig.getString(KEY_ANNOUNCEMENT_TITLE),
+            announcementBody = remoteConfig.getString(KEY_ANNOUNCEMENT_BODY),
+            announcementId = remoteConfig.getString(KEY_ANNOUNCEMENT_ID),
+            // Epoch seconds; accept a numeric parameter (getLong) or a
+            // string parameter holding the number — whichever the
+            // admin created in the console.
+            announcementExpiresEpochSec = remoteConfig.getLong(KEY_ANNOUNCEMENT_EXPIRES)
+                .takeIf { it > 0L }
+                ?: remoteConfig.getString(KEY_ANNOUNCEMENT_EXPIRES).trim().toLongOrNull()
+                ?: 0L,
+            latestVersionCode = remoteConfig.getLong(KEY_LATEST_VERSION_CODE),
+            latestVersionName = remoteConfig.getString(KEY_LATEST_VERSION_NAME),
+            updateUrl = remoteConfig.getString(KEY_UPDATE_URL),
+            updateMessage = remoteConfig.getString(KEY_UPDATE_MESSAGE),
+            updateForce = remoteConfig.getBoolean(KEY_UPDATE_FORCE),
         )
         mainHandler.post { _flags.value = next }
     }

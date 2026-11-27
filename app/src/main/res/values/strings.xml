@@ -1831,4 +1831,11 @@
     <string name="admin_downloads_disabled">Downloads are turned off right now.</string>
     <string name="admin_maintenance_title">Under maintenance</string>
     <string name="admin_maintenance_default_message">ChordWave is being looked after for a bit. Please try again soon — sorry for the pause.</string>
+    <string name="admin_notifications">Announcements</string>
+    <string name="admin_announcement_label">Announcement</string>
+    <string name="admin_announcement_empty_title">No announcements</string>
+    <string name="admin_announcement_empty_body">You are all caught up. New announcements from ChordWave will show up here.</string>
+    <string name="admin_update_title">Update available</string>
+    <string name="admin_update_default_message">A newer version of ChordWave is ready. Download it to get the latest fixes.</string>
+    <string name="admin_update_download">Download update</string>
 </resources>

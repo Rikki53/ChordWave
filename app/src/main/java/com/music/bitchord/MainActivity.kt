@@ -175,6 +175,9 @@ import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.data.settings.UiMode
 import com.music.bitchord.ui.UiModePicker
 import com.music.bitchord.data.admin.AdminFlags
+import com.music.bitchord.data.admin.AnnouncementStore
+import com.music.bitchord.ui.admin.AdminAnnouncementOverlay
+import com.music.bitchord.ui.admin.AnnouncementBellButton
 import com.music.bitchord.ui.admin.MaintenanceScreen
 import com.music.bitchord.ui.mochy.MochyApp
 import com.music.bitchord.ui.mochy.screens.update.UpdateDeepLink
@@ -488,6 +491,10 @@ class MainActivity : AppCompatActivity() {
         // request would pop the sheet unexpectedly on a later switch.
         if (AppSettings.uiMode.value == UiMode.MODERN) UpdateDeepLink.consume(intent)
         if (AppSettings.uiMode.value == UiMode.MODERN) DeviceLink.consume(intent)
+        // Admin announcement (Tahap 5): a notification tap lands here
+        // with the announcement in the intent extras; the overlay
+        // opens its card over whichever host composes. Both engines.
+        AnnouncementStore.consumeIntent(this, intent)
         setContent {
             // Dual UI mode: fresh installs pick Classic or Modern before
             // anything else; upgrades never see the picker (their mode is
@@ -569,7 +576,12 @@ class MainActivity : AppCompatActivity() {
                 return@setContent
             }
             if (onboardingComplete && displayedMode == UiMode.MODERN) {
-                MochyApp(launchIntroRequested = introPlays)
+                Box(Modifier.fillMaxSize()) {
+                    MochyApp(launchIntroRequested = introPlays)
+                    // Admin announcement banner/card + update prompt
+                    // (Tahap 5), Modern face.
+                    AdminAnnouncementOverlay(modern = true)
+                }
                 return@setContent
             }
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
@@ -628,6 +640,9 @@ class MainActivity : AppCompatActivity() {
                         windowHeight = maxHeight,
                         appBackdrop = appBackdrop,
                     )
+                    // Admin announcement banner/card + update prompt
+                    // (Tahap 5), Classic face.
+                    AdminAnnouncementOverlay(modern = false)
                 }
                 }
             }
@@ -689,6 +704,7 @@ class MainActivity : AppCompatActivity() {
         MusicLink.consume(intent)
         if (AppSettings.uiMode.value == UiMode.MODERN) UpdateDeepLink.consume(intent)
         if (AppSettings.uiMode.value == UiMode.MODERN) DeviceLink.consume(intent)
+        AnnouncementStore.consumeIntent(this, intent)
     }
 }
 
@@ -4507,6 +4523,10 @@ private fun BitChordApp(
                             // [TopBarDownloadButton], which decides that for
                             // itself rather than being told. Not on the page it
                             // opens, where it would only lead back to itself.
+                            // Admin announcements (Tahap 5): the bell
+                            // opens the announcement card; a badge dot
+                            // marks an unread announcement.
+                            AnnouncementBellButton(modern = false)
                             if (route != AppRoute.Downloads) {
                                 TopBarDownloadButton(onClick = { navigator.push(AppRoute.Downloads) })
                             }

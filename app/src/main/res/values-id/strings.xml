@@ -1549,4 +1549,11 @@
     <string name="admin_downloads_disabled">Unduhan sedang dimatikan.</string>
     <string name="admin_maintenance_title">Sedang pemeliharaan</string>
     <string name="admin_maintenance_default_message">ChordWave sedang dirawat sebentar. Coba lagi nanti ya — maaf atas jedanya.</string>
+    <string name="admin_notifications">Pengumuman</string>
+    <string name="admin_announcement_label">Pengumuman</string>
+    <string name="admin_announcement_empty_title">Tidak ada pengumuman</string>
+    <string name="admin_announcement_empty_body">Sudah tidak ada yang baru. Pengumuman baru dari ChordWave akan muncul di sini.</string>
+    <string name="admin_update_title">Pembaruan tersedia</string>
+    <string name="admin_update_default_message">Versi ChordWave yang lebih baru sudah siap. Unduh untuk mendapatkan perbaikan terbaru.</string>
+    <string name="admin_update_download">Unduh pembaruan</string>
 </resources>
