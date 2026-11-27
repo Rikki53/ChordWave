@@ -18,7 +18,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -46,6 +53,9 @@ fun CanvasArtworkPlayer(
     onFrameColors: ((List<Color>) -> Unit)? = null,
     // shows the whole picture with room round it instead of zooming past the box, for a module's cover that isn't the video's shape
     fit: Boolean = false,
+    // a spinner on a dark stand-in while the clip has no frame yet, for places where
+    // the bare fade-in would leave a blank light card that reads as an error (batch 74)
+    showLoadingIndicator: Boolean = false,
 ) {
     val primary = primaryUrl?.takeIf { it.isNotBlank() } ?: return
     val canvas = remember(primary, fallbackUrl) {
@@ -57,14 +67,20 @@ fun CanvasArtworkPlayer(
         animationSpec = tween(durationMillis = 300),
         label = "canvasAlpha"
     )
+    val loadingAlpha by animateFloatAsState(
+        targetValue = if (isVideoReady) 0f else 1f,
+        animationSpec = tween(durationMillis = 300),
+        label = "canvasLoading",
+    )
     val currentOnReady by rememberUpdatedState(onReadyChange)
     val currentOnFrameColors by rememberUpdatedState(onFrameColors)
     val scope = rememberCoroutineScope()
-    SharedCanvasArtworkPlayer(
-        canvas = canvas,
-        isPlaying = isPlaying,
-        contentMode = if (fit) com.music.bitchord.ui.player.CanvasContentMode.FIT_PORTRAIT else com.music.bitchord.ui.player.CanvasContentMode.CROP,
-        modifier = modifier.graphicsLayer { this.alpha = alpha },
+    Box(modifier) {
+        SharedCanvasArtworkPlayer(
+            canvas = canvas,
+            isPlaying = isPlaying,
+            contentMode = if (fit) com.music.bitchord.ui.player.CanvasContentMode.FIT_PORTRAIT else com.music.bitchord.ui.player.CanvasContentMode.CROP,
+            modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha },
         onRenderedChanged = { isVideoReady = it; currentOnReady?.invoke(it) },
         onFrameCaptured = { frame ->
             if (currentOnFrameColors == null) return@SharedCanvasArtworkPlayer
@@ -78,9 +94,22 @@ fun CanvasArtworkPlayer(
                 currentOnFrameColors?.invoke(ambientTones(pixels, w, h))
             }
         },
-        refreshFrameEveryMs = if (onFrameColors != null) CanvasFrameRefreshMs else null,
-        frameCapturePx = if (onFrameColors != null) CanvasSamplePx else 0,
-    )
+            refreshFrameEveryMs = if (onFrameColors != null) CanvasFrameRefreshMs else null,
+            frameCapturePx = if (onFrameColors != null) CanvasSamplePx else 0,
+        )
+        if (showLoadingIndicator && loadingAlpha > 0f) {
+            Box(
+                Modifier.fillMaxSize().graphicsLayer { this.alpha = loadingAlpha }.background(Color(0xFF141416)),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    color = Color.White.copy(alpha = 0.7f),
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+        }
+    }
 }
 
 // what a canvas loop's link actually is, for the share export's media item

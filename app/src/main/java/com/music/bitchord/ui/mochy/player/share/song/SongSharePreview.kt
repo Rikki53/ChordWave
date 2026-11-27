@@ -11,6 +11,9 @@ import android.os.Looper
 import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -24,7 +27,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -32,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -190,7 +197,7 @@ internal fun ShareVideoLayer(
     when (source) {
         null, ShareVideoSource.LiquidCover -> Unit
         ShareVideoSource.AnimatedCover -> session.animatedCover.found?.let { url ->
-            CanvasArtworkPlayer(primaryUrl = url, fallbackUrl = null, isPlaying = playing, modifier = modifier)
+            CanvasArtworkPlayer(primaryUrl = url, fallbackUrl = null, isPlaying = playing, showLoadingIndicator = true, modifier = modifier)
         }
         ShareVideoSource.MusicVideo -> session.musicVideo.found?.let { music ->
             val track = music.trackFor(PreviewVideoShortSide) ?: return@let
@@ -219,6 +226,10 @@ internal fun ShareVideoLayer(
 
 // the preview keeps to a light picture; the export reads the sharpest one
 private const val PreviewVideoShortSide = 720
+
+// what stands behind the loading spinner while a preview clip has no frame yet:
+// the sheet's own dark tone, never the card's light placeholder
+private val ShareVideoLoadingBackground = Color(0xFF141416)
 
 // bounded range size for the preview's reads, the main video session's own
 private const val PreviewChunkBytes = 1L * 1024 * 1024
@@ -266,10 +277,19 @@ private fun LoopingVideo(item: MediaItem, headers: Map<String, String>, playing:
     val texture = remember { ShareLoopTexture() }
     val currentPlaying by rememberUpdatedState(playing)
     val player = remember(factory) { ShareLoopSession(context, factory, currentPlaying).also { texture.session = it } }
+    // until the first frame is up the texture shows nothing and the page's light card
+    // reads as a blank white error, so a spinner stands in (batch 74)
+    var firstFrame by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
+                failed = true
                 Timber.w(error, "SongShare preview video failed to play")
+            }
+
+            override fun onRenderedFirstFrame() {
+                firstFrame = true
             }
 
             override fun onVideoSizeChanged(videoSize: VideoSize) {
@@ -284,24 +304,47 @@ private fun LoopingVideo(item: MediaItem, headers: Map<String, String>, playing:
             player.release()
         }
     }
-    LaunchedEffect(player, item) { player.load(item, currentPlaying) }
+    LaunchedEffect(player, item) {
+        firstFrame = false
+        failed = false
+        player.load(item, currentPlaying)
+    }
     LaunchedEffect(player, playing) { player.setPlaying(playing) }
     LaunchedEffect(player, restartKey) { if (restartKey > 0) player.restart() }
-    AndroidView(
-        factory = { viewContext ->
-            frame.apply {
-                if (childCount == 0) {
-                    addView(
-                        TextureView(viewContext).apply {
-                            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                            surfaceTextureListener = texture
-                        },
-                    )
-                }
-            }
-        },
-        modifier = modifier,
+    val loadingAlpha by animateFloatAsState(
+        targetValue = if (firstFrame || failed) 0f else 1f,
+        animationSpec = tween(durationMillis = 300),
+        label = "shareVideoLoading",
     )
+    Box(modifier) {
+        AndroidView(
+            factory = { viewContext ->
+                frame.apply {
+                    if (childCount == 0) {
+                        addView(
+                            TextureView(viewContext).apply {
+                                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                                surfaceTextureListener = texture
+                            },
+                        )
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (loadingAlpha > 0f) {
+            Box(
+                Modifier.fillMaxSize().graphicsLayer { alpha = loadingAlpha }.background(ShareVideoLoadingBackground),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    color = Color.White.copy(alpha = 0.7f),
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+        }
+    }
 }
 
 // One looping video's player, touched only on its own thread; the main thread
