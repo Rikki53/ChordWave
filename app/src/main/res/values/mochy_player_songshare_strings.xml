@@ -25,7 +25,7 @@
     <string name="song_share_type_still">Static</string>
     <string name="song_share_type_still_hint">A picture, the music\'s colours or a plain colour</string>
     <string name="song_share_type_link">Copy link</string>
-    <string name="song_share_type_link_hint">The YouTube Music link</string>
+    <string name="song_share_type_link_hint">The ChordWave link</string>
     <string name="song_share_type_link_missing">This song only lives on your phone</string>
     <string name="song_share_link_copied">Link copied</string>
     <string name="song_share_editor_title">Share</string>

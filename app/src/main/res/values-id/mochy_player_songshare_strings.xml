@@ -74,7 +74,7 @@
     <string name="song_share_style_title">Bagikan</string>
     <string name="song_share_style_too_many">Terlalu banyak kata untuk gaya ini</string>
     <string name="song_share_type_link">Salin tautan</string>
-    <string name="song_share_type_link_hint">Tautan YouTube Music</string>
+    <string name="song_share_type_link_hint">Tautan ChordWave</string>
     <string name="song_share_type_link_missing">Lagu ini hanya ada di ponselmu</string>
     <string name="song_share_type_still">Statis</string>
     <string name="song_share_type_still_hint">Gambar, warna dari musiknya atau warna polos</string>
