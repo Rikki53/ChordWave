@@ -10,6 +10,9 @@ plugins {
     // Mochy UI clone: the ported screens use Hilt ViewModels (KSP codegen).
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    // Firebase admin push system (Tahap 1). Needs app/google-services.json
+    // at build time; CI decodes it from the GOOGLE_SERVICES_JSON secret.
+    id("com.google.gms.google-services")
 }
 
 /**
@@ -363,6 +366,14 @@ dependencies {
     // The Mochy engine module (two-engine architecture). Empty for now; the
     // dependency exists so CI compiles it with the app from day one.
     implementation(project(":mochyengine"))
+
+    // ---- Firebase (admin push system, Tahap 1: FCM receive-only) ----
+    // BoM 34.19.0: the last 34.x line, still on AGP 8.x-era AAR metadata;
+    // BoM 35 moved with AGP 9. Messaging only — Analytics stays off, per
+    // the Firebase project setup, so no firebase-analytics here. Remote
+    // Config (firebase-config) arrives with Tahap 2, not now.
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

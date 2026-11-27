@@ -11,6 +11,10 @@ gradle-app.setting
 # Local configuration file (SDK path, etc.)
 local.properties
 
+# Firebase config — supplied by CI from the GOOGLE_SERVICES_JSON secret;
+# the repo is public, so this file must never be committed.
+google-services.json
+
 # Kotlin
 .kotlin/
 

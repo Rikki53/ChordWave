@@ -71,6 +71,12 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
     @kotlin.OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate() {
         super.onCreate()
+        // Firebase admin push system (Tahap 1): create the announcement
+        // channel and subscribe to the all_users topic. The subscribe is
+        // fire-and-forget on IO inside PushNotifications — Firebase's own
+        // init already happened in its content provider before this ran,
+        // and nothing here touches a main-thread-only API (batch 46/54).
+        com.music.bitchord.data.push.PushNotifications.init(this)
         // Batch 53 (cold start): start collecting the Modern settings
         // DataStore now, on IO, so its first read overlaps everything
         // below. Without this, the first Modern composition (and the

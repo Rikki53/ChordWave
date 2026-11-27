@@ -41,8 +41,8 @@ buildscript {
  * No "v" in the name — the in-app updater reads it as a number; the "v" is the
  * release tag's alone.
  */
-extra["bitchordVersionCode"] = 25
-extra["bitchordVersionName"] = "1.5.3"
+extra["bitchordVersionCode"] = 26
+extra["bitchordVersionName"] = "1.5.4"
 
 /*
  * Bump this by hand before cutting each sideloaded test build ("beta2",
@@ -82,4 +82,9 @@ plugins {
     // (verified: fails configuration on AGP 8.10.1).
     id("com.google.dagger.hilt.android") version "2.58" apply false
     id("com.google.devtools.ksp") version "2.3.5" apply false
+    // Firebase admin push system (Tahap 1): processes google-services.json
+    // (supplied by CI from a secret, never committed) into the resources
+    // FirebaseApp initialises from. 4.4.4 is the last line that targets
+    // AGP 8.x; 4.5+ moved to AGP 9, which this project has not adopted.
+    id("com.google.gms.google-services") version "4.4.4" apply false
 }

@@ -1363,6 +1363,27 @@
                 <data android:scheme="chordwave-backup" />
             </intent-filter>
         </activity>
+        <!-- Firebase admin push system (Tahap 1): admin announcements sent
+             to the all_users FCM topic. One service for both engines — it
+             lives in the shared Application layer, not in either engine. -->
+        <service
+            android:name="com.music.bitchord.data.push.ChordWaveMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- A notification message that arrives while the app is in the
+             background is posted by the system, not by the service above;
+             these point it at the same channel and icon the service uses.
+             The channel itself is created at startup (PushNotifications). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="announcements" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification_logo" />
     </application>
 
 </manifest>

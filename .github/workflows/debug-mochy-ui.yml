@@ -30,6 +30,27 @@ jobs:
 
       - run: chmod +x gradlew
 
+      # Firebase config for the admin push system (Tahap 1). The file is a
+      # CI secret (base64), decoded here and never committed or printed.
+      # The Firebase project registers com.riki.chordwave; the dev flavor
+      # builds as com.riki.chordwave.dev, and the google-services plugin
+      # refuses to build a variant whose package has no client entry — so
+      # the dev packages get a copy of the prod client entry at build time
+      # (see .github/scripts/google-services-dev-clients.py). Registering
+      # the dev package in the Firebase console and updating the secret
+      # makes that step a no-op.
+      - name: Write google-services.json from secret
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          set +x
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::error::GOOGLE_SERVICES_JSON secret is not set"
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
+          python3 .github/scripts/google-services-dev-clients.py
+
       - name: Build dev debug APK
         run: ./gradlew assembleDevDebug
 
