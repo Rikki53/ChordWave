@@ -814,6 +814,34 @@ class PlaybackService : MediaLibraryService() {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
+    /**
+     * Admin flags (Tahap 2): the kill-switch stops an online song
+     * that is already playing the moment online_enabled goes off,
+     * and maintenance stops everything. Downloaded/local songs
+     * keep playing under the kill-switch.
+     */
+    private fun watchAdminFlags() {
+        scope.launch {
+            com.music.bitchord.data.admin.AdminFlags.flags.collect { flags ->
+                val exoPlayer = player ?: return@collect
+                if (!exoPlayer.isPlaying) return@collect
+                val uri = exoPlayer.currentMediaItem?.localConfiguration?.uri
+                val online = uri?.scheme == "bitchord"
+                if (flags.maintenanceActive || (!flags.onlineEnabled && online)) {
+                    exoPlayer.pause()
+                    Toast.makeText(
+                        applicationContext,
+                        getString(
+                            if (flags.maintenanceActive) R.string.admin_maintenance_title
+                            else R.string.admin_online_disabled,
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+
     /** Canonical context owner for the active local bounded album/playlist. */
     private val boundedContextRegistry = ContextRegistry { snapshot ->
         scope.launch {
@@ -1552,6 +1580,7 @@ class PlaybackService : MediaLibraryService() {
         }
 
         bluetoothTracker.start()
+        watchAdminFlags()
         scope.launch {
             // A codec change (LDAC 24-bit ↔ SBC) can flip float output on or off,
             // which needs a sink rebuild, not just a route refresh. Any other real
@@ -1590,6 +1619,17 @@ class PlaybackService : MediaLibraryService() {
             // usually *not* the one playing, which is exactly why the lines
             // have to say. See [TrackLog.about].
             val about = TrackLog.about(mediaIdIn(dataSpec.uri))
+            // Admin kill-switch (Tahap 2): online resolves are
+            // refused while online_enabled is off. Downloaded
+            // songs are substituted to file URIs before they
+            // ever reach here, and fully cached songs are served
+            // by AudioCache above this resolver — neither is
+            // touched by the switch.
+            val onlineRequest = dataSpec.uri.authority == "source" ||
+                dataSpec.uri.getQueryParameter("v") != null
+            if (onlineRequest && !com.music.bitchord.data.admin.AdminFlags.onlineEnabled) {
+                throw java.io.IOException(getString(R.string.admin_online_disabled))
+            }
             // A source-backed track is resolved by whichever source can serve
             // it, which is not necessarily the one it was queued from — see
             // [SourceResolver.resolve]. Handled ahead of the YouTube path

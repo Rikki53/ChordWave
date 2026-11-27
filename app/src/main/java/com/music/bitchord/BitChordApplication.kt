@@ -77,6 +77,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // init already happened in its content provider before this ran,
         // and nothing here touches a main-thread-only API (batch 46/54).
         com.music.bitchord.data.push.PushNotifications.init(this)
+        // Sistem Admin Firebase Tahap 2: Remote Config flags
+        // (kill-switch + maintenance), fail-open — see AdminFlags.
+        com.music.bitchord.data.admin.AdminFlags.init(this)
         // Batch 53 (cold start): start collecting the Modern settings
         // DataStore now, on IO, so its first read overlaps everything
         // below. Without this, the first Modern composition (and the

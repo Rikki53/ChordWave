@@ -1545,4 +1545,8 @@
     <string name="drive_backup_row_subtitle">Cadangkan dan sinkronkan Replay di semua perangkat Anda</string>
     <string name="drive_over_cellular">Sinkronkan lewat data seluler</string>
     <string name="drive_over_cellular_subtitle">Jika nonaktif, sinkronisasi otomatis menunggu Wi-Fi</string>
+    <string name="admin_online_disabled">Pemutaran online sedang dimatikan. Lagu unduhan tetap bisa diputar.</string>
+    <string name="admin_downloads_disabled">Unduhan sedang dimatikan.</string>
+    <string name="admin_maintenance_title">Sedang pemeliharaan</string>
+    <string name="admin_maintenance_default_message">ChordWave sedang dirawat sebentar. Coba lagi nanti ya — maaf atas jedanya.</string>
 </resources>

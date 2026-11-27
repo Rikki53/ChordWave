@@ -44,7 +44,9 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import com.music.bitchord.R
 import com.music.bitchord.data.Http
+import com.music.bitchord.data.admin.AdminFlags
 import com.music.bitchord.ui.mochy.constants.AudioQuality
 import com.music.bitchord.ui.mochy.constants.AudioQualityKey
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
@@ -113,6 +115,23 @@ object MochyDataSourceFactory {
         onResolved: ((String, MochyResolvedStream) -> Unit)?,
     ): DataSpec {
         val uri = dataSpec.uri
+        // Admin kill-switch (Tahap 2): online resolves are refused
+        // while online_enabled is off — unless the bytes are already
+        // in a cache, in which case the cache serves them and no
+        // network is touched. Files/content never get here (the
+        // local bypass upstream reads them directly).
+        val online = uri.authority == "source" || uri.getQueryParameter("v") != null
+        if (online && !AdminFlags.onlineEnabled) {
+            val key = dataSpec.key ?: uri.getQueryParameter("v")
+            val cached = key != null && runCatching {
+                MochyCaches.downloadCache(context).getCachedSpans(key).isNotEmpty() ||
+                    MochyCaches.playerCache(context).getCachedSpans(key).isNotEmpty()
+            }.getOrDefault(false)
+            if (!cached) {
+                throw IOException(context.getString(R.string.admin_online_disabled))
+            }
+            return dataSpec
+        }
         if (uri.authority == "source") {
             val stream = runBlocking {
                 withTimeout(RESOLVE_TIMEOUT_MS) { ModulePlaybackBridge.resolveSourceUri(context, uri) }

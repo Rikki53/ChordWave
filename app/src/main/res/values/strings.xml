@@ -1827,4 +1827,8 @@
     <string name="spotify_canvas_row_on">On</string>
     <string name="spotify_canvas_row_off">Off</string>
     <string name="discord_target_mochy">ChordWave on GitHub</string>
+    <string name="admin_online_disabled">Online playback is turned off right now. Downloaded songs still play.</string>
+    <string name="admin_downloads_disabled">Downloads are turned off right now.</string>
+    <string name="admin_maintenance_title">Under maintenance</string>
+    <string name="admin_maintenance_default_message">ChordWave is being looked after for a bit. Please try again soon — sorry for the pause.</string>
 </resources>

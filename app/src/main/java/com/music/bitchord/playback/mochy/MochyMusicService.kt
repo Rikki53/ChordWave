@@ -220,6 +220,34 @@ import kotlin.math.roundToInt
 class MochyMusicService : MediaLibraryService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /**
+     * Admin flags (Tahap 2): the kill-switch stops an online song
+     * that is already playing the moment online_enabled goes off,
+     * and maintenance stops everything. Downloaded/local songs
+     * keep playing under the kill-switch.
+     */
+    private fun watchAdminFlags() {
+        scope.launch {
+            com.music.bitchord.data.admin.AdminFlags.flags.collect { flags ->
+                val exoPlayer = player ?: return@collect
+                if (!exoPlayer.isPlaying) return@collect
+                val uri = exoPlayer.currentMediaItem?.localConfiguration?.uri
+                val online = uri?.scheme == "bitchord"
+                if (flags.maintenanceActive || (!flags.onlineEnabled && online)) {
+                    exoPlayer.pause()
+                    Toast.makeText(
+                        applicationContext,
+                        getString(
+                            if (flags.maintenanceActive) R.string.admin_maintenance_title
+                            else R.string.admin_online_disabled,
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
     private val handler = Handler(Looper.getMainLooper())
 
     private var player: ExoPlayer? = null
@@ -323,6 +351,7 @@ class MochyMusicService : MediaLibraryService() {
         }
         partySync = PartySync(scope) { player }.also { it.start() }
         watchSleepTimer()
+        watchAdminFlags()
         observeTransportPrefs()
         observeScrobblePrefs()
         // the Discord status reconnects as soon as the network is back

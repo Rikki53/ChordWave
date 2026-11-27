@@ -187,9 +187,29 @@ object Downloads {
         }.getOrDefault(emptyMap())
         maybeMigrateLegacyDownloads(context.applicationContext)
         watchForRelease(context.applicationContext)
+        watchAdminFlags()
     }
 
     private var releaseWatch: Job? = null
+
+    private var adminWatch: Job? = null
+
+    /**
+     * Admin kill-switch (Tahap 2): when online_enabled goes off,
+     * downloads already queued or running are called off — the
+     * switch means no online fetching at all, not just no new
+     * asks. Saved files are untouched.
+     */
+    private fun watchAdminFlags() {
+        if (adminWatch != null) return
+        adminWatch = CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+            com.music.bitchord.data.admin.AdminFlags.flags.collect { flags ->
+                if (!flags.onlineEnabled) {
+                    _active.value.keys.toList().forEach { cancel(it) }
+                }
+            }
+        }
+    }
 
     /**
      * Held tracks are released the moment the facts change under them: an
@@ -397,6 +417,17 @@ object Downloads {
      */
     fun enqueue(context: Context, song: Song, from: String? = null, cellularApproved: Boolean = false) {
         val id = song.videoId
+        // Admin kill-switch (Tahap 2): new downloads are blocked
+        // while online_enabled is off — except a copy served whole
+        // from the song cache, which spends no network.
+        if (!com.music.bitchord.data.admin.AdminFlags.onlineEnabled && !servableFromCache(id)) {
+            android.widget.Toast.makeText(
+                context.applicationContext,
+                context.getString(com.music.bitchord.R.string.admin_downloads_disabled),
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
+            return
+        }
         // A copy straight out of the song cache spends no data, so the
         // policy has nothing to say about it — [DownloadGate] knows.
         val decision = DownloadGate.decide(
@@ -539,6 +570,9 @@ object Downloads {
         from: String?,
         origin: DownloadOrigin,
     ): Set<String> {
+        // Admin kill-switch (Tahap 2): nothing is handled while
+        // online_enabled is off; the caller's next run retries.
+        if (!com.music.bitchord.data.admin.AdminFlags.onlineEnabled) return emptySet()
         // Tahap 5: on the Mochy engine the batch goes to its
         // DownloadManager instead. Handled means in flight (the
         // manager persists its queue across process death); whether

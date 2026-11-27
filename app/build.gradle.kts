@@ -374,6 +374,9 @@ dependencies {
     // Config (firebase-config) arrives with Tahap 2, not now.
     implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
     implementation("com.google.firebase:firebase-messaging")
+    // Tahap 2: Remote Config carries the admin kill-switch /
+    // maintenance flags (see data/admin/AdminFlags.kt).
+    implementation("com.google.firebase:firebase-config")
 
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

@@ -174,6 +174,8 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.data.settings.UiMode
 import com.music.bitchord.ui.UiModePicker
+import com.music.bitchord.data.admin.AdminFlags
+import com.music.bitchord.ui.admin.MaintenanceScreen
 import com.music.bitchord.ui.mochy.MochyApp
 import com.music.bitchord.ui.mochy.screens.update.UpdateDeepLink
 import com.music.bitchord.ui.mochy.link.DeviceLink
@@ -499,6 +501,7 @@ class MainActivity : AppCompatActivity() {
             val uiMode by AppSettings.uiMode.collectAsStateWithLifecycle()
             val uiModeChosen by AppSettings.uiModeChosen.collectAsStateWithLifecycle()
             val onboardingComplete by AppSettings.onboardingComplete.collectAsStateWithLifecycle()
+            val adminFlags by AdminFlags.flags.collectAsStateWithLifecycle()
             var displayedMode by remember { mutableStateOf(uiMode) }
             var switchingEngine by remember { mutableStateOf(false) }
             val switchContext = LocalContext.current
@@ -525,6 +528,19 @@ class MainActivity : AppCompatActivity() {
                         switchingEngine = false
                     }
                 }
+            }
+            if (adminFlags.maintenanceActive) {
+                // Admin maintenance (Tahap 2): total block — the
+                // app underneath is not composed at all, and the
+                // services stop playback on the same flag.
+                if (uiMode == UiMode.MODERN) {
+                    MaintenanceScreen(modern = true, flags = adminFlags)
+                } else {
+                    BitChordTheme(darkTheme = true, font = AppFont.DEFAULT) {
+                        MaintenanceScreen(modern = false, flags = adminFlags)
+                    }
+                }
+                return@setContent
             }
             if (switchingEngine) {
                 Box(
@@ -654,6 +670,15 @@ class MainActivity : AppCompatActivity() {
      * running a second tap on the widget does not rebuild anything — it arrives
      * here, and [onCreate] never runs again.
      */
+    override fun onResume() {
+        super.onResume()
+        // Admin flags (Tahap 2): coming to the foreground asks
+        // Remote Config for fresh values; the SDK's minimum
+        // fetch interval (0 on dev, 1h on prod) throttles it,
+        // and a failed fetch leaves the flags untouched.
+        AdminFlags.refresh(this)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Replaces what getIntent() returns, so the extra this consumes is the

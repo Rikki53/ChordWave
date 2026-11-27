@@ -32,6 +32,7 @@ package com.music.bitchord.playback.mochy
 
 import android.content.Context
 import android.webkit.CookieManager
+import com.music.bitchord.data.admin.AdminFlags
 import com.music.bitchord.data.innertube.potoken.PoTokenGenerator
 import com.music.bitchord.data.innertube.potoken.PoTokenWebView
 import com.music.bitchord.ui.mochy.constants.AudioQuality
@@ -188,6 +189,12 @@ object MochyStreamResolver {
         quality: AudioQuality,
         metered: Boolean,
     ): MochyResolvedStream = withContext(Dispatchers.IO) {
+        // Admin kill-switch (Tahap 2): online resolves are refused
+        // while online_enabled is off. Downloaded/local songs never
+        // reach this resolver — they play from their files/caches.
+        if (!AdminFlags.onlineEnabled) {
+            throw java.io.IOException("Online playback is turned off by the ChordWave admin")
+        }
         urlCache[videoId]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@withContext it }
 
         var lastError: Throwable? = null
@@ -293,6 +300,10 @@ object MochyStreamResolver {
         quality: AudioQuality,
         requireM4a: Boolean,
     ): MochyResolvedStream = withContext(Dispatchers.IO) {
+        // Admin kill-switch (Tahap 2): new downloads are blocked too.
+        if (!AdminFlags.onlineEnabled) {
+            throw java.io.IOException("Downloads are turned off by the ChordWave admin")
+        }
         downloadUrlCache[videoId]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@withContext it }
 
         var lastError: Throwable? = null
