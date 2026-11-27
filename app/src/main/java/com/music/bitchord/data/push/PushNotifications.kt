@@ -7,7 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -31,8 +33,18 @@ import kotlinx.coroutines.launch
  */
 object PushNotifications {
 
-    /** The channel every announcement posts to; named for the system settings list. */
-    const val CHANNEL_ID = "announcements"
+    /**
+     * The channel every announcement posts to; named for the system
+     * settings list. v2 (batch 73): the v1 channel was created
+     * without an explicit sound, and a channel's sound cannot be
+     * changed after creation — so announcements moved to a fresh
+     * channel that carries the phone's default notification sound
+     * explicitly, and the v1 channel is deleted on sight.
+     */
+    const val CHANNEL_ID = "announcements_v2"
+
+    /** The pre-batch-73 channel, deleted by [ensureChannel] so it cannot linger silent. */
+    private const val LEGACY_CHANNEL_ID = "announcements"
 
     /** The broadcast topic the admin sends to; every install subscribes. */
     const val TOPIC_ALL_USERS = "all_users"
@@ -64,13 +76,26 @@ object PushNotifications {
         }
     }
 
-    /** Idempotent: creating an existing channel is a no-op. */
+    /**
+     * Idempotent: creating an existing channel is a no-op. The sound
+     * is set explicitly to the phone's default notification sound
+     * (batch 73) — announcements must never arrive silent; deleting
+     * the legacy channel first migrates installs that created it.
+     */
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "Pengumuman ChordWave", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Pengumuman dan pemberitahuan resmi dari ChordWave"
+                setSound(
+                    Settings.System.DEFAULT_NOTIFICATION_URI,
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
             },
         )
     }

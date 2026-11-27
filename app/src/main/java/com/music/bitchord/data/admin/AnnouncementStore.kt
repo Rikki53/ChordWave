@@ -15,8 +15,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * update prompt; this store carries everything that must survive on
  * the device between launches:
  *
- *  - the announcement id whose banner the user closed (the banner
- *    stays hidden for that id, and only that id);
+ *  - the announcement id the user dismissed on the old in-app banner
+ *    (the banner was removed in batch 73; the stored id is kept so
+ *    an announcement dismissed back then does not light the bell);
  *  - the announcement id the user has read (the bell badge goes out);
  *  - the update versionCode the user declined in normal (non-force)
  *    mode, so the prompt does not nag on every launch;
@@ -25,8 +26,8 @@ import kotlinx.coroutines.flow.asStateFlow
  *    notification — or the bell — opens its card.
  *
  * FAIL-OPEN: with no Remote Config values and no push ever received,
- * everything here is empty and the UI shows no banner, no prompt,
- * and an unlit bell.
+ * everything here is empty and the UI shows no prompt and an unlit
+ * bell.
  */
 object AnnouncementStore {
 
@@ -114,16 +115,6 @@ object AnnouncementStore {
             ?.putString(KEY_PUSH_BODY, announcement.body)
             ?.apply()
         _state.value = _state.value.copy(push = announcement)
-    }
-
-    /** The banner's close button: hides the banner for this id and clears the badge. */
-    fun markDismissed(id: String) {
-        if (id.isBlank()) return
-        prefs?.edit()
-            ?.putString(KEY_DISMISSED_ID, id)
-            ?.putString(KEY_READ_ID, id)
-            ?.apply()
-        _state.value = _state.value.copy(dismissedId = id, readId = id)
     }
 
     /** The card was opened and read: the badge goes out for this id. */

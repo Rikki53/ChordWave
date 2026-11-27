@@ -1380,7 +1380,7 @@
              The channel itself is created at startup (PushNotifications). -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="announcements" />
+            android:value="announcements_v2" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification_logo" />

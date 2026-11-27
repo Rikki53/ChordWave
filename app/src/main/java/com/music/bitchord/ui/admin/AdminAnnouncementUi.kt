@@ -2,22 +2,32 @@ package com.music.bitchord.ui.admin
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,34 +48,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
 import com.music.bitchord.data.admin.AdminFlags
 import com.music.bitchord.data.admin.AnnouncementStore
-import com.music.bitchord.data.admin.announcementOrNull
 import com.music.bitchord.data.admin.currentAnnouncement
 import com.music.bitchord.data.admin.hasUnreadAnnouncement
 import com.music.bitchord.ui.mochy.component.DefaultDialog
+import com.music.bitchord.ui.mochy.player.LikeRed
 import com.music.bitchord.ui.mochy.theme.MochyTheme
+import kotlinx.coroutines.delay
 
 /**
  * The visible half of the admin announcement / update system
  * (Sistem Admin Firebase, Tahap 5), hosted by MainActivity above
  * both engines so Modern and Classic behave identically:
  *
- *  - a dismissible banner for the standing Remote Config
- *    announcement (hidden once dismissed for that announcement id,
- *    and after its expiry);
- *  - the announcement card/pop-up — opened by tapping the banner,
- *    the bell, or a system notification (the tap intent lands in
- *    [AnnouncementStore.consumeIntent] and asks for the card here);
+ *  - the announcement card/pop-up — opened only by tapping the bell
+ *    or a system notification (the tap intent lands in
+ *    [AnnouncementStore.consumeIntent] and asks for the card here).
+ *    There is no in-app banner: an unread announcement is signalled
+ *    by the red dot on the bell alone (batch 73);
  *  - the update prompt when Remote Config advertises a newer
  *    versionCode — dismissible in normal mode (and not shown again
  *    for the same versionCode), blocking in force mode.
@@ -74,9 +87,8 @@ import com.music.bitchord.ui.mochy.theme.MochyTheme
  * versionCode 0) nothing here renders at all.
  *
  * Two faces, one logic (the parity rule): Modern wears Mochy's
- * [DefaultDialog] under [MochyTheme] like [MaintenanceScreen],
- * Classic wears Material dialogs under the caller's theme. The
- * banner card follows the same split.
+ * dialog tokens under [MochyTheme] like [MaintenanceScreen],
+ * Classic wears Material dialogs under the caller's theme.
  */
 @Composable
 fun AdminAnnouncementOverlay(modern: Boolean) {
@@ -100,26 +112,6 @@ fun AdminAnnouncementOverlay(modern: Boolean) {
     var updateDismissedThisSession by remember(flags.latestVersionCode) { mutableStateOf(false) }
     val showUpdatePrompt = updateAvailable &&
         (flags.updateForce || (!updateDismissedThisSession && local.dismissedUpdateCode < flags.latestVersionCode))
-
-    val rcAnnouncement = flags.announcementOrNull()
-    val bannerVisible = rcAnnouncement != null &&
-        rcAnnouncement.id != local.dismissedId &&
-        !cardOpen && !showUpdatePrompt
-
-    if (bannerVisible && rcAnnouncement != null) {
-        Box(Modifier.fillMaxSize()) {
-            AnnouncementBanner(
-                modern = modern,
-                announcement = rcAnnouncement,
-                onOpen = { AnnouncementStore.requestCard(rcAnnouncement) },
-                onDismiss = { AnnouncementStore.markDismissed(rcAnnouncement.id) },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 76.dp, start = 16.dp, end = 16.dp),
-            )
-        }
-    }
 
     if (cardOpen) {
         val announcement = currentAnnouncement(flags, local, pending)
@@ -156,9 +148,9 @@ fun AdminAnnouncementOverlay(modern: Boolean) {
 /**
  * The bell in both headers (Modern Home top bar, Classic
  * FrostedTopBar). Always present and always does something: with an
- * unread announcement it wears a badge dot and opens the card;
+ * unread announcement it wears a red dot and opens the card;
  * without one it still opens the card's polite empty state — never
- * a dead button.
+ * a dead button. The dot goes out once the card has been read.
  */
 @Composable
 fun AnnouncementBellButton(modern: Boolean) {
@@ -176,88 +168,30 @@ fun AnnouncementBellButton(modern: Boolean) {
                 Box(
                     Modifier
                         .align(Alignment.TopEnd)
-                        .size(8.dp)
+                        .size(9.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(LikeRed),
                 )
             }
         }
     }
 }
 
-/** The standing-announcement banner: title + two lines of body, tap for the full card, X to dismiss. */
-@Composable
-private fun AnnouncementBanner(
-    modern: Boolean,
-    announcement: AnnouncementStore.Announcement,
-    onOpen: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val title = announcement.title.ifBlank { stringResource(R.string.admin_announcement_label) }
-    val content: @Composable () -> Unit = {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpen)
-                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Notifications,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (announcement.body.isNotBlank()) {
-                    Text(
-                        text = announcement.body,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            IconButton(onClick = onDismiss) {
-                Icon(
-                    imageVector = Icons.Rounded.Close,
-                    contentDescription = stringResource(R.string.close),
-                )
-            }
-        }
-    }
-    if (modern) {
-        MochyTheme {
-            Surface(
-                modifier = modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 4.dp,
-                shadowElevation = 4.dp,
-            ) { content() }
-        }
-    } else {
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 4.dp,
-            shadowElevation = 4.dp,
-        ) { content() }
-    }
-}
+/** Mochy's emphasized easing, the same curve RevealOnAppear runs on. */
+private val CardEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+private const val CardEnterMs = 420
+private const val CardExitMs = 200
 
-/** The full announcement card/pop-up, or the polite empty state when there is nothing to show. */
+/** RevealOnAppear's burst step: card pieces land one after another, not all at once. */
+private const val CardStaggerMs = 60
+
+/**
+ * The full announcement card/pop-up, or the polite empty state when
+ * there is nothing to show. Batch 73: no longer a plain dialog —
+ * the card rises in with Mochy's reveal motion (fade + scale + a
+ * 20dp rise on the emphasized curve, content staggered in 60ms
+ * steps) and sinks back out the same way before it is dismissed.
+ */
 @Composable
 private fun AnnouncementCardDialog(
     modern: Boolean,
@@ -269,34 +203,179 @@ private fun AnnouncementCardDialog(
         else stringResource(R.string.admin_announcement_empty_title)
     val body = announcement?.body?.takeIf { it.isNotBlank() }
         ?: if (announcement != null) "" else stringResource(R.string.admin_announcement_empty_body)
-    if (modern) {
-        MochyTheme {
-            DefaultDialog(
-                onDismiss = onDismiss,
-                title = { Text(title) },
-                buttons = {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
-                },
-            ) {
-                if (body.isNotBlank()) {
-                    Text(
-                        text = body,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 4.dp),
+
+    var shown by remember { mutableStateOf(false) }
+    var dismissing by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    LaunchedEffect(dismissing) {
+        if (dismissing) {
+            // Let the exit motion finish before the dialog leaves composition.
+            delay(CardExitMs.toLong())
+            onDismiss()
+        }
+    }
+    val risePx = with(LocalDensity.current) { 20.dp.roundToPx() }
+
+    Dialog(
+        onDismissRequest = { dismissing = true },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        AnimatedVisibility(
+            visible = shown && !dismissing,
+            enter = fadeIn(tween(CardEnterMs, easing = CardEasing)) +
+                scaleIn(tween(CardEnterMs, easing = CardEasing), initialScale = 0.94f) +
+                slideInVertically(tween(CardEnterMs, easing = CardEasing)) { risePx },
+            exit = fadeOut(tween(CardExitMs, easing = CardEasing)) +
+                scaleOut(tween(CardExitMs, easing = CardEasing), targetScale = 0.96f) +
+                slideOutVertically(tween(CardExitMs, easing = CardEasing)) { risePx / 2 },
+        ) {
+            if (modern) {
+                MochyTheme {
+                    AnnouncementCard(
+                        modern = true,
+                        title = title,
+                        body = body,
+                        onDismiss = { dismissing = true },
                     )
+                }
+            } else {
+                AnnouncementCard(
+                    modern = false,
+                    title = title,
+                    body = body,
+                    onDismiss = { dismissing = true },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The card itself. Modern follows Mochy's dialog face (icon badge
+ * and title centred, like DefaultDialog with an icon); Classic
+ * keeps the Material dialog face (start-aligned) under the Classic
+ * theme. Both use the M3 dialog tokens (28dp shape,
+ * surfaceContainerHigh, 6dp tonal elevation) so the card matches
+ * DefaultDialog's surface while staying animatable as one piece.
+ */
+@Composable
+private fun AnnouncementCard(
+    modern: Boolean,
+    title: String,
+    body: String,
+    onDismiss: () -> Unit,
+) {
+    val alignment = if (modern) Alignment.CenterHorizontally else Alignment.Start
+    val textAlign = if (modern) TextAlign.Center else TextAlign.Start
+    Surface(
+        modifier = Modifier
+            .padding(24.dp)
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp,
+    ) {
+        Column(
+            horizontalAlignment = alignment,
+            modifier = Modifier.padding(24.dp),
+        ) {
+            CardReveal(delayMillis = 0) {
+                AnnouncementIconBadge()
+            }
+            Spacer(Modifier.height(16.dp))
+            CardReveal(delayMillis = CardStaggerMs) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = textAlign,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (body.isNotBlank()) {
+                Spacer(Modifier.height(12.dp))
+                CardReveal(delayMillis = CardStaggerMs * 2) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = body,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = textAlign,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            CardReveal(delayMillis = CardStaggerMs * 3) {
+                Box(Modifier.fillMaxWidth()) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    ) { Text(stringResource(R.string.close)) }
                 }
             }
         }
-    } else {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(title) },
-            text = { if (body.isNotBlank()) Text(body) },
-            confirmButton = {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
-            },
+    }
+}
+
+/** The bell in a tonal circle, growing in on Mochy's no-bounce spring. */
+@Composable
+private fun AnnouncementIconBadge() {
+    val scale = remember { Animatable(0.6f) }
+    LaunchedEffect(Unit) {
+        scale.animateTo(
+            1f,
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
         )
     }
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+            }
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Notifications,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.size(28.dp),
+        )
+    }
+}
+
+/**
+ * One card piece landing: fade + 16dp rise on the card's curve,
+ * delayed by [delayMillis] so the pieces cascade in — the same
+ * recipe RevealOnAppear uses, scoped to the card.
+ */
+@Composable
+private fun CardReveal(delayMillis: Int, content: @Composable () -> Unit) {
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        progress.animateTo(1f, tween(CardEnterMs, delayMillis = delayMillis, easing = CardEasing))
+    }
+    val risePx = with(LocalDensity.current) { 16.dp.toPx() }
+    Box(
+        Modifier.graphicsLayer {
+            compositingStrategy = CompositingStrategy.ModulateAlpha
+            alpha = progress.value
+            translationY = (1f - progress.value) * risePx
+        }
+    ) { content() }
 }
 
 /**

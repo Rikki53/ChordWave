@@ -578,7 +578,7 @@ class MainActivity : AppCompatActivity() {
             if (onboardingComplete && displayedMode == UiMode.MODERN) {
                 Box(Modifier.fillMaxSize()) {
                     MochyApp(launchIntroRequested = introPlays)
-                    // Admin announcement banner/card + update prompt
+                    // Admin announcement card + update prompt
                     // (Tahap 5), Modern face.
                     AdminAnnouncementOverlay(modern = true)
                 }
@@ -640,7 +640,7 @@ class MainActivity : AppCompatActivity() {
                         windowHeight = maxHeight,
                         appBackdrop = appBackdrop,
                     )
-                    // Admin announcement banner/card + update prompt
+                    // Admin announcement card + update prompt
                     // (Tahap 5), Classic face.
                     AdminAnnouncementOverlay(modern = false)
                 }
