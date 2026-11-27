@@ -137,11 +137,11 @@ class CloudAccountStore @Inject constructor(
 
     private fun syncGuard(account: CloudAccount?) {
         if (account == null) {
-            com.music.bitchord.data.mochydata.security.SecretGuard.clear("cloud_backup")
-            com.music.bitchord.data.mochydata.security.SecretGuard.registerBlockedUrl("cloud_webdav", null)
+            com.music.bitchord.data.mochydata.modules.security.SecretGuard.clear("cloud_backup")
+            com.music.bitchord.data.mochydata.modules.security.SecretGuard.registerBlockedUrl("cloud_webdav", null)
         } else {
-            com.music.bitchord.data.mochydata.security.SecretGuard.register("cloud_backup", account.password, account.accessToken, account.refreshToken)
-            com.music.bitchord.data.mochydata.security.SecretGuard.registerBlockedUrl("cloud_webdav", account.serverUrl)
+            com.music.bitchord.data.mochydata.modules.security.SecretGuard.register("cloud_backup", account.password, account.accessToken, account.refreshToken)
+            com.music.bitchord.data.mochydata.modules.security.SecretGuard.registerBlockedUrl("cloud_webdav", account.serverUrl)
         }
     }
 
