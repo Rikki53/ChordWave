@@ -619,6 +619,23 @@ fun SettingsScreen(
                         WearOsSettingsRow(onClick = onWearOs)
                     }
                 }
+                // Batch 68: the appearance switch on the main page, where
+                // it is found at once. The batch-66 copy inside the
+                // Appearance page was two levels deep and Riki could not
+                // find it; this row is the same switch (same confirmation
+                // dialog, same clean restart), one tap from the top.
+                val otherMode = if (uiMode == UiMode.CLASSIC) UiMode.MODERN else UiMode.CLASSIC
+                SettingsGroup {
+                    SettingsRow(
+                        icon = Icons.Rounded.SwapHoriz,
+                        title = stringResource(
+                            if (otherMode == UiMode.MODERN) R.string.ui_mode_switch_to_modern
+                            else R.string.ui_mode_switch_to_classic
+                        ),
+                        subtitle = stringResource(R.string.ui_mode_switch_restart_hint),
+                        onClick = { pendingUiMode = otherMode },
+                    )
+                }
             }
         }
 
@@ -1140,7 +1157,7 @@ fun SettingsScreen(
             // other appearance (close + reopen), so the dialog says so
             // up front instead of the switch looking like a crash.
             val uiModeTitle = stringResource(R.string.ui_mode)
-            row(uiModeTitle, "interface", "modern", "classic") {
+            row(uiModeTitle, "interface", "modern", "classic", "ganti", "tampilan", "switch", "mode") {
                 SettingsRow(icon = Icons.Rounded.Palette, title = uiModeTitle)
                 SegmentedControl(
                     options = UiMode.entries.map { it.localizedLabel() },
