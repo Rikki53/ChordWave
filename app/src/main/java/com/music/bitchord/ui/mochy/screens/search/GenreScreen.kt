@@ -76,11 +76,11 @@ import com.music.bitchord.ui.mochy.component.coverTransitionKey
 import com.music.bitchord.ui.mochy.component.glassRoot
 import com.music.bitchord.ui.mochy.component.rememberProgressiveBlur
 import com.music.bitchord.ui.mochy.models.CommunityPlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.YTItem
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection

@@ -13,7 +13,7 @@ import com.music.bitchord.data.model.WatchTarget
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.extensions.toMochyQueueItem
 import com.music.bitchord.ui.mochy.models.MediaMetadata
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.WatchEndpoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber

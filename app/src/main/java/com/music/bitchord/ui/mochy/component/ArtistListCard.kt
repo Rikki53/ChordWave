@@ -34,7 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.YTItem
 import com.music.bitchord.ui.mochy.models.ArtistGroup
 
 @Composable

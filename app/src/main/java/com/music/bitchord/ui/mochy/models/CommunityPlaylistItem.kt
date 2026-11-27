@@ -2,8 +2,8 @@
 // (CommunityPlaylistItem, lines 96-99).
 package com.music.bitchord.ui.mochy.models
 
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
 import kotlinx.serialization.Serializable
 
 @Serializable

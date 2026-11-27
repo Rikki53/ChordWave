@@ -33,9 +33,9 @@ import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.ui.mochy.constants.HideExplicitKey
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
+import com.music.innertube.models.AlbumItem
 import com.music.bitchord.ui.mochy.models.innertube.ExplorePage
-import com.music.bitchord.ui.mochy.models.innertube.filterExplicit
+import com.music.innertube.models.filterExplicit
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.dataStore
 import dagger.hilt.android.lifecycle.HiltViewModel

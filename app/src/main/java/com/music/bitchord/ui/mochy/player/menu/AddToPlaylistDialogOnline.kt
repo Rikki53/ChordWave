@@ -64,7 +64,7 @@ import com.music.bitchord.ui.mochy.constants.AddToPlaylistSortTypeKey
 import com.music.bitchord.ui.mochy.constants.ListThumbnailSize
 import com.music.bitchord.ui.mochy.constants.PlaylistSortType
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.utils.listItemShape
 import com.music.bitchord.ui.mochy.utils.rememberEnumPreference
 import com.music.bitchord.ui.mochy.utils.rememberPreference

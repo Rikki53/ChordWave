@@ -22,7 +22,7 @@ import androidx.media3.common.MediaItem
 import com.music.bitchord.data.model.Song as CwSong
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.ui.mochy.models.toMochyMetadata
 

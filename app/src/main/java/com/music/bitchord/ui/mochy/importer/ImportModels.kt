@@ -6,7 +6,7 @@
 
 package com.music.bitchord.ui.mochy.importer
 
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 
 data class ImportedTrack(
     val title: String,

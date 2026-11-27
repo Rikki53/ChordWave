@@ -15,7 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.viewmodels.AddMusicViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

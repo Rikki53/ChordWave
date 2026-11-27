@@ -86,12 +86,12 @@ import com.music.bitchord.ui.mochy.utils.ArtistPageCache
 import com.music.bitchord.ui.mochy.utils.ArtistVideos
 import com.music.bitchord.ui.mochy.utils.makeTimeString
 import com.music.bitchord.ui.mochy.viewmodels.ArtistItemsViewModel
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.WatchEndpoint
+import com.music.innertube.models.YTItem
 import kotlinx.coroutines.launch
 
 /** what a shelf's page holds, read off its items: YouTube's titles are in the account's language */

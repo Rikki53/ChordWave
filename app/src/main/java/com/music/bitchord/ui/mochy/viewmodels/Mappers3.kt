@@ -22,11 +22,11 @@ import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.stats.RankedEntry
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.Artist as YtArtist
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.Artist as YtArtist
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.YTItem
 
 /** A search row as a YTItem card. The promoted top track maps like any track. */
 fun SearchResult.toYTItem(): YTItem? =

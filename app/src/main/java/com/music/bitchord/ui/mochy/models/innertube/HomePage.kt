@@ -6,6 +6,10 @@
 // HomePage from CW's HomeFeed/HomeShelf/ShelfItem instead. The
 // filterExplicit / filterVideoSongs helpers are kept verbatim.)
 package com.music.bitchord.ui.mochy.models.innertube
+import com.music.innertube.models.YTItem
+import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterVideoSongs
+import com.music.innertube.models.BrowseEndpoint
 
 import kotlinx.serialization.Serializable
 

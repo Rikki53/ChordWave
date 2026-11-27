@@ -32,10 +32,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.LocalPlayerAwareWindowInsets
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection

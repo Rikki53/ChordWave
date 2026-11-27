@@ -127,7 +127,7 @@ import com.music.bitchord.ui.mochy.screens.search.searchRoute
 import com.music.bitchord.ui.mochy.player.menu.openDevUrl
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.viewmodels.ModulesViewModel
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.WatchEndpoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

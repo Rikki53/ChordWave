@@ -20,17 +20,17 @@ import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.MoodGenreSection
 import com.music.bitchord.data.model.SearchFilter as CwSearchFilter
 import com.music.bitchord.data.model.SearchResult
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.BrowseEndpoint
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.BrowseEndpoint
 import com.music.bitchord.ui.mochy.models.innertube.BrowseResult
 import com.music.bitchord.ui.mochy.models.innertube.ChartsPage
 import com.music.bitchord.ui.mochy.models.innertube.MoodAndGenres
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
+import com.music.innertube.models.PlaylistItem
 import com.music.bitchord.ui.mochy.models.innertube.SearchFilter
 import com.music.bitchord.ui.mochy.models.innertube.SearchSummary
 import com.music.bitchord.ui.mochy.models.innertube.SearchSummaryPage
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 
 /**
  * A Mochy filter as the ChordWave filter whose search params run the same

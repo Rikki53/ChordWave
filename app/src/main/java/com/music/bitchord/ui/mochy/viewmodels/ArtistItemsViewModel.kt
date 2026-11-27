@@ -34,8 +34,8 @@ import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.ui.mochy.constants.HideExplicitKey
 import com.music.bitchord.ui.mochy.constants.HideVideoSongsKey
 import com.music.bitchord.ui.mochy.models.ItemsPage
-import com.music.bitchord.ui.mochy.models.innertube.filterExplicit
-import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
+import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterVideoSongs
 import com.music.bitchord.ui.mochy.utils.dataStore
 import com.music.bitchord.ui.mochy.utils.get
 import dagger.hilt.android.lifecycle.HiltViewModel

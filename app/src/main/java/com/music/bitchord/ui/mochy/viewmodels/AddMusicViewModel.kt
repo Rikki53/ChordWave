@@ -49,9 +49,9 @@ import com.music.bitchord.ui.mochy.constants.HideExplicitKey
 import com.music.bitchord.ui.mochy.constants.HideVideoSongsKey
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.filterExplicit
-import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterVideoSongs
 import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.dataStore

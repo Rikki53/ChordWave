@@ -29,10 +29,10 @@ import com.music.bitchord.ui.mochy.viewmodels.HistoryViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LocalPlaylistViewModel
 import com.music.bitchord.ui.mochy.viewmodels.OnlinePlaylistViewModel
 import com.music.bitchord.ui.mochy.viewmodels.TopPlaylistViewModel
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

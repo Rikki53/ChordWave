@@ -40,7 +40,7 @@ import com.music.bitchord.ui.mochy.models.AlbumWithSongs
 import com.music.bitchord.ui.mochy.models.ArtistEntity
 import com.music.bitchord.ui.mochy.models.FormatEntity
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
+import com.music.innertube.models.AlbumItem
 import com.music.bitchord.ui.mochy.models.toMochySong
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDateTime

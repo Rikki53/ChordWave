@@ -48,7 +48,7 @@ import com.music.bitchord.ui.mochy.models.Artist
 import com.music.bitchord.ui.mochy.models.ArtistEntity
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.YTItem
 import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.screens.library.LibraryTab
 import dagger.hilt.android.lifecycle.HiltViewModel

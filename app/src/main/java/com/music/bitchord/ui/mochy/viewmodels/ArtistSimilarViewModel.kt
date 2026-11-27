@@ -25,11 +25,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.ui.mochy.models.ArtistGroup
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
 import com.music.bitchord.ui.mochy.models.innertube.ArtistPage
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.utils.ArtistPageCache
 import com.music.bitchord.ui.mochy.utils.ArtistVideos
 import dagger.hilt.android.lifecycle.HiltViewModel

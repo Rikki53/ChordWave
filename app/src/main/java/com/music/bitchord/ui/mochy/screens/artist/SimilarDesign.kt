@@ -125,12 +125,12 @@ import com.music.bitchord.ui.mochy.utils.SoftBlurTransformation
 import com.music.bitchord.ui.mochy.utils.resize
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.viewmodels.SimilarGroups
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.WatchEndpoint
+import com.music.innertube.models.YTItem
 
 private val SmallLineStyle = TextStyle(
     fontFamily = InterFontFamily,

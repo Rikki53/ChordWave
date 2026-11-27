@@ -53,7 +53,7 @@ import com.music.bitchord.ui.mochy.component.SheetSearchField
 import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.ui.mochy.viewmodels.AddMusicViewModel
 import kotlinx.coroutines.CancellationException

@@ -35,7 +35,7 @@ import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.MoodGenre
 import com.music.bitchord.data.model.TopPickMood
 import com.music.bitchord.data.model.MoodGenreSection
-import com.music.bitchord.ui.mochy.models.innertube.BrowseEndpoint
+import com.music.innertube.models.BrowseEndpoint
 import com.music.bitchord.ui.mochy.models.innertube.MoodAndGenres
 import com.music.bitchord.ui.mochy.screens.search.coverKey
 import dagger.hilt.android.lifecycle.HiltViewModel

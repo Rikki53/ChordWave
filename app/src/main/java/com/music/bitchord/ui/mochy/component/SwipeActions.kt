@@ -97,7 +97,7 @@ import com.music.bitchord.R
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.mochy.extensions.metadata
 import com.music.bitchord.ui.mochy.models.SongEntity
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.player.menu.sendLibraryFeedback
 import com.music.bitchord.ui.mochy.theme.InterFontFamily

@@ -2,6 +2,7 @@
 // Data classes + enum only, verbatim. The adapter fills sections from
 // ChordWave's FEmusic_charts shelves (Mappers4.toChartSections).
 package com.music.bitchord.ui.mochy.models.innertube
+import com.music.innertube.models.YTItem
 
 data class ChartsPage(
     val sections: List<ChartSection>,

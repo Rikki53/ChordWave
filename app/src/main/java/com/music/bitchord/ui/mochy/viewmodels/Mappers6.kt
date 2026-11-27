@@ -27,11 +27,11 @@ import com.music.bitchord.ui.mochy.models.Album
 import com.music.bitchord.ui.mochy.models.AlbumEntity
 import com.music.bitchord.ui.mochy.models.ArtistEntity
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
+import com.music.innertube.models.ArtistItem
 import com.music.bitchord.ui.mochy.models.innertube.ArtistPage
 import com.music.bitchord.ui.mochy.models.innertube.ArtistSection
-import com.music.bitchord.ui.mochy.models.innertube.BrowseEndpoint
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.BrowseEndpoint
+import com.music.innertube.models.WatchEndpoint
 
 /** A 4-digit year inside a page subtitle ("Album • Artist • 2024"). */
 internal val AlbumYearRegex = Regex("""\b(19|20)\d{2}\b""")

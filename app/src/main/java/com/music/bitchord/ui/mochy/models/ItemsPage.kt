@@ -2,7 +2,7 @@
 // Verbatim 2-field data class.
 package com.music.bitchord.ui.mochy.models
 
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.YTItem
 
 data class ItemsPage(
     val items: List<YTItem>,

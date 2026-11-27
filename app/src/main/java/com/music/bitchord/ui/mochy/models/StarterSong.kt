@@ -3,7 +3,7 @@
 // (DATA-MAPPING §1 row 1 — empty in v1); the shape ports as-is.
 package com.music.bitchord.ui.mochy.models
 
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 
 data class StarterSong(
     val song: SongItem,

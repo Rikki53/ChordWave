@@ -47,12 +47,12 @@ import com.music.bitchord.ui.mochy.models.Album
 import com.music.bitchord.ui.mochy.models.Artist
 import com.music.bitchord.ui.mochy.models.ArtistEntity
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
+import com.music.innertube.models.AlbumItem
 import com.music.bitchord.ui.mochy.models.innertube.ArtistPage
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.filterExplicit
-import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
-import com.music.bitchord.ui.mochy.models.innertube.filterYoutubeShorts
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterVideoSongs
+import com.music.innertube.models.filterYoutubeShorts
 import com.music.bitchord.ui.mochy.utils.ArtistHeader
 import com.music.bitchord.ui.mochy.utils.ArtistPageCache
 import com.music.bitchord.ui.mochy.utils.dataStore

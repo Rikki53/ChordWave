@@ -32,7 +32,7 @@ import androidx.lifecycle.viewModelScope
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.ui.mochy.models.CommunityPlaylistItem
 import com.music.bitchord.ui.mochy.models.innertube.BrowseResult
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
+import com.music.innertube.models.PlaylistItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers

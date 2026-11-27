@@ -3,8 +3,8 @@
 // (HomeRecommender) is a separate Phase 2D work item.
 package com.music.bitchord.ui.mochy.models
 
-import com.music.bitchord.ui.mochy.models.innertube.BrowseEndpoint
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.BrowseEndpoint
+import com.music.innertube.models.YTItem
 import kotlinx.serialization.Serializable
 
 @Serializable

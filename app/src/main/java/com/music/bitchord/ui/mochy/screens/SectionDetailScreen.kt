@@ -75,10 +75,10 @@ import com.music.bitchord.ui.mochy.screens.playlist.GeneratedPlaylistPage
 import com.music.bitchord.ui.mochy.screens.playlist.generatedStats
 import com.music.bitchord.ui.mochy.utils.makeTimeString
 import com.music.bitchord.ui.mochy.viewmodels.HomeViewModel
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

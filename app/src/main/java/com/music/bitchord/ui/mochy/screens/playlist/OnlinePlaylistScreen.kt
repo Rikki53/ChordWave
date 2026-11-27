@@ -81,11 +81,11 @@ import com.music.bitchord.ui.mochy.component.queueSwipeAction
 import com.music.bitchord.ui.mochy.component.rememberRevealSeenState
 import com.music.bitchord.ui.mochy.component.revealOnAppear
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.WatchEndpoint
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubePlaylistQueue

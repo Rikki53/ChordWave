@@ -46,11 +46,11 @@ import com.music.bitchord.ui.mochy.constants.HideExplicitKey
 import com.music.bitchord.ui.mochy.constants.HideVideoSongsKey
 import com.music.bitchord.ui.mochy.constants.OfflineModeKey
 import com.music.bitchord.ui.mochy.models.SearchHistory
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
-import com.music.bitchord.ui.mochy.models.innertube.filterExplicit
-import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.YTItem
+import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterVideoSongs
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.YouTubeUrlParser
 import com.music.bitchord.ui.mochy.utils.dataStore
@@ -290,7 +290,7 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
             // a suggestion repeated twice gave two rows the same key and closed the app
             .distinct()
         val typeahead = engineSuggestions?.recommendedItems.orEmpty()
-            .map { it.toModernItem() }
+            
             .distinctBy { it.id }
             .filter { it.id != parsedItem?.id }
             .filterExplicit(hideExplicit)

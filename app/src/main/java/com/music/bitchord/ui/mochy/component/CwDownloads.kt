@@ -28,7 +28,7 @@ import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.mochy.models.MediaMetadata
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 
 private fun stateOf(id: String, saved: Map<String, String>, active: Map<String, DownloadState>): Int? =
     when {

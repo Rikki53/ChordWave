@@ -58,7 +58,7 @@ import com.music.bitchord.ui.mochy.models.AlbumEntity
 import com.music.bitchord.ui.mochy.models.ArtistEntity
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.SongEntity
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.models.toMediaMetadata
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue

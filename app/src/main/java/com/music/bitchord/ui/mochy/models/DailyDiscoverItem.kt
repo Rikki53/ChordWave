@@ -4,8 +4,8 @@
 // (DATA-MAPPING §1 row 22).
 package com.music.bitchord.ui.mochy.models
 
-import com.music.bitchord.ui.mochy.models.innertube.BrowseEndpoint
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.BrowseEndpoint
+import com.music.innertube.models.YTItem
 
 data class DailyDiscoverItem(
     val seed: Song,

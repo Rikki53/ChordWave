@@ -122,11 +122,11 @@ import com.music.bitchord.ui.mochy.utils.ArtistHeader
 import com.music.bitchord.ui.mochy.utils.makeTimeString
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.innertube.YouTube
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.ArtistItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.WatchEndpoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -608,8 +608,8 @@ internal fun openSongMenuSheet(
                 val ytItem = SongItem(
                     id = song.id,
                     title = song.title,
-                    artists = song.artists.map { com.music.bitchord.ui.mochy.models.innertube.Artist(name = it.name, id = it.id) },
-                    album = song.album?.let { com.music.bitchord.ui.mochy.models.innertube.Album(name = it.title, id = it.id) },
+                    artists = song.artists.map { com.music.innertube.models.Artist(name = it.name, id = it.id) },
+                    album = song.album?.let { com.music.innertube.models.Album(name = it.title, id = it.id) },
                     duration = song.duration.takeIf { it > 0 },
                     thumbnail = song.thumbnailUrl.orEmpty(),
                     explicit = song.explicit,

@@ -3,7 +3,7 @@
 // imports it from there).
 package com.music.bitchord.ui.mochy.models
 
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import kotlinx.serialization.Serializable
 
 /** a video on one of Home's banner rows, with its title tidied up for the card */

@@ -85,7 +85,7 @@ import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.constants.ListItemHeight
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
+import com.music.innertube.models.AlbumItem
 import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection

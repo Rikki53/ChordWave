@@ -3,6 +3,10 @@
 // companions need Mochy's renderer types and do NOT port — the adapter builds
 // pages from ChordWave search rows instead (Mappers4.toSearchSummaryPage).
 package com.music.bitchord.ui.mochy.models.innertube
+import com.music.innertube.models.YTItem
+import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterVideoSongs
+import com.music.innertube.models.filterYoutubeShorts
 
 data class SearchSummary(
     val title: String,

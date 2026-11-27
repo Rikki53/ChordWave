@@ -4,6 +4,7 @@
 // adapter maps CW's MoodGenreSection to these. @Serializable because
 // ExplorePage (also @Serializable) holds List<MoodAndGenres.Item>.
 package com.music.bitchord.ui.mochy.models.innertube
+import com.music.innertube.models.BrowseEndpoint
 
 import kotlinx.serialization.Serializable
 

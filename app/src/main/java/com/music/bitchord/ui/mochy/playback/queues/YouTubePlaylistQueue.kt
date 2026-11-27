@@ -12,7 +12,7 @@ import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.extensions.toMochyQueueItem
 import com.music.bitchord.ui.mochy.models.MediaMetadata
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.viewmodels.browseIdForPlaylist
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

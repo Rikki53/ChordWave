@@ -2,6 +2,10 @@
 // Data classes + pure filter helpers, verbatim. The adapter builds pages
 // from ChordWave browse shelves (Mappers4.toBrowseResult).
 package com.music.bitchord.ui.mochy.models.innertube
+import com.music.innertube.models.YTItem
+import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterVideoSongs
+import com.music.innertube.models.filterYoutubeShorts
 
 data class BrowseResult(
     val title: String?,

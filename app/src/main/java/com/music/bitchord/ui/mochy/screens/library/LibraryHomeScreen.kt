@@ -71,8 +71,8 @@ import com.music.bitchord.ui.mochy.viewmodels.HistoryViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LibraryHomeViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LibraryImportViewModel
 import com.music.bitchord.ui.mochy.viewmodels.LocalGenresViewModel
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.YTItem
 import com.music.bitchord.ui.mochy.component.coverTransitionKey
 import com.music.bitchord.ui.mochy.playback.MochyPlayerConnection
 

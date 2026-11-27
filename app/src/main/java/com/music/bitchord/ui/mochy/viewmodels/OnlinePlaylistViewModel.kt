@@ -45,11 +45,11 @@ import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.ui.mochy.constants.HideVideoSongsKey
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.PlaylistEntity
-import com.music.bitchord.ui.mochy.models.innertube.Artist as YtArtist
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
-import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
+import com.music.innertube.models.Artist as YtArtist
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.YTItem
+import com.music.innertube.models.filterVideoSongs
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.dataStore
 import dagger.hilt.android.lifecycle.HiltViewModel

@@ -56,7 +56,7 @@ import com.music.bitchord.data.mochydata.modules.ModuleEntry
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
 import com.music.bitchord.ui.mochy.theme.InterFontFamily
 import com.music.bitchord.ui.mochy.viewmodels.ModulesViewModel
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.WatchEndpoint
 
 /** a song the test can run with: what the module is asked for, and what the row shows */
 private class TestSong(val id: String?, val track: TrackQuery, val cover: String?, val subtitle: String)

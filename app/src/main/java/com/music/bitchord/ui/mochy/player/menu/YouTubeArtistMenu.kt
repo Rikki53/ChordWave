@@ -53,7 +53,7 @@ import com.music.bitchord.ui.mochy.component.NewAction
 import com.music.bitchord.ui.mochy.component.NewActionGrid
 import com.music.bitchord.ui.mochy.component.SheetHeader
 import com.music.bitchord.ui.mochy.component.SheetHeaderGap
-import com.music.bitchord.ui.mochy.models.innertube.ArtistItem
+import com.music.innertube.models.ArtistItem
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue
 import com.music.bitchord.ui.mochy.speeddial.SpeedDialItem

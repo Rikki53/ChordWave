@@ -44,9 +44,9 @@ import com.music.bitchord.ui.mochy.constants.HideYoutubeShortsKey
 import com.music.bitchord.ui.mochy.models.ItemsPage
 import com.music.bitchord.ui.mochy.models.innertube.SearchFilter
 import com.music.bitchord.ui.mochy.models.innertube.SearchSummaryPage
-import com.music.bitchord.ui.mochy.models.innertube.filterExplicit
-import com.music.bitchord.ui.mochy.models.innertube.filterVideoSongs
-import com.music.bitchord.ui.mochy.models.innertube.filterYoutubeShorts
+import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterVideoSongs
+import com.music.innertube.models.filterYoutubeShorts
 import com.music.bitchord.ui.mochy.utils.PreferencesCache
 import com.music.bitchord.ui.mochy.utils.dataStore
 import com.music.innertube.YouTube
@@ -145,7 +145,7 @@ class OnlineSearchViewModel @Inject constructor(
             .onSuccess { result ->
                 if (query != loadedQuery) return@onSuccess
                 viewStateMap[filter.value] = ItemsPage(
-                    result.items.map { it.toModernItem() }
+                    result.items
                         .distinctBy { it.id }
                         .filterExplicit(hideExplicit)
                         .filterVideoSongs(hideVideoSongs)
@@ -173,7 +173,7 @@ class OnlineSearchViewModel @Inject constructor(
                 .onFailure { Timber.w(it, "Search: loadMore failed for \"$query\" (${filter.value})") }
                 .getOrNull() ?: return@launch
             if (query != loadedQuery) return@launch
-            val newItems = next.items.map { it.toModernItem() }
+            val newItems = next.items
                 .filterExplicit(hideExplicit)
                 .filterVideoSongs(hideVideoSongs)
                 .filterYoutubeShorts(hideYoutubeShorts)

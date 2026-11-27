@@ -56,7 +56,7 @@ import com.music.bitchord.ui.mochy.component.glassRoot
 import com.music.bitchord.ui.mochy.constants.OfflineModeKey
 import com.music.bitchord.ui.mochy.constants.PauseSearchHistoryKey
 import com.music.bitchord.ui.mochy.screens.profile.rememberProfilePhotoUrl
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.WatchEndpoint
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue

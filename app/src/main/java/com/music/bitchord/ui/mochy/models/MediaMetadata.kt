@@ -8,7 +8,7 @@
 package com.music.bitchord.ui.mochy.models
 
 import androidx.compose.runtime.Immutable
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.utils.resize
 import java.io.Serializable
 import java.time.LocalDateTime

@@ -7,8 +7,8 @@ package com.music.bitchord.ui.mochy.utils
 
 import com.music.bitchord.ui.mochy.models.FeedVideoKind
 import com.music.bitchord.ui.mochy.models.HomeVideo
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.YTItem
 
 /** one artist-page shelf, already mapped to YTItems (see the header note) */
 data class VideoShelf(val title: String, val items: List<YTItem>)

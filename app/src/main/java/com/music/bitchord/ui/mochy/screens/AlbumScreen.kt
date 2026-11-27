@@ -100,7 +100,7 @@ import com.music.bitchord.ui.mochy.player.menu.YouTubeAlbumMenu
 import com.music.bitchord.ui.mochy.utils.makeTimeString
 import com.music.bitchord.ui.mochy.utils.rememberPreference
 import com.music.bitchord.ui.mochy.viewmodels.AlbumViewModel
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
+import com.music.innertube.models.AlbumItem
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable

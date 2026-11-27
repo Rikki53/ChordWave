@@ -78,8 +78,8 @@ import com.music.bitchord.ui.mochy.component.SheetHeaderGap
 import com.music.bitchord.ui.mochy.component.downloadStateForAll
 import com.music.bitchord.ui.mochy.component.toCwSong
 import com.music.bitchord.ui.mochy.extensions.toMediaItem
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
 import com.music.bitchord.ui.mochy.models.toMochySong
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.YouTubeQueue

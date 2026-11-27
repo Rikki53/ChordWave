@@ -76,7 +76,7 @@ import com.music.bitchord.ui.mochy.extensions.toMediaItem
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.Song
 import com.music.bitchord.ui.mochy.models.toMochySong
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.WatchEndpoint
 import com.music.bitchord.ui.mochy.navigation.MochyNavigator
 import com.music.bitchord.ui.mochy.playback.LocalPlayerConnection
 import com.music.bitchord.ui.mochy.playback.queues.ListQueue

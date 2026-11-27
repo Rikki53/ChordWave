@@ -5,7 +5,7 @@
 
 package com.music.bitchord.ui.mochy.utils
 
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint
+import com.music.innertube.models.WatchEndpoint
 
 object YouTubeUrlParser {
 

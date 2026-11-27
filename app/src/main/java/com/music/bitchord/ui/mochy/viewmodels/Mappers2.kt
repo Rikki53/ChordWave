@@ -27,12 +27,12 @@ import com.music.bitchord.ui.mochy.models.LocalItem
 import com.music.bitchord.ui.mochy.models.Playlist
 import com.music.bitchord.ui.mochy.models.PlaylistEntity
 import com.music.bitchord.ui.mochy.models.Song
-import com.music.bitchord.ui.mochy.models.innertube.AlbumItem
-import com.music.bitchord.ui.mochy.models.innertube.Artist as YtArtist
-import com.music.bitchord.ui.mochy.models.innertube.PlaylistItem
-import com.music.bitchord.ui.mochy.models.innertube.SongItem
-import com.music.bitchord.ui.mochy.models.innertube.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
-import com.music.bitchord.ui.mochy.models.innertube.YTItem
+import com.music.innertube.models.AlbumItem
+import com.music.innertube.models.Artist as YtArtist
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.models.SongItem
+import com.music.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
+import com.music.innertube.models.YTItem
 
 /** A stats-chart artist as a Mochy library Artist. No browseId, no UC id: the name stands in. */
 fun RankedEntry.toMochyArtist(): Artist =
@@ -109,7 +109,7 @@ fun CwSong.toSongItem(): SongItem {
         title = title,
         artists = refs.map { YtArtist(name = it.name, id = it.browseId) },
         album = albumId?.let {
-            com.music.bitchord.ui.mochy.models.innertube.Album(name = albumName.orEmpty(), id = it)
+            com.music.innertube.models.Album(name = albumName.orEmpty(), id = it)
         },
         duration = seconds.takeIf { it > 0 },
         musicVideoType = MUSIC_VIDEO_TYPE_OMV.takeIf { isVideo },

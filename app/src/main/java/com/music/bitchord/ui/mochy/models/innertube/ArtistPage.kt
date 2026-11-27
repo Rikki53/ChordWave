@@ -9,6 +9,9 @@
 // different package (CW's parsed artist landing page) — the two do not
 // clash. Call sites that need both alias the CW one (CwArtistPage).
 package com.music.bitchord.ui.mochy.models.innertube
+import com.music.innertube.models.YTItem
+import com.music.innertube.models.BrowseEndpoint
+import com.music.innertube.models.ArtistItem
 
 data class ArtistSection(
     val title: String,
