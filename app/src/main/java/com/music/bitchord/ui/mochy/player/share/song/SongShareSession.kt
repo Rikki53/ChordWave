@@ -116,7 +116,7 @@ internal data class ShareLyricsLook(
 )
 
 @Stable
-internal class SongShareSession(val song: MediaMetadata) {
+internal class SongShareSession(val song: MediaMetadata, knownDurationMs: Long = 0L) {
     val share = ShareSong(song.title, song.artists.joinToString { it.name }, song.thumbnailUrl)
 
     // the ChordWave link for the song: taps open the track in the app (the
@@ -124,7 +124,13 @@ internal class SongShareSession(val song: MediaMetadata) {
     // without YouTube Music); a song that only lives on this phone has no link
     val link: String? = if (song.localUri != null || song.id.startsWith("LOCAL_")) null else MusicLink.songLink(song.id)
 
-    val durationMs: Long = song.duration.coerceAtLeast(0) * 1000L
+    // the catalogue duration when the row carries one; a row without it
+    // (duration -1, Mochy's unknown) falls back to the duration the caller
+    // knows — for the playing song, the player's own. Mochy never hits
+    // this: its metadata duration comes from the database row, always
+    // stated for a song that is playing
+    val durationMs: Long = (song.duration.coerceAtLeast(0) * 1000L)
+        .takeIf { it > 0L } ?: knownDurationMs.coerceAtLeast(0L)
 
     var kind by mutableStateOf(SongShareKind.MusicOnly)
 

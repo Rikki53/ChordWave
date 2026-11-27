@@ -103,7 +103,18 @@ private fun SongShareDialog(
         val context = LocalContext.current
         val playerConnection = LocalPlayerConnection.current
         val session = remember {
-            SongShareSession(song).also { started ->
+            // a catalogue row without a stated duration would leave the
+            // share's timeline with nothing to slide along; when the
+            // shared song is the one playing, the player knows its real
+            // length (the same fallback the lyrics trigger uses)
+            val playingMs = playerConnection?.let { connection ->
+                if (connection.mediaMetadata.value?.id == song.id) {
+                    connection.progressState.value.duration
+                } else {
+                    0L
+                }
+            } ?: 0L
+            SongShareSession(song, knownDurationMs = playingMs).also { started ->
                 if (pick != null && heldLyrics != null) {
                     started.kind = SongShareKind.Lyrics
                     started.pick = pick
