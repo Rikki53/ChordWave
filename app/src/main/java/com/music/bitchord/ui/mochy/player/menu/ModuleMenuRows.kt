@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,7 +56,7 @@ import java.net.URLEncoder
 
 @Composable
 internal fun ModuleMenuRows(song: MediaMetadata?, onDismiss: () -> Unit, onOpenRoute: ((String) -> Unit)?, onCustomise: (() -> Unit)? = null) {
-    val actions = ModuleMenu.actions
+    val actions by ModuleMenu.actions.collectAsState()
     // the look's player offers its customise sheet here too, next to the module's own rows
     val customise = ActiveSkin.style?.takeIf { it.player.customise != null && onCustomise != null }
     if (actions.isEmpty() && customise == null) return
