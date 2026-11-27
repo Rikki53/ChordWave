@@ -40,6 +40,7 @@ import com.music.bitchord.ui.mochy.constants.ElementBlurKey
 import com.music.bitchord.ui.mochy.constants.LyricsHighBloomKey
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyle
 import com.music.bitchord.ui.mochy.constants.LyricsMotionStyleKey
+import com.music.bitchord.ui.mochy.lyrics.LyricsEntity
 import com.music.bitchord.ui.mochy.lyrics.LyricsEntry
 import com.music.bitchord.ui.mochy.lyrics.LyricsUtils
 import com.music.bitchord.ui.mochy.models.MediaMetadata
@@ -107,6 +108,24 @@ private fun SongShareDialog(
                     started.kind = SongShareKind.Lyrics
                     started.pick = pick
                     started.lyrics = Fetched.Found(heldLyrics)
+                } else {
+                    // Mochy reads the song's stored lyrics row, so the Lyrics
+                    // card is ready the moment the sheet opens; ChordWave
+                    // keeps the playing song's lyrics in the player
+                    // connection rather than a database row — seed from
+                    // there so sharing the playing song never waits on a
+                    // fresh provider fetch
+                    val row = playerConnection?.currentLyrics?.value
+                        ?.takeIf { it.songId == song.id }
+                    val lines = row?.lyrics
+                        ?.takeIf { it.isNotBlank() && it != LyricsEntity.LYRICS_NOT_FOUND }
+                        ?.let { LyricsUtils.parseLyricsCached(it) }
+                        ?.takeIf { it.isNotEmpty() }
+                    if (lines != null) {
+                        started.lyrics = Fetched.Found(lines)
+                    } else if (row?.lyrics == LyricsEntity.LYRICS_NOT_FOUND) {
+                        started.lyrics = Fetched.Missing
+                    }
                 }
                 started.readingChoice = startingReadingChoice(context)
             }
@@ -134,7 +153,9 @@ private fun SongShareDialog(
             launch { loadShareArt(context, session) }
             launch { loadAnimatedCover(session) }
             launch { findMusicVideo(session) }
-            if (heldLyrics == null) {
+            // lyrics already in hand (held line, or seeded from the player
+            // connection above) skip the provider fetch entirely
+            if (session.lyrics is Fetched.Looking) {
                 loadShareLyrics(context, session)
             } else {
                 loadLyricsOffset(session)
