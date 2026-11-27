@@ -1482,7 +1482,7 @@
     <string name="ui_mode_modern_coming_soon">The Modern interface is being built. It will appear here in a later dev build.</string>
     <string name="ui_mode_back_to_classic">Back to Classic</string>
     <string name="ui_mode_switch_title">Switch appearance?</string>
-    <string name="ui_mode_switch_restart_notice">ChordWave will restart to switch to the %1$s appearance. The app will close and reopen, and the song that's playing will stop.</string>
+    <string name="ui_mode_switch_restart_notice">ChordWave will restart to switch to the %1$s appearance. The app will close and reopen, and the song that\'s playing will stop.</string>
     <string name="ui_mode_switch_restart_hint">The app restarts when you switch</string>
     <string name="ui_mode_switch_confirm">Switch &amp; restart</string>
     <string name="ui_mode_switch_to_modern">Switch to Modern appearance</string>
