@@ -79,6 +79,7 @@
     <string name="song_share_preview">Preview</string>
     <string name="song_share_pause">Pause</string>
     <string name="song_share_quality">Quality</string>
+    <string name="song_share_pick_quality_first">Pick a quality first</string>
     <string name="song_share_quality_4k">4K</string>
     <string name="song_share_quality_1080">1080p</string>
     <string name="song_share_quality_best">Best</string>

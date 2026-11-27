@@ -56,6 +56,7 @@
     <string name="song_share_pause">Jeda</string>
     <string name="song_share_preview">Pratinjau</string>
     <string name="song_share_quality">Kualitas</string>
+    <string name="song_share_pick_quality_first">Pilih kualitas dulu</string>
     <string name="song_share_quality_1080">1080p</string>
     <string name="song_share_quality_4k">4K</string>
     <string name="song_share_quality_best">Terbaik</string>

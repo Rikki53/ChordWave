@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -60,9 +61,11 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.transformer.ExportException
 import com.music.bitchord.R
 import com.music.bitchord.playback.mochy.MochyDataSourceFactory
+import com.music.bitchord.ui.mochy.component.DefaultDialog
 import com.music.bitchord.ui.mochy.component.PopupSheetHandleHeight
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.SheetPillButton
+import com.music.bitchord.ui.mochy.component.TopToaster
 import com.music.bitchord.ui.mochy.player.menu.MenuRowSurface
 import com.music.bitchord.ui.mochy.player.share.ShareMuted
 import com.music.bitchord.ui.mochy.player.share.song.export.ShareApp
@@ -117,12 +120,20 @@ private class SendState(val session: SongShareSession) {
 
     fun start(work: suspend ShareRequest.() -> Int?) {
         if (working) return
+        // no quality picked yet: warn and stay put — the export only runs
+        // once the user has chosen one (batch 72)
+        val chosenQuality = quality
+        if (chosenQuality == null) {
+            note = R.string.song_share_pick_quality_first
+            context?.let { TopToaster.show(it.getString(R.string.song_share_pick_quality_first)) }
+            return
+        }
         val scope = scope ?: return
         val request = ShareRequest(
             context = context ?: return,
             session = session,
             theme = theme ?: return,
-            quality = quality ?: ShareQuality.FullHd,
+            quality = chosenQuality,
             songSource = songSource ?: return,
             job = ShareExportJob(),
         )
@@ -184,10 +195,10 @@ private fun SendContent(send: SendState, live: Boolean) {
     }
     // the sharpest the phone can make: 4k pictures always, 4k video when its encoder takes it
     val canUltraHd = remember(video) { !video || ShareEncoders.canEncode(ShareQuality.UltraHd, 30) }
+    // no preselect: the quality is picked by hand (batch 72); only a picked
+    // 4K this phone can't make is unpicked again
     LaunchedEffect(canUltraHd) {
-        if (send.quality == null || (!canUltraHd && send.quality == ShareQuality.UltraHd)) {
-            send.quality = if (canUltraHd) ShareQuality.UltraHd else ShareQuality.FullHd
-        }
+        if (!canUltraHd && send.quality == ShareQuality.UltraHd) send.quality = null
     }
     // the export's progress lives off the main thread; it's copied in a few times a second
     LaunchedEffect(send.job) {
@@ -241,12 +252,30 @@ private fun SendContent(send: SendState, live: Boolean) {
         Spacer(Modifier.height(16.dp))
         QualityPicker(send, canUltraHd, video)
         Divider()
-        when {
-            send.working -> ExportProgress(send.progress, video)
-            send.note != null -> Caption(stringResource(send.note!!))
-            else -> Caption(stringResource(R.string.song_share_send_or))
+        // while an export runs its progress lives in the pop-up below
+        if (!send.working) {
+            if (send.note != null) {
+                Caption(stringResource(send.note!!))
+            } else {
+                Caption(stringResource(R.string.song_share_send_or))
+            }
         }
         Spacer(Modifier.height(6.dp))
+    }
+    if (send.working) ExportProgressDialog(send, video)
+}
+
+// the export's progress in a pop-up over the page, so it can't be missed;
+// Batal is the way out and cancels the export (batch 72)
+@Composable
+private fun ExportProgressDialog(send: SendState, video: Boolean) {
+    DefaultDialog(
+        onDismiss = {}, // only Batal closes it, by cancelling the export
+        buttons = {
+            TextButton(onClick = send::cancel) { Text(stringResource(R.string.song_share_cancel)) }
+        },
+    ) {
+        ExportProgress(send.progress, video)
     }
 }
 
