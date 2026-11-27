@@ -44,14 +44,17 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
+import com.music.bitchord.playback.ChunkedDataSource
 import com.music.bitchord.ui.mochy.component.PopupSheetState
 import com.music.bitchord.ui.mochy.component.damageBoundary
 import com.music.bitchord.ui.mochy.player.CanvasArtworkPlayer
@@ -61,6 +64,7 @@ import com.music.bitchord.ui.mochy.player.share.ShareWidth
 import com.music.bitchord.ui.mochy.utils.VideoTrack
 import com.music.bitchord.ui.mochy.player.share.song.export.followAppProxy
 import okhttp3.OkHttpClient
+import timber.log.Timber
 import kotlin.math.max
 import kotlin.math.min
 
@@ -216,6 +220,9 @@ internal fun ShareVideoLayer(
 // the preview keeps to a light picture; the export reads the sharpest one
 private const val PreviewVideoShortSide = 720
 
+// bounded range size for the preview's reads, the main video session's own
+private const val PreviewChunkBytes = 1L * 1024 * 1024
+
 internal fun clippedItem(builder: MediaItem.Builder, startMs: Long, lengthMs: Long): MediaItem =
     builder
         .setClippingConfiguration(
@@ -235,13 +242,20 @@ internal fun ShareMusicVideo.trackFor(maxShortSide: Int): VideoTrack? {
 }
 
 // a clip that loops on the canvas thread, cropped to fill, so loading and releasing it never stall the sheet
+@OptIn(UnstableApi::class)
 @Composable
 private fun LoopingVideo(item: MediaItem, headers: Map<String, String>, playing: Boolean, restartKey: Int, modifier: Modifier) {
     val context = LocalContext.current
     val factory = remember(headers) {
         val http = OkHttpDataSource.Factory(OkHttpClient.Builder().followAppProxy().build())
             .setDefaultRequestProperties(headers)
-        DefaultMediaSourceFactory(DefaultDataSource.Factory(context, http))
+        // googlevideo paces one open-ended read down to about playback speed,
+        // while bounded ranges are served at line rate (see ChunkedDataSource):
+        // read plainly, this preview never built a buffer and sat blank. The
+        // main video session reads the same URLs chunked for the same reason.
+        DefaultMediaSourceFactory(
+            DefaultDataSource.Factory(context, ChunkedDataSource.Factory(http, PreviewChunkBytes)),
+        )
     }
     val frame = remember {
         AspectRatioFrameLayout(context).apply {
@@ -254,6 +268,10 @@ private fun LoopingVideo(item: MediaItem, headers: Map<String, String>, playing:
     val player = remember(factory) { ShareLoopSession(context, factory, currentPlaying).also { texture.session = it } }
     DisposableEffect(player) {
         val listener = object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                Timber.w(error, "SongShare preview video failed to play")
+            }
+
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 if (videoSize.width > 0 && videoSize.height > 0) {
                     frame.post { frame.setAspectRatio(videoSize.width.toFloat() / videoSize.height) }
@@ -312,10 +330,12 @@ private class ShareLoopSession(
                 .setMediaSourceFactory(mediaSourceFactory)
                 .build()
                 .apply {
+                    // no size/bitrate caps: Mochy's resolver handed this session
+                    // a list of renditions to cap, ChordWave's supplies exactly
+                    // one track (VideoEngine) — a cap below it leaves nothing
+                    // to select and the preview stays blank
                     trackSelectionParameters = trackSelectionParameters
                         .buildUpon()
-                        .setMaxVideoSize(1280, 1280)
-                        .setMaxVideoBitrate(2_500_000)
                         .setForceHighestSupportedBitrate(false)
                         .build()
                     setAudioAttributes(
