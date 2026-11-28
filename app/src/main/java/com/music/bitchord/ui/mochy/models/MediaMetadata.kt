@@ -161,32 +161,3 @@ fun SongItem.toMediaMetadata() =
         suggestedBy = null
     )
 
-// Batch 55b: the same conversion for the engine's innertube SongItem (the
-// module pages read view-model rows of that type; Mochy has only one).
-fun com.music.innertube.models.SongItem.toMediaMetadata() =
-    MediaMetadata(
-        id = id,
-        title = title,
-        artists =
-        artists.map {
-            MediaMetadata.Artist(
-                id = it.id,
-                name = it.name,
-            )
-        },
-        duration = duration ?: -1,
-        thumbnailUrl = thumbnail.resize(1200, 1200),
-        album =
-        album?.let {
-            MediaMetadata.Album(
-                id = it.id,
-                title = it.name,
-            )
-        },
-        explicit = explicit,
-        setVideoId = setVideoId,
-        musicVideoType = musicVideoType,
-        libraryAddToken = libraryAddToken,
-        libraryRemoveToken = libraryRemoveToken,
-        suggestedBy = null
-    )
